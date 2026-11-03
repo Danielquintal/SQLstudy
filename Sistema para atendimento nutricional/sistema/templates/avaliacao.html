@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Nova avaliação' if aid is none else 'Avaliação' }} · {{ p.nome }}{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a> / <a href="{{ url_for('paciente', pid=p.id) }}">{{ p.nome }}</a></p>
+  <h1>{{ 'Nova avaliação' if aid is none else 'Editar avaliação' }}</h1>
+  <p class="sub">Vírgula ou ponto nos decimais. Deixe em branco o que não foi medido.</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if erros %}<div class="msg erro" role="alert">Nada foi gravado. Confira:<ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="ficha" id="ficha">
+  <div class="card">
+    <div class="cadastro">
+      <div class="campo"><label for="data">Data da avaliação</label>
+        <input id="data" type="date" name="data_avaliacao" value="{{ form.data_avaliacao }}" required></div>
+    </div>
+    <p class="note">Campos com borda tracejada são calculados enquanto você digita, com as mesmas fórmulas do App Naive:
+      o % de gordura sai das dobras do protocolo escolhido (Pollock 7, Pollock 3 ou Guedes) com a equação de Siri ou Brozek;
+      a massa óssea precisa dos diâmetros do punho e do fêmur; a CMB usa o braço relaxado esquerdo e a dobra tricipital.
+      Se corrigir um deles à mão, o valor digitado é mantido.</p>
+    {% if not p.genero or not p.data_nascimento %}
+    <div class="msg aviso">O cadastro deste paciente está sem {{ 'sexo' if not p.genero }}{{ ' e ' if not p.genero and not p.data_nascimento }}{{ 'data de nascimento' if not p.data_nascimento }}: o % de gordura, as classificações por idade, o risco da RCQ e a CMB não podem ser calculados.</div>
+    {% endif %}
+  </div>
+
+  {% for titulo, campos in secoes %}
+  {% set ns = namespace(tem=loop.first) %}
+  {% for col, _ in campos %}{% if form.get(col) and col not in ['protocolo_dobras', 'equacao_gordura'] %}{% set ns.tem = true %}{% endif %}{% endfor %}
+  <details class="secao" {{ 'open' if ns.tem }}>
+    <summary>{{ titulo }}<span class="preenchidos"></span></summary>
+    <div class="campos">
+      {% for col, rotulo in campos %}
+      <div class="campo {{ 'calc' if col in calculados }}">
+        <label for="{{ col }}">{{ rotulo }}</label>
+        {% if col in ['protocolo_dobras', 'equacao_gordura'] %}
+          <select id="{{ col }}" name="{{ col }}">
+            <option value=""></option>
+            {% for o in ops[col] %}<option {{ 'selected' if form.get(col) == o }}>{{ o }}</option>{% endfor %}
+          </select>
+        {% elif col in texto %}
+          <input class="texto" id="{{ col }}" name="{{ col }}" value="{{ form.get(col, '') }}" list="ops-{{ col }}" autocomplete="off">
+          <datalist id="ops-{{ col }}">{% for o in ops[col] %}<option value="{{ o }}">{% endfor %}</datalist>
+        {% else %}
+          <input id="{{ col }}" name="{{ col }}" value="{{ form.get(col, '') }}" inputmode="decimal" autocomplete="off">
+        {% endif %}
+        {% if col in calculados %}<span class="dica">Calculado</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endfor %}
+
+  <div class="barra">
+    <div class="acoes">
+      <button class="btn pri">Gravar avaliação</button>
+      <a class="btn" href="{{ url_for('paciente', pid=p.id) }}">Cancelar</a>
+    </div>
+    {% if aid is not none %}
+    <div class="confirma">
+      <button type="button" class="btn perigo" id="excluir">Excluir avaliação</button>
+      <span id="certeza" hidden class="confirma">
+        <span>Excluir de vez?</span>
+        <button class="btn perigo cheio" formaction="{{ url_for('excluir', pid=p.id, aid=aid) }}" formnovalidate>Sim, excluir</button>
+        <button type="button" class="btn" id="nao">Não</button>
+      </span>
+    </div>
+    {% endif %}
+  </div>
+</form>
+<script>
+// Campos calculados (borda tracejada) acompanham o que é digitado; as contas ficam em scripts/calculos.py.
+// Um campo calculado que você corrigir à mão não é mais trocado e entra nas contas seguintes.
+const $ = id => document.getElementById(id);
+const calc = [...document.querySelectorAll('.campo.calc input, .campo.calc select')];
+let espera, pedido = 0;
+calc.forEach(i => i.addEventListener('input', () => { i.dataset.manual = i.value.trim() ? '1' : ''; }));
+async function calcular() {
+  const dados = new FormData($('ficha'));
+  calc.forEach(i => { if (!i.dataset.manual) dados.set(i.name, ''); });
+  const n = ++pedido;
+  try {
+    const r = await fetch('{{ url_for("calcular_formulario", pid=p.id) }}', { method: 'POST', body: dados });
+    if (!r.ok || n !== pedido) return;
+    const res = await r.json();
+    calc.forEach(i => {
+      if (i.dataset.manual) return;
+      if (i.name in res) { i.value = res[i.name]; i.dataset.auto = '1'; }
+      else if (i.dataset.auto) i.value = '';   // só apaga o que o próprio sistema tinha calculado
+    });
+    contar();
+  } catch (e) { /* sem resposta: grava assim mesmo, o servidor calcula ao gravar */ }
+}
+$('ficha').addEventListener('input', e => {
+  if (e.target.closest('.campo.calc')) return;
+  clearTimeout(espera); espera = setTimeout(calcular, 300);
+});
+$('ficha').addEventListener('change', e => {
+  if (e.target.tagName === 'SELECT' || e.target.type === 'date') { clearTimeout(espera); calcular(); }
+});
+
+// quantos campos preenchidos em cada seção
+function contar() {
+  document.querySelectorAll('.secao').forEach(s => {
+    const n = [...s.querySelectorAll('input,select')].filter(i => i.value.trim()).length;
+    s.querySelector('.preenchidos').textContent = n ? n + ' preenchido' + (n > 1 ? 's' : '') : '';
+  });
+}
+$('ficha').addEventListener('input', contar);
+contar();
+
+// avisa antes de sair com alterações não gravadas
+let mudou = false, gravando = false;
+$('ficha').addEventListener('input', () => mudou = true);
+$('ficha').addEventListener('submit', () => gravando = true);
+addEventListener('beforeunload', e => { if (mudou && !gravando) e.preventDefault(); });
+
+if ($('excluir')) {
+  $('excluir').onclick = () => { $('excluir').hidden = true; $('certeza').hidden = false; };
+  $('nao').onclick = () => { $('excluir').hidden = false; $('certeza').hidden = true; };
+}
+</script>
+{% endblock %}

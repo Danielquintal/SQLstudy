@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% from "_macros.html" import mensagem_zap %}
+{% block titulo %}{{ p.nome }}{% endblock %}
+{% macro kpi(rotulo, col, un) %}
+<div class="kpi"><span class="k">{{ rotulo }}</span>
+  <span class="v">{{ ultima[col]|num or '–' }}<small>{{ un }}</small></span>
+  {% if primeira[col] is not none and ultima[col] is not none and avs|length > 1 %}
+  {% set dif = ultima[col] - primeira[col] %}
+  <span class="d">{{ '+' if dif > 0 }}{{ dif|round(1)|num }} {{ un }} desde {{ primeira.data_avaliacao|br }}</span>
+  {% endif %}
+</div>
+{% endmacro %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a></p>
+  <h1>{{ p.nome }}</h1>
+  <p class="sub">
+    {{ {'F': 'Feminino', 'M': 'Masculino'}.get(p.genero, 'Sexo não informado') }}
+    {% if p.idade is not none %} · {{ p.idade }} anos{% endif %}
+    · {{ avs|length }} avaliaç{{ 'ão' if avs|length == 1 else 'ões' }}
+  </p>
+</div>
+<a class="btn pri" href="{{ url_for('avaliacao', pid=p.id) }}">+ Nova avaliação</a>
+{% endblock %}
+{% block corpo %}
+{% if avs %}
+<nav class="abas" role="tablist" aria-label="Ficha do paciente">
+  <a class="aba" role="tab" href="#ficha" data-aba="ficha" aria-selected="true">Ficha</a>
+  <a class="aba" role="tab" href="#evolucao" data-aba="evolucao" aria-selected="false">Evolução (página do paciente)</a>
+</nav>
+<section id="aba-evolucao" class="painel-evolucao" hidden>
+  <iframe id="quadro" title="Página de evolução de {{ p.nome }}" data-src="{{ url_for('evolucao', pid=p.id) }}"></iframe>
+  <p class="note">É a mesma página do link do paciente, gerada agora com os dados do banco.
+    <a href="{{ url_for('evolucao', pid=p.id) }}" target="_blank" rel="noopener">Abrir em tela cheia</a></p>
+</section>
+{% endif %}
+<section id="aba-ficha">
+{% if ultima %}
+<div class="kpis">
+  {{ kpi('Peso', 'peso_kg', 'kg') }}
+  {{ kpi('IMC', 'imc', '') }}
+  {{ kpi('% de gordura', 'gordura_pct', '%') }}
+  {{ kpi('Massa muscular', 'massa_muscular_kg', 'kg') }}
+  {{ kpi('Cintura', 'circ_cintura', 'cm') }}
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Link do paciente e planilha</h2>
+  {% if url %}
+  <p style="margin:0">Link publicado: <a href="{{ url }}" target="_blank" rel="noopener">{{ url }}</a>
+    {% if art.publicado_em %}<span class="note"> · atualizado em {{ art.publicado_em[8:10] }}/{{ art.publicado_em[5:7] }}/{{ art.publicado_em[:4] }}</span>{% endif %}</p>
+  {% elif avs %}
+  <p class="note">Ainda sem link publicado. Peça o link para poder enviar a página ao paciente.</p>
+  {% endif %}
+  {% if pedido %}
+  <p class="msg aviso" style="margin:0">Na fila para {{ 'atualizar o link' if pedido.motivo == 'atualizar' else 'ganhar o link' }}.
+    Peça ao Claude: “publique os links pedidos”.</p>
+  {% endif %}
+  <div class="acoes">
+    {% if avs %}
+      <form method="post" action="{{ url_for('pedir_link', pid=p.id) }}">
+        {% if pedido %}<button class="btn" name="cancelar" value="1">Cancelar pedido</button>
+        {% else %}<button class="btn pri">{{ 'Pedir atualização do link' if url else 'Pedir link' }}</button>{% endif %}
+      </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('abrir_planilha', pid=p.id) }}"><button class="btn">Abrir planilha no Excel</button></form>
+    {% if avs %}<form method="post" action="{{ url_for('gerar', pid=p.id) }}"><button class="btn">Gerar planilha de novo</button></form>{% endif %}
+  </div>
+</div>
+
+<div class="card" id="plano">
+  <h2>Plano alimentar</h2>
+  {% if plano_atual %}
+  <p style="margin:0"><b>{{ plano_atual.titulo }}</b> · prescrito em {{ plano_atual.prescrito|br }}
+    {% if plano_atual.refeicoes %}· {{ plano_atual.refeicoes }} refeições{% if plano_atual.kcal %} · {{ plano_atual.kcal }} kcal{% endif %} (lido do App Naive)
+    {% else %}· {{ plano_atual.paginas }} página{{ 's' if plano_atual.paginas != 1 }} do PDF{% endif %}
+    <span class="note"> · {{ plano_atual.nome_arquivo }}, enviado em {{ plano_atual.enviado_em.strftime('%d/%m/%Y') }}</span></p>
+  <div class="acoes">
+    <a class="btn" href="{{ url_for('pdf_do_plano', pid=p.id) }}" target="_blank" rel="noopener">Abrir o PDF</a>
+    {% if avs %}<a class="btn" href="{{ url_for('evolucao', pid=p.id) }}#plano" target="_blank" rel="noopener">Ver como o paciente vê</a>{% endif %}
+    <form method="post" action="{{ url_for('remover_plano', pid=p.id) }}" class="confirma">
+      <button type="button" class="btn perigo" onclick="this.hidden=true;this.nextElementSibling.hidden=false">Remover da página</button>
+      <span hidden class="confirma">Remover o plano? <button class="btn perigo cheio">Sim, remover</button></span>
+    </form>
+  </div>
+  {% else %}
+  <p class="note">Nenhum plano na página deste paciente. Envie o PDF e ele aparece na aba “Plano alimentar” do link.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('enviar_plano', pid=p.id) }}" enctype="multipart/form-data" class="cadastro">
+    <div class="campo"><label for="pl-titulo">Título (opcional)</label>
+      <input class="texto" id="pl-titulo" name="titulo" placeholder="O do PDF do App Naive, ou Plano alimentar"></div>
+    <div class="campo"><label for="pl-data">Prescrito em (opcional)</label>
+      <input id="pl-data" type="date" name="prescrito"></div>
+    <div class="campo"><label for="pl-arq">PDF do plano</label>
+      <input id="pl-arq" type="file" name="arquivo" accept="application/pdf,.pdf" required></div>
+    <div class="campo" style="justify-content:flex-end"><button class="btn pri">{{ 'Trocar o plano' if plano_atual else 'Enviar plano' }}</button></div>
+  </form>
+  <label class="note" style="display:flex;gap:8px;align-items:center">
+    <input type="checkbox" name="como_paginas" value="1"> Mostrar o PDF página por página, mesmo sendo do App Naive
+  </label>
+  <p class="note">PDF do App Naive vira a dieta interativa (refeições, substituições, calorias e macros), com título e data
+    lidos do próprio PDF. PDF feito por você aparece página por página, do jeito que foi feito.
+    {% if url %}Depois de enviar ou trocar, o link deste paciente entra na fila para atualizar.{% endif %}</p>
+</div>
+
+<div class="card" style="padding:6px 8px">
+  {% if avs %}
+  <div class="tablebox">
+  <table>
+    <thead><tr><th class="t">Data</th><th>Peso</th><th>IMC</th><th class="t oculta-cel">Classificação</th><th>% gord.</th><th class="oculta-cel">M. musc.</th><th class="oculta-cel">Cintura</th><th></th></tr></thead>
+    <tbody>
+    {% for a in avs %}
+      <tr>
+        <td class="t n"><a class="linha" href="{{ url_for('avaliacao', pid=p.id, aid=a.id) }}">{{ a.data_avaliacao|br }}</a></td>
+        <td class="n">{{ a.peso_kg|num }}</td>
+        <td class="n">{{ a.imc|num }}</td>
+        <td class="t oculta-cel">{% if a.classificacao_imc %}<span class="chip {{ 'good' if a.classificacao_imc.startswith('Eutr') else 'warn' }}">{{ a.classificacao_imc }}</span>{% endif %}</td>
+        <td class="n">{{ a.gordura_pct|num }}</td>
+        <td class="n oculta-cel">{{ a.massa_muscular_kg|num }}</td>
+        <td class="n oculta-cel">{{ a.circ_cintura|num }}</td>
+        <td><a href="{{ url_for('avaliacao', pid=p.id, aid=a.id) }}">Abrir</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="vazio" style="padding:12px">Nenhuma avaliação ainda. Clique em “Nova avaliação” para lançar a primeira.</p>
+  {% endif %}
+</div>
+
+<div class="duas" id="acompanhamento">
+  <form method="post" action="{{ url_for('acompanhamento', pid=p.id) }}" class="card">
+    <h2>Acompanhamento</h2>
+    <div class="cadastro">
+      <div class="campo"><label for="retorno">Próxima consulta</label>
+        <input id="retorno" type="date" name="retorno_em" value="{{ p.retorno_em.isoformat() if p.retorno_em }}"></div>
+      <div class="campo"><label for="tel">Telefone (WhatsApp)</label>
+        <input class="texto" id="tel" name="telefone" value="{{ p.telefone or '' }}" placeholder="DDD + número"></div>
+    </div>
+    <label class="note" style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" name="whatsapp_bloqueado" value="1" {{ 'checked' if p.whatsapp_bloqueado }}>
+      Não quer receber mensagens (some dos lembretes)
+    </label>
+    <div class="acoes"><button class="btn pri">Salvar</button></div>
+    {% if historico %}
+    <p class="note">Últimos contatos: {% for t, q in historico %}{{ titulos[t] }} em {{ q.strftime('%d/%m') }}{{ ', ' if not loop.last }}{% endfor %}</p>
+    {% endif %}
+  </form>
+
+  <div class="card">
+    <h2>WhatsApp</h2>
+    {% if p.whatsapp_bloqueado %}<p class="msg aviso">Este paciente pediu para não receber mensagens.</p>{% endif %}
+    <p class="note">Ajuste o texto se quiser e clique em “Abrir no WhatsApp”: a conversa abre com a mensagem pronta e você só aperta enviar.</p>
+    <div class="lista">
+      {% for t, titulo, texto in mensagens %}
+        {{ mensagem_zap(p.id, t, titulo, texto, tem_whatsapp, voltar=url_for('paciente', pid=p.id)) }}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+</section>
+<script>
+// abas Ficha / Evolução; a página de evolução só carrega na primeira vez que a aba abre
+const quadro = document.getElementById('quadro');
+function mostrar() {
+  const ev = location.hash === '#evolucao' && quadro;
+  document.getElementById('aba-ficha').hidden = !!ev;
+  const sec = document.getElementById('aba-evolucao');
+  if (sec) sec.hidden = !ev;
+  document.querySelectorAll('.aba').forEach(a => a.setAttribute('aria-selected', String((a.dataset.aba === 'evolucao') === !!ev)));
+  if (ev && !quadro.src) quadro.src = quadro.dataset.src;
+}
+if (quadro) {
+  // a altura do quadro acompanha a página de dentro (abas e gráficos mudam de tamanho)
+  quadro.addEventListener('load', () => {
+    const doc = quadro.contentDocument;
+    const ajustar = () => { quadro.style.height = doc.documentElement.scrollHeight + 'px'; };
+    new ResizeObserver(ajustar).observe(doc.body);
+    ajustar();
+    // redesenha os gráficos com as fontes carregadas e o quadro já no tamanho final (senão o eixo sai cortado)
+    let espera;
+    const redesenhar = () => {
+      clearTimeout(espera);
+      espera = setTimeout(() => { if (typeof quadro.contentWindow.render === 'function') quadro.contentWindow.render(); }, 150);
+    };
+    if (doc.fonts) doc.fonts.addEventListener('loadingdone', redesenhar);
+    setTimeout(redesenhar, 1500);
+  });
+}
+addEventListener('hashchange', mostrar);
+mostrar();
+</script>
+{% endblock %}

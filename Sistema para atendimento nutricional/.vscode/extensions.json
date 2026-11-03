@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-ossdata.vscode-pgsql",
+    "ms-vscode.live-server"
+  ]
+}

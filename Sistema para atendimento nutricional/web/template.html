@@ -1,0 +1,485 @@
+<title>__NOME__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: faixa de cabeçalho + abas (Composição / Circunferências / Dobras), cartões de gráfico em grade 2 colunas que viram 1 no celular */
+:root{
+  --bg:#F2F6F6; --surface:#FFFFFF; --ink:#13262E; --muted:#5E7178; --line:#DCE5E6;
+  --brand:#12434F; --brand-ink:#FFFFFF; --brand-soft:#C9DCDF;
+  --c1:#12434F; --c2:#1A9E8F; --c3:#E4572E; --c4:#E6A23C; --c5:#7B5EA7; --c6:#3F88C5; --c7:#6B8F71; --c8:#B5577A;
+  --good:#1F8A5B; --bad:#C2452D; --warn:#A86A12;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1A1D; --surface:#15252A; --ink:#E4EEEF; --muted:#93A8AD; --line:#26393E;
+  --brand:#0B2C34; --brand-ink:#E4EEEF; --brand-soft:#8FB3B9;
+  --c1:#7FC4D1; --c2:#3CC4B2; --c3:#FF7A55; --c4:#F2B85C; --c5:#A78BD6; --c6:#6FB0E8; --c7:#93BE99; --c8:#E08AA9;
+  --good:#4CC28A; --bad:#FF7A5C; --warn:#F2B85C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1A1D; --surface:#15252A; --ink:#E4EEEF; --muted:#93A8AD; --line:#26393E;
+  --brand:#0B2C34; --brand-ink:#E4EEEF; --brand-soft:#8FB3B9;
+  --c1:#7FC4D1; --c2:#3CC4B2; --c3:#FF7A55; --c4:#F2B85C; --c5:#A78BD6; --c6:#6FB0E8; --c7:#93BE99; --c8:#E08AA9;
+  --good:#4CC28A; --bad:#FF7A5C; --warn:#F2B85C; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+.band{background:var(--brand);color:var(--brand-ink)}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header .wrap{padding-block:28px 22px;display:flex;flex-wrap:wrap;gap:18px 32px;align-items:flex-end;justify-content:space-between}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-soft);margin:0 0 6px}
+h1{margin:0;font-size:clamp(24px,3.4vw,34px);font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+.sub{margin:6px 0 0;color:var(--brand-soft);font-size:14px}
+.range{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.range label{display:flex;flex-direction:column;gap:4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-soft)}
+.range select{font:500 14px var(--mono);padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:var(--brand-ink)}
+.range select option{color:#13262E;background:#fff}
+.range select:focus-visible,.tab:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
+nav.tabs{display:flex;gap:4px;overflow-x:auto}
+.tab{appearance:none;border:0;background:transparent;color:var(--brand-soft);font:500 14px var(--sans);padding:12px 16px;border-radius:10px 10px 0 0;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--bg);color:var(--ink)}
+main .wrap{padding-block:24px 48px;display:flex;flex-direction:column;gap:20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.kpi .k{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.kpi .v{font:500 26px var(--mono);font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:14px;color:var(--muted);margin-left:3px}
+.kpi .d{font:500 13px var(--mono);font-variant-numeric:tabular-nums}
+.kpi .d.good{color:var(--good)} .kpi .d.bad{color:var(--bad)} .kpi .d.flat{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px 12px;min-width:0;grid-column:span 6;display:flex;flex-direction:column;gap:8px}
+.card.w12{grid-column:span 12} .card.w8{grid-column:span 8} .card.w4{grid-column:span 4}
+.card h2{margin:0;font-size:15px;font-weight:600}
+.card p.note{margin:0;color:var(--muted);font-size:13px}
+.chart{position:relative;height:280px}
+.card.w12 .chart{height:320px}
+.tablebox{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface)}
+td{font-family:var(--mono)}
+footer{color:var(--muted);font-size:12px}
+@media (max-width:820px){.card,.card.w8,.card.w4{grid-column:span 12}.chart{height:240px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Classificações: cartões com selo colorido, régua de faixas e tabela por avaliação */
+.cls{display:flex;flex-direction:column;gap:16px}
+.cls-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.cls-cards .card{grid-column:auto;gap:6px}
+.cls-cards .k{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.cls-cards .linha{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
+.cls-cards .v{font:500 26px var(--mono);font-variant-numeric:tabular-nums}
+.cls-cards .v small{font-size:14px;color:var(--muted);margin-left:3px}
+.cls-cards p.note{margin:0;color:var(--muted);font-size:13px}
+.chip{display:inline-block;padding:2px 10px;border-radius:999px;font:500 13px var(--sans);white-space:nowrap;border:1px solid currentColor}
+.chip.good{color:var(--good);background:color-mix(in srgb,var(--good) 12%,transparent)}
+.chip.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.chip.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
+.chip.flat{color:var(--muted);background:transparent}
+.scale{position:relative;margin:8px 0 2px}
+.scale .seg{display:flex;gap:2px;height:8px;border-radius:4px;overflow:hidden}
+.scale .seg i{display:block;height:100%;opacity:.55}
+.scale .mk{position:absolute;top:-5px;width:4px;height:18px;border-radius:2px;background:var(--ink);transform:translateX(-50%);box-shadow:0 0 0 2px var(--surface)}
+.scale .ticks{position:relative;height:18px;font:11px var(--mono);color:var(--muted)}
+.scale .ticks span{position:absolute;top:4px;transform:translateX(-50%)}
+#tb-cls td{font-family:var(--sans)} #tb-cls td.num{font-family:var(--mono)}
+/* Plano alimentar */
+.plano{display:flex;flex-direction:column;gap:16px}
+.plano-top{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px}
+.plano-top .card{grid-column:auto}
+.meta{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:13px}
+.meta strong{color:var(--ink);font-size:17px;font-weight:600;text-wrap:balance}
+.macro-total{display:flex;align-items:baseline;gap:6px}
+.macro-total .v{font:500 34px var(--mono);font-variant-numeric:tabular-nums}
+.macro-total small{color:var(--muted);font-size:14px}
+.macros{display:flex;flex-direction:column;gap:10px}
+.macro{display:grid;grid-template-columns:96px 1fr auto;gap:10px;align-items:center;font-size:13px}
+.macro .bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.macro .bar i{display:block;height:100%;border-radius:4px}
+.macro .g{font-family:var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.refeicoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.ref{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0;display:flex;flex-direction:column}
+.ref-h{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;padding:14px 18px 10px;border-bottom:1px solid var(--line)}
+.ref-h .hora{font:500 13px var(--mono);color:var(--brand-ink);background:var(--brand);padding:2px 8px;border-radius:6px}
+.ref-h h3{margin:0;font-size:15px;font-weight:600;flex:1 1 auto}
+.ref-h .kc{font:500 13px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.ref ul{list-style:none;margin:0;padding:6px 0}
+.ref li{padding:9px 18px;display:flex;flex-direction:column;gap:6px}
+.ref li+li{border-top:1px dashed var(--line)}
+.ref .principal{font-weight:500}
+.ref .subs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.ref .subs span.ou{font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.ref .subs span.op{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--ink)}
+.ref .rec-link{margin:0 18px 14px;font-size:13px;color:var(--muted)}
+.ref .qtd{color:var(--muted);font-weight:400}
+.ref .obs{margin:auto 18px 14px;padding:8px 12px;border-radius:8px;background:var(--bg);font-size:13px;color:var(--muted)}
+.ref .obs b{color:var(--ink);font-weight:600}
+.receitas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.receitas .card{grid-column:auto}
+.receitas h3{margin:0;font-size:15px}
+.receitas ul,.receitas ol{margin:0;padding-left:20px;font-size:14px}
+.receitas .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:6px 0 2px}
+.micros{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 16px;font-size:13px}
+.micros div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:5px 0}
+.micros b{font:500 13px var(--mono);font-variant-numeric:tabular-nums}
+details summary{cursor:pointer;font-weight:600;font-size:15px}
+details summary:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
+.compras{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 16px}
+.compras label{display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:14px;cursor:pointer}
+.compras input{width:18px;height:18px;margin-top:1px;accent-color:var(--c2);flex:none}
+.compras input:checked+span{color:var(--muted);text-decoration:line-through}
+@media (max-width:820px){.plano-top,.refeicoes,.receitas{grid-template-columns:minmax(0,1fr)}.macro{grid-template-columns:84px 1fr auto}}
+/* plano enviado em PDF: uma imagem por página */
+.pag{margin:0;display:flex;flex-direction:column;gap:6px}
+.pag-box{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:auto;max-width:860px;width:100%;margin:0 auto}
+.pag img{display:block;width:100%;height:auto;cursor:zoom-in}
+.pag.zoom img{width:200%;max-width:none;cursor:zoom-out}
+.pag figcaption{text-align:center;font-size:12px;color:var(--muted)}
+</style>
+
+<header class="band">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">Evolução antropométrica</p>
+      <h1>__NOME__</h1>
+      <p class="sub" id="sub"></p>
+    </div>
+    <div class="range">
+      <label for="de">De <select id="de"></select></label>
+      <label for="ate">Até <select id="ate"></select></label>
+    </div>
+  </div>
+  <div class="wrap">
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" id="t-composicao" aria-selected="true" data-view="composicao">Composição corporal</button>
+      <button class="tab" role="tab" id="t-classificacoes" aria-selected="false" data-view="classificacoes">Classificações</button>
+      <button class="tab" role="tab" id="t-circunferencias" aria-selected="false" data-view="circunferencias">Circunferências</button>
+      <button class="tab" role="tab" id="t-dobras" aria-selected="false" data-view="dobras">Dobras cutâneas</button>
+      <button class="tab" role="tab" id="t-plano" aria-selected="false" data-view="plano" hidden>Plano alimentar</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="kpis" id="kpis"></section>
+
+    <section class="grid view" data-view="composicao">
+      <div class="card"><h2>Peso corporal (kg)</h2><div class="chart"><canvas id="ch-peso"></canvas></div></div>
+      <div class="card"><h2>Percentual de gordura (%)</h2><p class="note">Dobras cutâneas, protocolo __PROTOCOLO__</p><div class="chart"><canvas id="ch-gc"></canvas></div></div>
+      <div class="card w12"><h2>Composição corporal (kg)</h2><div class="chart"><canvas id="ch-comp"></canvas></div></div>
+    </section>
+
+    <section class="cls view" data-view="classificacoes" hidden>
+      <div class="cls-cards" id="cls"></div>
+      <div class="card w12"><h2>Classificações por avaliação</h2><p class="note">Classificações calculadas pelo App Naive na data de cada avaliação.</p><div class="tablebox"><table id="tb-cls"></table></div></div>
+    </section>
+
+    <section class="grid view" data-view="circunferencias" hidden>
+      <div class="card w8"><h2>Cintura, abdômen e quadril (cm)</h2><div class="chart"><canvas id="ch-tronco"></canvas></div></div>
+      <div class="card w4"><h2>Relação cintura/quadril</h2><div class="chart"><canvas id="ch-rcq"></canvas></div></div>
+      <div class="card"><h2>Membros superiores (cm)</h2><p class="note">E = esquerdo · D = direito</p><div class="chart"><canvas id="ch-sup"></canvas></div></div>
+      <div class="card"><h2>Membros inferiores (cm)</h2><p class="note">E = esquerdo · D = direito</p><div class="chart"><canvas id="ch-inf"></canvas></div></div>
+      <div class="card w12"><h2>Tórax e ombro (cm)</h2><div class="chart"><canvas id="ch-torax"></canvas></div></div>
+    </section>
+
+    <section class="grid view" data-view="dobras" hidden>
+      <div class="card w4"><h2>Somatório de dobras (mm)</h2><div class="chart"><canvas id="ch-soma"></canvas></div></div>
+      <div class="card w8"><h2>Dobras cutâneas (mm)</h2><div class="chart"><canvas id="ch-dobras"></canvas></div></div>
+      <div class="card w12"><h2>Dobras por avaliação (mm)</h2><div class="tablebox"><table id="tb"></table></div></div>
+    </section>
+
+    <section class="plano view" data-view="plano" id="plano" hidden></section>
+
+    <footer id="foot"></footer>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DADOS = __DATA__;
+const PLANO = __PLANO__;
+
+const n = v => { if (v == null) return null; const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? null : x; };
+const fmt = (v, d = 1) => v == null ? '–' : v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+const de = document.getElementById('de'), ate = document.getElementById('ate');
+
+DADOS.forEach((r, i) => {
+  de.add(new Option(r.dataAvaliacao, i));
+  ate.add(new Option(r.dataAvaliacao, i));
+});
+de.value = 0; ate.value = DADOS.length - 1;
+
+const VIEWS = {
+  composicao: [
+    { id: 'ch-peso', series: [['massa', 'Peso', '--c1']], labels: true },
+    { id: 'ch-gc', series: [['gc', '% Gordura', '--c3']], labels: true },
+    { id: 'ch-comp', series: [['mlg', 'Massa livre de gordura', '--c1'], ['peso_m', 'Massa muscular', '--c2'], ['peso_g', 'Massa de gordura', '--c3']] },
+  ],
+  circunferencias: [
+    { id: 'ch-tronco', series: [['c_cintura', 'Cintura', '--c1'], ['c_abdomen', 'Abdômen', '--c2'], ['c_quadril', 'Quadril', '--c4']] },
+    { id: 'ch-rcq', series: [['razao', 'RCQ', '--c3']], labels: true, dec: 2 },
+    { id: 'ch-sup', series: [['c_bracorelaxado', 'Braço relaxado E', '--c1'], ['c_bracorelaxado_dir', 'Braço relaxado D', '--c6'], ['c_bracocontraido', 'Braço contraído E', '--c2'], ['c_bracocontraido_dir', 'Braço contraído D', '--c7'], ['c_antebraco', 'Antebraço E', '--c3'], ['c_antebraco_dir', 'Antebraço D', '--c4']] },
+    { id: 'ch-inf', series: [['c_coxaproximal', 'Coxa proximal E', '--c1'], ['c_coxaproximal_dir', 'Coxa proximal D', '--c6'], ['c_coxamedial', 'Coxa medial E', '--c2'], ['c_coxamedial_dir', 'Coxa medial D', '--c7'], ['c_coxadistal', 'Coxa distal E', '--c5'], ['c_coxadistal_dir', 'Coxa distal D', '--c8'], ['c_panturrilha', 'Panturrilha E', '--c3'], ['c_panturrilha_dir', 'Panturrilha D', '--c4']] },
+    { id: 'ch-torax', series: [['c_torax', 'Tórax', '--c6'], ['c_ombro', 'Ombro', '--c5']] },
+  ],
+  classificacoes: [],
+  dobras: [
+    { id: 'ch-soma', series: [['somatorio', 'Somatório', '--c3']], labels: true, dec: 0 },
+    { id: 'ch-dobras', series: [['dobra_triceptal', 'Tricipital', '--c1'], ['dobra_subescapular', 'Subescapular', '--c6'], ['dobra_toraxica', 'Torácica', '--c2'], ['dobra_axilar', 'Axilar média', '--c7'], ['dobra_suprailiaca', 'Suprailíaca', '--c4'], ['dobra_abdominal', 'Abdominal', '--c3'], ['dobra_coxa', 'Coxa', '--c5']] },
+  ],
+};
+
+const KPIS = [
+  ['massa', 'Peso', 'kg', -1], ['gc', '% Gordura', '%', -1], ['peso_m', 'Massa muscular', 'kg', 1],
+  ['mlg', 'Massa livre de gordura', 'kg', 1], ['c_cintura', 'Cintura', 'cm', -1], ['somatorio', 'Somatório de dobras', 'mm', -1],
+];
+
+let view = 'composicao';
+const charts = {};
+const recorte = () => DADOS.slice(Math.min(+de.value, +ate.value), Math.max(+de.value, +ate.value) + 1);
+
+function drawKpis(rows) {
+  const first = rows[0], last = rows[rows.length - 1];
+  document.getElementById('kpis').innerHTML = KPIS.filter(([k]) => rows.some(r => n(r[k]) != null)).map(([k, label, unit, goodDir]) => {
+    const a = n(first[k]), b = n(last[k]);
+    const diff = a != null && b != null ? b - a : null;
+    const cls = diff == null || Math.abs(diff) < 0.05 ? 'flat' : (Math.sign(diff) === goodDir ? 'good' : 'bad');
+    const sinal = diff > 0 ? '+' : diff < 0 ? '−' : '±';
+    const dtxt = rows.length < 2 || diff == null ? 'uma avaliação no período' : `${sinal}${fmt(Math.abs(diff))} ${unit} desde ${first.dataAvaliacao}`;
+    return `<div class="kpi"><span class="k">${label}</span><span class="v">${fmt(b, k === 'somatorio' ? 0 : 1)}<small>${unit}</small></span><span class="d ${cls}">${dtxt}</span></div>`;
+  }).join('');
+}
+
+function drawCharts(rows) {
+  const labels = rows.map(r => r.dataAvaliacao.slice(0, 6) + r.dataAvaliacao.slice(8));
+  const ink = css('--muted'), grid = css('--line'), surface = css('--surface');
+  for (const cfg of VIEWS[view]) {
+    const series = cfg.series.filter(([k]) => DADOS.some(r => n(r[k]) != null));
+    document.getElementById(cfg.id).closest('.card').hidden = !series.length;
+    if (!series.length) continue;
+    const datasets = series.map(([k, label, tok]) => ({
+      label, data: rows.map(r => n(r[k])), borderColor: css(tok), backgroundColor: css(tok),
+      pointBackgroundColor: surface, pointBorderWidth: 2, pointRadius: 3.5, borderWidth: 2.5, tension: 0.25, spanGaps: true,
+    }));
+    if (charts[cfg.id]) charts[cfg.id].destroy();
+    const dec = cfg.dec ?? 1;
+    charts[cfg.id] = new Chart(document.getElementById(cfg.id), {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        maintainAspectRatio: false, animation: matchMedia('(prefers-reduced-motion: reduce)').matches ? false : { duration: 300 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: datasets.length > 1, position: 'top', align: 'start', labels: { color: ink, boxWidth: 10, boxHeight: 10, usePointStyle: true, font: { family: 'IBM Plex Sans', size: 12 } } },
+          tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y, dec)}` } },
+        },
+        scales: {
+          x: { ticks: { color: ink, font: { family: 'IBM Plex Mono', size: 11 }, maxRotation: 0, autoSkipPadding: 10 }, grid: { display: false }, border: { color: grid } },
+          y: { ticks: { color: ink, font: { family: 'IBM Plex Mono', size: 11 }, callback: v => fmt(v, dec) }, grid: { color: grid }, border: { display: false } },
+        },
+      },
+      plugins: cfg.labels ? [{
+        id: 'rotulos',
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart; const meta = chart.getDatasetMeta(0); const pts = meta.data;
+          ctx.save(); ctx.font = '500 11px "IBM Plex Mono", monospace'; ctx.fillStyle = css('--ink'); ctx.textAlign = 'center';
+          const step = Math.ceil(pts.length / 10);
+          pts.forEach((p, i) => { const v = chart.data.datasets[0].data[i]; if (v != null && (i % step === 0 || i === pts.length - 1)) ctx.fillText(fmt(v, dec), p.x, p.y - 10); });
+          ctx.restore();
+        },
+      }] : [],
+    });
+  }
+}
+
+function drawTable(rows) {
+  const cols = [['dobra_triceptal', 'Tricipital'], ['dobra_subescapular', 'Subescapular'], ['dobra_toraxica', 'Torácica'], ['dobra_axilar', 'Axilar média'], ['dobra_suprailiaca', 'Suprailíaca'], ['dobra_abdominal', 'Abdominal'], ['dobra_coxa', 'Coxa'], ['somatorio', 'Somatório'], ['gc', '% Gordura']];
+  document.getElementById('tb').innerHTML =
+    `<thead><tr><th>Data</th>${cols.map(c => `<th>${c[1]}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.dataAvaliacao}</td>${cols.map(([k]) => `<td>${fmt(n(r[k]), 1)}</td>`).join('')}</tr>`).join('') + '</tbody>';
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// tom do selo a partir do texto da classificação do App Naive: verde se adequado, amarelo para todo o resto
+const tom = s => {
+  s = (s || '').toLowerCase();
+  if (!s || /n\/d|verifique/.test(s)) return 'flat';
+  if (/eutr|adequad|excelente|risco baixo/.test(s)) return 'good';
+  return 'warn';
+};
+const chip = s => s ? `<span class="chip ${tom(s)}">${esc(s)}</span>` : '';
+const curta = d => d.slice(0, 6) + d.slice(8);
+const faixaPeso = s => { const m = String(s || '').replace(/,/g, '.').match(/([\d.]+)\s*a\s*([\d.]+)/); return m ? [+m[1], +m[2]] : null; };
+
+// régua com faixas coloridas e a marca do valor; faixas = [[limite superior, tom], ...]
+function regua(v, min, max, faixas, cortes) {
+  const pos = x => Math.min(100, Math.max(0, (x - min) / (max - min) * 100));
+  let ini = min;
+  const segs = faixas.map(([ate, t]) => { const w = pos(ate) - pos(ini); ini = ate; return `<i style="width:${w}%;background:var(--${t === 'flat' ? 'line' : t})"></i>`; }).join('');
+  return `<div class="scale"><div class="seg">${segs}</div><span class="mk" style="left:${pos(v)}%"></span>
+    <div class="ticks">${cortes.map(c => `<span style="left:${pos(c)}%">${fmt(c, Number.isInteger(c) ? 0 : 1)}</span>`).join('')}</div></div>`;
+}
+
+// mais recente e mais antiga do período com o campo preenchido
+const ultimo = (rows, k) => { for (let i = rows.length - 1; i >= 0; i--) if (rows[i][k]) return rows[i]; return null; };
+const primeiro = (rows, k) => rows.find(r => r[k]) || null;
+
+function drawCls(rows) {
+  const fim = rows[rows.length - 1];
+  const quando = r => r === fim ? '' : `<p class="note">Última medida em ${r.dataAvaliacao}</p>`;
+  const antes = (k, r) => { const p = primeiro(rows, k); return p && p !== r && p[k] !== r[k] ? `<p class="note">Em ${p.dataAvaliacao}: ${esc(p[k])}</p>` : ''; };
+  const cards = [];
+
+  let r = ultimo(rows, 'class_imc') || ultimo(rows, 'imc');
+  if (r && n(r.imc) != null) {
+    const v = n(r.imc);
+    cards.push(`<div class="card"><span class="k">Índice de massa corporal</span>
+      <div class="linha"><span class="v">${fmt(v)}<small>kg/m²</small></span>${chip(r.class_imc)}</div>
+      ${regua(v, 15, 45, [[18.5, 'warn'], [25, 'good'], [30, 'warn'], [35, 'warn'], [40, 'warn'], [45, 'warn']], [18.5, 25, 30, 35, 40])}
+      ${antes('class_imc', r)}${quando(r)}</div>`);
+  }
+
+  r = ultimo(rows, 'peso_ideal');
+  const fx = r && faixaPeso(r.peso_ideal), peso = r && n(r.massa);
+  if (fx && peso != null) {
+    const [lo, hi] = fx;
+    const dif = peso > hi ? peso - hi : peso < lo ? lo - peso : 0;
+    const txt = dif === 0 ? '<span class="chip good">Dentro da faixa</span>'
+      : `<span class="chip warn">${fmt(dif)} kg ${peso > hi ? 'acima' : 'abaixo'} da faixa</span>`;
+    const min = Math.min(lo - 10, peso - 3), max = Math.max(hi + 10, peso + 3);
+    cards.push(`<div class="card"><span class="k">Faixa de peso ideal</span>
+      <div class="linha"><span class="v">${fmt(lo)}–${fmt(hi)}<small>kg</small></span>${txt}</div>
+      ${regua(peso, min, max, [[lo, 'flat'], [hi, 'good'], [max, 'flat']], [lo, hi])}
+      <p class="note">Peso na avaliação: ${fmt(peso)} kg. Faixa calculada pelo IMC adequado para a altura.</p>${quando(r)}</div>`);
+  }
+
+  const simples = [
+    ['gc', 'class_gc', 'Percentual de gordura (dobras)', '%', 1],
+    ['razao', 'risco', 'Relação cintura/quadril', '', 2],
+    ['bioimpedancia_gordura', 'class_gc_bio', 'Percentual de gordura (bioimpedância)', '%', 1],
+  ];
+  for (const [k, c, label, unit, dec] of simples) {
+    r = ultimo(rows, c) || ultimo(rows, k);
+    if (!r || n(r[k]) == null) continue;
+    const extra = k === 'razao' && r[c] ? '<p class="note">Risco metabólico</p>' : '';
+    cards.push(`<div class="card"><span class="k">${label}</span>
+      <div class="linha"><span class="v">${fmt(n(r[k]), dec)}${unit ? `<small>${unit}</small>` : ''}</span>${chip(r[c])}</div>
+      ${extra}${antes(c, r)}${quando(r)}</div>`);
+  }
+
+  r = ultimo(rows, 'cmb_pct');
+  if (r) {
+    cards.push(`<div class="card"><span class="k">Circunferência muscular do braço</span>
+      <div class="linha"><span class="v">${fmt(n(r.cmb_pct))}<small>% de adequação</small></span>${chip(r.class_cmb)}</div>
+      <p class="note">CMB ${fmt(n(r.cmb_cm))} cm. Adequação acima de 90% indica reserva muscular preservada.</p>
+      ${antes('class_cmb', r)}${quando(r)}</div>`);
+  }
+  document.getElementById('cls').innerHTML = cards.join('') || '<p class="note">Sem classificações nas avaliações deste período.</p>';
+
+  const cols = [
+    ['imc', 'IMC', 1], ['class_imc', 'Classificação IMC'], ['razao', 'RCQ', 2], ['risco', 'Risco (RCQ)'],
+    ['gc', '% Gordura', 1], ['class_gc', 'Classif. gordura'], ['bioimpedancia_gordura', '% Gordura (BIA)', 1], ['class_gc_bio', 'Classif. (BIA)'],
+    ['cmb_pct', 'Adequação CMB (%)', 1], ['class_cmb', 'Classif. CMB'], ['peso_ideal', 'Peso ideal'],
+  ].filter(([k]) => rows.some(r => r[k]));
+  document.getElementById('tb-cls').innerHTML = `<thead><tr><th>Data</th>${cols.map(c => `<th>${c[1]}</th>`).join('')}</tr></thead><tbody>` +
+    rows.slice().reverse().map(r => `<tr><td>${r.dataAvaliacao}</td>${cols.map(([k, , dec]) => dec != null
+      ? `<td class="num">${fmt(n(r[k]), dec)}</td>`
+      : `<td>${k === 'peso_ideal' ? (faixaPeso(r[k]) ? faixaPeso(r[k]).map(x => fmt(x)).join('–') + ' kg' : '–') : (chip(r[k]) || '–')}</td>`).join('')}</tr>`).join('') + '</tbody>';
+}
+
+// alimento do plano: texto pronto ("Banana - 1 unidade") ou {nome, qtd} lido do PDF do App Naive
+const alimento = a => typeof a === 'string' ? esc(a) : `${esc(a.nome)}${a.qtd ? ` <span class="qtd">${esc(a.qtd)}</span>` : ''}`;
+
+function drawPlano() {
+  const P = PLANO, T = P.totais;
+  if (P.paginas) {
+    // plano enviado em PDF: as páginas aparecem como imagens, do jeito que o PDF foi feito; tocar amplia
+    document.getElementById('plano').innerHTML = `
+      <div class="card"><div class="meta"><strong>${esc(P.titulo)}</strong><span>Prescrito em ${esc(P.prescrito)}</span><span>${esc(P.profissional)}</span>
+        <span>Toque numa página para ampliar.</span></div></div>
+      ${P.paginas.map((src, i) => `<figure class="pag"><div class="pag-box"><img src="${src}" alt="Página ${i + 1} de ${P.paginas.length} do plano alimentar" loading="lazy"></div>
+        <figcaption>Página ${i + 1} de ${P.paginas.length}</figcaption></figure>`).join('')}`;
+    document.querySelectorAll('.pag img').forEach(img => img.addEventListener('click', () => img.closest('.pag').classList.toggle('zoom')));
+    return;
+  }
+  let macrosCard = '';
+  if (T) {
+    const kc = { p: T.p * 4, l: T.l * 9, c: T.c * 4 }, soma = kc.p + kc.l + kc.c;
+    const macro = (k, label, tok) => `<div class="macro"><span>${label}</span><span class="bar"><i style="width:${(kc[k] / soma * 100).toFixed(1)}%;background:var(${tok})"></i></span><span class="g">${fmt(T[k])} g · ${Math.round(kc[k] / soma * 100)}%</span></div>`;
+    macrosCard = `<div class="card">
+        <div class="macro-total"><span class="v">${T.kcal.toLocaleString('pt-BR')}</span><small>kcal por dia</small></div>
+        <div class="macros">${macro('p', 'Proteínas', '--c2')}${macro('c', 'Carboidratos', '--c4')}${macro('l', 'Lipídeos', '--c3')}</div>
+      </div>`;
+  }
+  const nomesReceitas = (P.receitas || []).map(r => r.nome.toLowerCase()).join(' e ');
+  let marcados = {};
+  try { marcados = JSON.parse(localStorage.getItem('compras') || '{}'); } catch (e) {}
+  document.getElementById('plano').innerHTML = `
+    <div class="plano-top"${T ? '' : ' style="grid-template-columns:minmax(0,1fr)"'}>
+      <div class="card"><div class="meta"><strong>${esc(P.titulo)}</strong><span>Prescrito em ${esc(P.prescrito)}</span><span>${esc(P.profissional)}</span></div></div>
+      ${macrosCard}
+    </div>
+    <div class="refeicoes">${P.refeicoes.map(r => `
+      <article class="ref">
+        <div class="ref-h">${r.hora ? `<span class="hora">${esc(r.hora)}</span>` : ''}<h3>${esc(r.nome)}</h3>${r.kcal != null ? `<span class="kc">${r.kcal} kcal · P ${fmt(r.p)} · C ${fmt(r.c)} · L ${fmt(r.l)}</span>` : ''}</div>
+        <ul>${r.itens.map(i => `<li><span class="principal">${alimento(i.principal || i)}</span>${i.subs.length ? `<span class="subs"><span class="ou">ou</span>${i.subs.map(s => `<span class="op">${alimento(s)}</span>`).join('')}</span>` : ''}</li>`).join('')}</ul>
+        ${r.obs ? `<p class="obs"><b>Observação:</b> ${esc(r.obs)}</p>` : ''}
+        ${r.receitas && nomesReceitas ? `<p class="rec-link">Veja as receitas (${esc(nomesReceitas)}) abaixo.</p>` : ''}
+      </article>`).join('')}
+    </div>
+    ${P.receitas && P.receitas.length ? `<div class="receitas">${P.receitas.map(r => `
+      <div class="card"><h3>${esc(r.nome)}</h3>
+        <p class="lbl">Ingredientes</p><ul>${r.ingredientes.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+        <p class="lbl">Modo de preparo</p><ol>${r.preparo.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>`).join('')}</div>` : ''}
+    ${(P.compras || []).length ? `<div class="card w12"><details><summary>Lista de compras</summary>
+      <p class="note" style="margin:6px 0 8px">Marque o que já comprou. As marcações ficam salvas só neste aparelho.</p>
+      <div class="compras">${P.compras.map((c, i) => `<label for="cp${i}"><input type="checkbox" id="cp${i}" data-item="${esc(c)}" ${marcados[c] ? 'checked' : ''}><span>${esc(c)}</span></label>`).join('')}</div>
+    </details></div>` : ''}
+    ${P.micros && P.micros.length ? `<div class="card w12"><details><summary>Vitaminas, minerais e tipos de gordura (total do dia)</summary>
+      <div class="micros" style="margin-top:10px">${P.micros.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    </details></div>` : ''}`;
+  document.querySelectorAll('.compras input').forEach(cb => cb.addEventListener('change', () => {
+    marcados[cb.dataset.item] = cb.checked;
+    try { localStorage.setItem('compras', JSON.stringify(marcados)); } catch (e) {}
+  }));
+}
+
+function render() {
+  const rows = recorte();
+  const plano = view === 'plano';
+  document.getElementById('kpis').hidden = plano;
+  document.querySelector('.range').hidden = plano;
+  document.getElementById('sub').textContent = plano
+    ? `Plano alimentar prescrito em ${PLANO.prescrito}`
+    : `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${rows[0].dataAvaliacao} a ${rows[rows.length - 1].dataAvaliacao} · Altura ${fmt(n(rows[rows.length - 1].estatura), 0)} cm`;
+  if (plano) return;
+  drawKpis(rows);
+  drawCharts(rows);
+  if (view === 'dobras') drawTable(rows);
+  if (view === 'classificacoes') drawCls(rows);
+}
+
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  view = b.dataset.view;
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t === b));
+  document.querySelectorAll('.view').forEach(v => v.hidden = v.dataset.view !== view);
+  if (location.hash.slice(1) !== view) history.replaceState(null, '', '#' + view);
+  render();
+}));
+de.addEventListener('change', render);
+ate.addEventListener('change', render);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+// redesenha quando as fontes chegam, senão os eixos ficam medidos com a fonte provisória e cortados
+if (document.fonts) document.fonts.ready.then(render);
+
+document.getElementById('foot').textContent = 'Fonte: App Naive · evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
+if (PLANO) { document.getElementById('t-plano').hidden = false; drawPlano(); }
+const inicial = location.hash.slice(1);
+const alvo = document.querySelector(`.tab[data-view="${inicial}"]`);
+if (alvo) alvo.click(); else render();
+</script>

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block titulo %}Links{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">Páginas de evolução</p>
+  <h1>Links dos pacientes</h1>
+  <p class="sub">{{ publicados|length }} publicado{{ 's' if publicados|length != 1 }} · {{ pedidos|length }} na fila</p>
+</div>
+{% endblock %}
+{% block corpo %}
+<div class="card">
+  <h2>Fila para publicar</h2>
+  {% if pedidos %}
+  <p class="note">Quando quiser, peça ao Claude: <b>“publique os links pedidos”</b>. Quem já tem link continua com o mesmo endereço,
+    só com os dados novos. Quem ainda não tem ganha um link privado: no claude.ai, compartilhe como “Qualquer pessoa com o link”.</p>
+  <div class="tablebox"><table>
+    <thead><tr><th class="t">Paciente</th><th class="t">Pedido</th><th>Desde</th><th></th></tr></thead>
+    <tbody>
+    {% for x in pedidos %}
+      <tr>
+        <td class="t"><a class="linha" href="{{ url_for('paciente', pid=x.id) }}">{{ x.nome }}</a></td>
+        <td class="t">{{ 'Atualizar o link' if x.motivo == 'atualizar' else 'Link novo' }}</td>
+        <td class="n">{{ x.pedido_em[8:10] }}/{{ x.pedido_em[5:7] }} {{ x.pedido_em[11:16] }}</td>
+        <td><form method="post" action="{{ url_for('pedir_link', pid=x.id) }}">
+          <input type="hidden" name="voltar" value="{{ url_for('lista_links') }}">
+          <button class="btn" name="cancelar" value="1" style="padding:4px 10px">Tirar da fila</button></form></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="note">Nada na fila. Na ficha do paciente, “Pedir link” coloca ele aqui. Quem já tem link entra sozinho na fila
+    quando você grava ou exclui uma avaliação dele.</p>
+  {% endif %}
+</div>
+
+<div class="card" style="padding:6px 8px">
+  <h2 style="padding:10px 10px 0">Publicados</h2>
+  <div class="tablebox"><table>
+    <thead><tr><th class="t">Paciente</th><th class="t">Link</th><th>Atualizado</th><th>Última avaliação</th></tr></thead>
+    <tbody>
+    {% for x in publicados %}
+      <tr>
+        <td class="t">{% if x.id %}<a class="linha" href="{{ url_for('paciente', pid=x.id) }}">{{ x.nome }}</a>{% else %}{{ x.nome }}{% endif %}</td>
+        <td class="t"><a href="{{ x.url }}" target="_blank" rel="noopener">{{ x.url.split('/')[-1] }}</a></td>
+        <td class="n">{% if x.publicado_em %}{{ x.publicado_em[8:10] }}/{{ x.publicado_em[5:7] }}/{{ x.publicado_em[:4] }}{% else %}–{% endif %}</td>
+        <td class="n">{{ x.ultima|br }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+"""Mapeamento entre as colunas da tabela avaliacao e as chaves do App Naive (usado por vários scripts)."""
+
+# coluna da tabela avaliacao -> chave no App Naive
+CAMPOS = {
+    "peso_kg": "massa", "altura_cm": "estatura", "imc": "imc", "classificacao_imc": "class_imc",
+    "peso_ideal": "peso_ideal", "rcq": "razao", "risco_rcq": "risco",
+    "cmb_cm": "cmb_cm", "cmb_adequacao_pct": "cmb_pct", "classificacao_cmb": "class_cmb",
+    "gordura_pct": "gc", "classificacao_gordura": "class_gc",
+    "massa_gordura_kg": "peso_g", "massa_ossea_kg": "peso_o", "massa_muscular_kg": "peso_m",
+    "massa_residual_kg": "peso_r", "mlg_kg": "mlg", "somatorio_dobras_mm": "somatorio",
+    "densidade_corporal": "densidade", "protocolo_dobras": "formula_escolhida", "equacao_gordura": "refAntropometria",
+    "bia_gordura_pct": "bioimpedancia_gordura", "bia_classificacao_gordura": "class_gc_bio",
+    "bia_massa_magra_pct": "bioimpedancia_percentualMagra", "bia_massa_muscular_kg": "bioimpedancia_massa",
+    "bia_agua_kg": "bioimpedancia_agua", "bia_massa_ossea_kg": "bioimpedancia_osseo",
+    "bia_massa_gordura_kg": "bioimpedancia_massaGordura", "bia_mlg_kg": "bioimpedancia_massalivre",
+    "bia_gordura_visceral": "bioimpedancia_visceral", "bia_idade_metabolica": "bioimpedancia_idade",
+    "altura_sentado_cm": "estatura_sentado", "altura_joelho_cm": "altura_joelho",
+    "dobra_tricipital": "dobra_triceptal", "dobra_bicipital": "dobra_biciptal",
+    "dobra_subescapular": "dobra_subescapular", "dobra_toracica": "dobra_toraxica",
+    "dobra_axilar_media": "dobra_axilar", "dobra_suprailiaca": "dobra_suprailiaca",
+    "dobra_supraespinhal": "dobra_supraespinhal", "dobra_abdominal": "dobra_abdominal",
+    "dobra_coxa": "dobra_coxa", "dobra_panturrilha": "dobra_panturrilha",
+    "circ_pescoco": "c_pescoco", "circ_torax": "c_torax", "circ_ombro": "c_ombro",
+    "circ_cintura": "c_cintura", "circ_abdomen": "c_abdomen", "circ_quadril": "c_quadril",
+    "braco_relaxado_e": "c_bracorelaxado", "braco_relaxado_d": "c_bracorelaxado_dir",
+    "braco_contraido_e": "c_bracocontraido", "braco_contraido_d": "c_bracocontraido_dir",
+    "antebraco_e": "c_antebraco", "antebraco_d": "c_antebraco_dir",
+    "coxa_proximal_e": "c_coxaproximal", "coxa_proximal_d": "c_coxaproximal_dir",
+    "coxa_medial_e": "c_coxamedial", "coxa_medial_d": "c_coxamedial_dir",
+    "coxa_distal_e": "c_coxadistal", "coxa_distal_d": "c_coxadistal_dir",
+    "panturrilha_e": "c_panturrilha", "panturrilha_d": "c_panturrilha_dir",
+    "diametro_umero": "diametro_umero", "diametro_punho": "diametro_punho", "diametro_femur": "diametro_femur",
+}
+TEXTO = {"classificacao_imc", "peso_ideal", "risco_rcq", "classificacao_cmb", "classificacao_gordura",
+         "protocolo_dobras", "equacao_gordura", "bia_classificacao_gordura"}

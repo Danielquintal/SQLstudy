@@ -1,0 +1,68 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "1. Instalar dependências do Python",
+      "type": "shell",
+      "command": "python -m pip install -r requirements.txt",
+      "problemMatcher": []
+    },
+    {
+      "label": "2. Criar o banco app_naive",
+      "type": "shell",
+      "command": "& 'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe' -U postgres -h localhost -c 'CREATE DATABASE app_naive;'",
+      "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
+      "problemMatcher": []
+    },
+    {
+      "label": "3. Recarregar banco (esquema + dados)",
+      "type": "shell",
+      "command": "& 'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe' -U postgres -h localhost -d app_naive -v ON_ERROR_STOP=1 -f sql/01_schema.sql -f sql/02_dados.sql -f sql/03_whatsapp.sql -f sql/04_plano.sql",
+      "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
+      "problemMatcher": []
+    },
+    {
+      "label": "4. Testar conexão com o banco",
+      "type": "shell",
+      "command": "& 'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe' -U postgres -h localhost -d app_naive -c 'SELECT count(*) AS pacientes FROM paciente; SELECT count(*) AS avaliacoes FROM avaliacao;'",
+      "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
+      "problemMatcher": []
+    },
+    {
+      "label": "5. Conferir paciente (simular, não grava)",
+      "type": "process",
+      "command": "python",
+      "args": ["scripts/atualizar_paciente.py", "${input:paciente}", "--simular"],
+      "problemMatcher": []
+    },
+    {
+      "label": "6. Atualizar paciente",
+      "type": "process",
+      "command": "python",
+      "args": ["scripts/atualizar_paciente.py", "${input:paciente}"],
+      "problemMatcher": []
+    },
+    {
+      "label": "7. Abrir o sistema (navegador)",
+      "type": "process",
+      "command": "python",
+      "args": ["sistema/app.py"],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "8. Exportar para o GitHub (dados fictícios)",
+      "type": "process",
+      "command": "python",
+      "args": ["scripts/exportar_github.py"],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "paciente",
+      "type": "promptString",
+      "description": "Nome do paciente (como está na planilha; pode ser só parte do nome)"
+    }
+  ]
+}

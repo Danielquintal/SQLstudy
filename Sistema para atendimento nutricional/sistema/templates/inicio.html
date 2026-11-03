@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">Banco app_naive</p>
+  <h1>Pacientes</h1>
+  <p class="sub">{{ pacientes|length }} cadastrados · {{ pacientes|selectattr('n')|list|length }} com avaliações</p>
+</div>
+<a class="btn pri" href="{{ url_for('novo_paciente') }}">+ Novo paciente</a>
+{% endblock %}
+{% block corpo %}
+<div class="busca">
+  <input id="busca" type="search" placeholder="Buscar pelo nome (não precisa de acento)" autofocus autocomplete="off" aria-label="Buscar paciente">
+  <span class="note" id="contagem"></span>
+</div>
+<div class="card" style="padding:6px 8px">
+  <div class="tablebox">
+  <table>
+    <thead><tr><th class="t">Nome</th><th class="oculta-cel">Sexo</th><th class="oculta-cel">Idade</th><th>Avaliações</th><th>Última</th></tr></thead>
+    <tbody id="lista">
+    {% for p in pacientes %}
+      <tr data-busca="{{ p.busca }}">
+        <td class="t"><a class="linha" href="{{ url_for('paciente', pid=p.id) }}">{{ p.nome }}</a></td>
+        <td class="oculta-cel">{{ p.genero or '' }}</td>
+        <td class="n oculta-cel">{{ p.idade if p.idade is not none else '' }}</td>
+        <td class="n">{{ p.n or '' }}</td>
+        <td class="n">{{ p.ultima|br }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="note" id="nada" hidden style="padding:12px">Nenhum paciente com esse nome.</p>
+</div>
+<script>
+const tirar = s => s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const linhas = [...document.querySelectorAll('#lista tr')];
+const busca = document.getElementById('busca');
+function filtrar() {
+  const q = tirar(busca.value);
+  let n = 0;
+  for (const tr of linhas) { const ok = !q || tr.dataset.busca.includes(q); tr.hidden = !ok; n += ok; }
+  document.getElementById('contagem').textContent = q ? n + ' encontrado' + (n === 1 ? '' : 's') : '';
+  document.getElementById('nada').hidden = n > 0;
+}
+busca.addEventListener('input', filtrar);
+busca.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const t = linhas.find(tr => !tr.hidden); if (t) location = t.querySelector('a').href; }
+});
+filtrar();
+</script>
+{% endblock %}

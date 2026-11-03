@@ -1,0 +1,13 @@
+{# mensagem com texto editável e botão que abre o WhatsApp #}
+{% macro mensagem_zap(pid, tipo, titulo, texto, tem_whatsapp, detalhe='', voltar='', marcar=false) %}
+<form method="post" action="{{ url_for('whatsapp', pid=pid, tipo=tipo) }}" target="_blank" class="item zapform">
+  <div class="quem"><span class="tipo">{{ titulo }}</span>{% if detalhe %}<span class="note">{{ detalhe }}</span>{% endif %}</div>
+  <div class="acoes">
+    {% if tem_whatsapp %}<button class="btn zap">Abrir no WhatsApp</button>
+    {% else %}<span class="note">Telefone inválido para WhatsApp</span>{% endif %}
+    {% if marcar %}<button class="btn" name="so_marcar" value="1" formtarget="_self">Já fiz</button>{% endif %}
+  </div>
+  <textarea name="texto" rows="4" aria-label="Mensagem">{{ texto }}</textarea>
+  <input type="hidden" name="voltar" value="{{ voltar }}">
+</form>
+{% endmacro %}

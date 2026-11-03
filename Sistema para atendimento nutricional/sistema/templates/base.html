@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}Pacientes{% endblock %} · Avaliações</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+<link rel="icon" href="{{ url_for('static', filename='icone.png') }}">
+</head>
+<body>
+<header class="band">
+  <div class="top"><div class="wrap">
+    <a class="marca" href="{{ url_for('inicio') }}"><small>Daniel Quintal · Nutricionista</small>Avaliações antropométricas</a>
+    <nav class="menu" aria-label="Menu">
+      <a class="btn" href="{{ url_for('inicio') }}">Pacientes</a>
+      <a class="btn" href="{{ url_for('contatos_do_dia') }}">Contatos{% if n_contatos %} <span class="badge">{{ n_contatos }}</span>{% endif %}</a>
+      <a class="btn" href="{{ url_for('lista_links') }}">Links{% if n_pedidos %} <span class="badge">{{ n_pedidos }}</span>{% endif %}</a>
+      <a class="btn" href="{{ url_for('configuracao') }}">Configuração</a>
+    </nav>
+  </div></div>
+  <div class="cabeca"><div class="wrap">{% block cabeca %}{% endblock %}</div></div>
+</header>
+<main><div class="wrap">
+  {% for cat, m in get_flashed_messages(with_categories=true) %}
+  <div class="msg {{ 'aviso' if cat == 'aviso' }}" role="status">{{ m }}</div>
+  {% endfor %}
+  {% block corpo %}{% endblock %}
+</div></main>
+</body>
+</html>

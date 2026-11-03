@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_macros.html" import mensagem_zap %}
+{% block titulo %}Contatos do dia{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">WhatsApp</p>
+  <h1>Contatos do dia</h1>
+  <p class="sub">{{ itens|length }} mensage{{ 'm' if itens|length == 1 else 'ns' }} para mandar · retornos e aniversários</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if itens %}
+<p class="note">“Abrir no WhatsApp” abre a conversa com a mensagem pronta numa aba nova; confira e aperte enviar.
+  O lembrete sai desta lista. “Já fiz” tira da lista sem abrir o WhatsApp.</p>
+<div class="lista">
+  {% for i in itens %}
+  <div class="card" style="gap:8px">
+    <div class="quem"><a class="linha" style="font-weight:600;color:var(--ink);text-decoration:none" href="{{ url_for('paciente', pid=i.p.id) }}">{{ i.p.nome }}</a></div>
+    {{ mensagem_zap(i.p.id, i.tipo, i.titulo, i.texto, i.tem_whatsapp, detalhe=i.detalhe, voltar=url_for('contatos_do_dia'), marcar=true) }}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card"><p class="vazio" style="margin:0">Nenhum contato pendente hoje.</p></div>
+{% endif %}
+
+<div class="duas">
+  <div class="card">
+    <h2>Próximas consultas</h2>
+    {% if agenda %}
+    <div class="tablebox"><table><tbody>
+      {% for pid, nome, d in agenda %}
+      <tr><td class="t"><a class="linha" href="{{ url_for('paciente', pid=pid) }}">{{ nome }}</a></td><td class="n">{{ d|br }}</td><td class="note">{{ quando(d) }}</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="note">Nenhuma consulta marcada. A data da próxima consulta fica na ficha do paciente, em Acompanhamento.</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Feitos hoje</h2>
+    {% if feitos %}
+    <div class="tablebox"><table><tbody>
+      {% for q, t, pid, nome in feitos %}
+      <tr><td class="n">{{ q.strftime('%H:%M') }}</td><td class="t"><a class="linha" href="{{ url_for('paciente', pid=pid) }}">{{ nome }}</a></td><td class="t note">{{ titulos[t] }}</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="note">Nada ainda.</p>{% endif %}
+  </div>
+</div>
+<script>
+// depois de abrir o WhatsApp, recarrega para o lembrete sair da lista
+document.querySelectorAll('form.zapform[target=_blank]').forEach(f =>
+  f.addEventListener('submit', e => { if (e.submitter && e.submitter.name !== 'so_marcar') setTimeout(() => location.reload(), 800); }));
+</script>
+{% endblock %}

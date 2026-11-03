@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Novo paciente{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a></p>
+  <h1>Novo paciente</h1>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if erros %}<div class="msg erro" role="alert">Confira:<ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="card">
+  <div class="cadastro">
+    <div class="campo"><label for="nome">Nome completo</label><input class="texto" id="nome" name="nome" value="{{ dados.nome }}" required autofocus></div>
+    <div class="campo"><label for="genero">Sexo</label>
+      <select id="genero" name="genero">
+        <option value=""></option>
+        <option value="F" {{ 'selected' if dados.genero == 'F' }}>Feminino</option>
+        <option value="M" {{ 'selected' if dados.genero == 'M' }}>Masculino</option>
+      </select></div>
+    <div class="campo"><label for="nasc">Data de nascimento</label><input id="nasc" type="date" name="data_nascimento" value="{{ dados.data_nascimento }}"></div>
+    <div class="campo"><label for="tel">Telefone</label><input class="texto" id="tel" name="telefone" value="{{ dados.telefone }}"></div>
+    <div class="campo"><label for="email">E-mail</label><input class="texto" id="email" type="email" name="email" value="{{ dados.email }}"></div>
+  </div>
+  <div class="acoes"><button class="btn pri">Cadastrar</button><a class="btn" href="{{ url_for('inicio') }}">Cancelar</a></div>
+</form>
+{% endblock %}

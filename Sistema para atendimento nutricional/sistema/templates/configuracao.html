@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}Configuração{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">WhatsApp</p>
+  <h1>Configuração</h1>
+</div>
+{% endblock %}
+{% block corpo %}
+<form method="post" class="ficha">
+  <div class="card">
+    <h2>Mensagens de WhatsApp</h2>
+    <p class="note">Estas palavras entre chaves são trocadas pelos dados do paciente:
+      {% for k, v in variaveis.items() %}<code>{{ k }}</code> {{ v }}{{ '; ' if not loop.last else '.' }}{% endfor %}</p>
+    <div class="campo" style="max-width:340px">
+      <label for="dias">Lembrar a consulta quantos dias antes?</label>
+      <select id="dias" name="retorno_dias_antes">
+        {% for d, t in [(0, 'Só no dia'), (1, '1 dia antes'), (2, '2 dias antes'), (3, '3 dias antes')] %}
+        <option value="{{ d }}" {{ 'selected' if cfg.retorno_dias_antes == d }}>{{ t }}</option>{% endfor %}
+      </select>
+    </div>
+    {% for t, titulo in titulos.items() %}
+    <div class="campo">
+      <label for="msg_{{ t }}">{{ titulo }}</label>
+      <textarea id="msg_{{ t }}" name="msg_{{ t }}" rows="3">{{ cfg.mensagens[t] }}</textarea>
+      {% if cfg.mensagens[t] != padrao[t] %}<button type="button" class="btn" style="align-self:flex-start;padding:4px 10px;font-size:13px"
+        data-padrao="{{ padrao[t] }}" onclick="document.getElementById('msg_{{ t }}').value=this.dataset.padrao">Voltar ao texto original</button>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="barra"><div class="acoes"><button class="btn pri">Salvar configuração</button></div></div>
+</form>
+{% endblock %}
