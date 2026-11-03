@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block titulo %}Alimentos{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">Tabela de alimentos</p>
+  <h1>Alimentos</h1>
+  <p class="sub">{{ n_taco }} da TACO (4ª edição, UNICAMP) · {{ proprios|length }} cadastrado{{ 's' if proprios|length != 1 }} por você</p>
+</div>
+{% endblock %}
+{% block corpo %}
+<form method="post" class="card">
+  <h2>Cadastrar alimento próprio</h2>
+  <p class="note">Para marcas, suplementos e preparações que não estão na TACO. Copie a tabela nutricional do rótulo:
+    informe a porção do rótulo em gramas e os valores dessa porção; o sistema converte para 100 g.</p>
+  <div class="cadastro">
+    <div class="campo" style="grid-column:span 2"><label for="a-nome">Nome</label>
+      <input class="texto" id="a-nome" name="nome" required placeholder="Ex.: Rap10 integral (Pullman)"></div>
+    <div class="campo"><label for="a-grupo">Grupo</label>
+      <select id="a-grupo" name="grupo_id"><option value=""></option>{% for i, n in grupos %}<option value="{{ i }}">{{ n }}</option>{% endfor %}</select></div>
+    <div class="campo"><label for="a-porcao">Porção do rótulo (g ou ml)</label>
+      <input id="a-porcao" name="porcao" value="100" inputmode="decimal" required></div>
+    <div class="campo"><label for="a-medida">Nome da porção (opcional)</label>
+      <input class="texto" id="a-medida" name="medida_nome" placeholder="Ex.: 1 unidade, 1 scoop"></div>
+    {% for c, rotulo in campos %}
+    <div class="campo"><label for="a-{{ c }}">{{ rotulo }}</label><input id="a-{{ c }}" name="{{ c }}" inputmode="decimal" {{ 'required' if c == 'kcal' }}></div>
+    {% endfor %}
+  </div>
+  <div class="acoes"><button class="btn pri">Cadastrar</button></div>
+  <p class="note">Se der um nome à porção (ex.: “1 scoop” de 30 g), ela já vira uma medida caseira no editor.</p>
+</form>
+
+<div class="card" style="padding:6px 8px">
+  <h2 style="padding:10px 10px 0">Seus alimentos</h2>
+  {% if proprios %}
+  <div class="tablebox"><table>
+    <thead><tr><th class="t">Nome</th><th class="t">Grupo</th><th>kcal</th><th>Prot.</th><th>Carb.</th><th>Gord.</th><th class="t">Medidas</th></tr></thead>
+    <tbody>
+    {% for a in proprios %}
+      <tr><td class="t">{{ a.nome }}</td><td class="t note">{{ a.grupo or '' }}</td>
+        <td class="n">{{ a.kcal|round(0)|int if a.kcal is not none }}</td><td class="n">{{ a.proteina_g|num if a.proteina_g is not none }}</td>
+        <td class="n">{{ a.carboidrato_g|num if a.carboidrato_g is not none }}</td><td class="n">{{ a.lipidios_g|num if a.lipidios_g is not none }}</td>
+        <td class="t note">{% for m in a.medidas %}{{ m.nome }} ({{ m.gramas|num }} g){{ ', ' if not loop.last }}{% endfor %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="note" style="padding:4px 10px 10px">Valores por 100 g.</p>
+  {% else %}
+  <p class="vazio" style="padding:4px 10px 12px">Nenhum alimento próprio ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}

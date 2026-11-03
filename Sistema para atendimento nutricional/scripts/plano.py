@@ -1,4 +1,4 @@
-"""Plano alimentar de cada paciente (tabela plano_alimentar, sql/04_plano.sql).
+"""Planos alimentares de cada paciente (tabela plano_alimentar, sql/04_plano.sql e 05_varios_planos.sql).
 
 O PDF enviado no sistema vira imagens (uma por página) que a aba Plano alimentar da página de evolução mostra
 do jeito que o PDF foi feito. O plano estruturado (refeições, substituições, macros) usa o mesmo campo `plano`.
@@ -31,23 +31,24 @@ def pdf_para_paginas(dados):
     return paginas
 
 
-def montar_plano(titulo, prescrito, paginas, profissional="Daniel Quintal · Nutricionista · CRN3 54937"):
+PROFISSIONAL = "Daniel Quintal · Nutricionista · CRN3 54937"
+
+
+def montar_plano(titulo, prescrito, paginas, profissional=PROFISSIONAL):
     """objeto PLANO que o template entende (versão em páginas de PDF)"""
     return {"titulo": titulo, "prescrito": prescrito.strftime("%d/%m/%Y"), "profissional": profissional,
             "paginas": paginas}
 
 
 def plano_do_banco(cur, pid):
-    """PLANO do paciente para o template, ou None"""
-    cur.execute("SELECT plano FROM plano_alimentar WHERE paciente_id = %s", (pid,))
-    r = cur.fetchone()
-    return r[0] if r else None
+    """lista de planos do paciente (na ordem em que foram enviados) para o template, ou None se não tiver"""
+    cur.execute("SELECT plano FROM plano_alimentar WHERE paciente_id = %s ORDER BY id", (pid,))
+    planos = [r[0] for r in cur.fetchall()]
+    return planos or None
 
 
 def gravar(cur, pid, titulo, prescrito, nome_arquivo, pdf, plano):
+    """acrescenta um plano ao paciente (cada paciente pode ter vários)"""
     cur.execute("""INSERT INTO plano_alimentar (paciente_id, titulo, prescrito, nome_arquivo, pdf, plano)
-                   VALUES (%s, %s, %s, %s, %s, %s)
-                   ON CONFLICT (paciente_id) DO UPDATE SET titulo = EXCLUDED.titulo, prescrito = EXCLUDED.prescrito,
-                       nome_arquivo = EXCLUDED.nome_arquivo, pdf = EXCLUDED.pdf, plano = EXCLUDED.plano,
-                       enviado_em = now()""",
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
                 (pid, titulo, prescrito, nome_arquivo, pdf, json.dumps(plano, ensure_ascii=False)))

@@ -3,7 +3,7 @@
 Uso:  python sistema/app.py   (ou dois cliques em "Abrir sistema.bat")  ->  http://localhost:5000
 Só atende este computador (127.0.0.1). Depois de gravar uma avaliação, gera de novo a planilha e a página do paciente.
 """
-import os, sys, webbrowser
+import json, os, sys, webbrowser
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote, urlparse
@@ -22,6 +22,7 @@ import contatos
 import links
 import plano as planos
 import plano_app_naive
+import nutricao
 
 PORTA = 5000
 COLUNA = {v: k for k, v in CAMPOS.items()}
@@ -185,12 +186,11 @@ def paciente(pid):
         avs = avaliacoes_do_banco(cur, pid)
         cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s ORDER BY feito_em DESC LIMIT 6", (pid,))
         historico = cur.fetchall()
-        cur.execute("SELECT titulo, prescrito, nome_arquivo, enviado_em, jsonb_array_length(plano->'paginas'), "
-                    "jsonb_array_length(plano->'refeicoes'), (plano->'totais'->>'kcal')::int "
-                    "FROM plano_alimentar WHERE paciente_id = %s", (pid,))
-        r = cur.fetchone()
-        plano_atual = dict(zip(["titulo", "prescrito", "nome_arquivo", "enviado_em", "paginas", "refeicoes", "kcal"],
-                               r)) if r else None
+        cur.execute("SELECT id, titulo, prescrito, nome_arquivo, enviado_em, jsonb_array_length(plano->'paginas'), "
+                    "jsonb_array_length(plano->'refeicoes'), (plano->'totais'->>'kcal')::int, editor IS NOT NULL, "
+                    "pdf IS NOT NULL FROM plano_alimentar WHERE paciente_id = %s ORDER BY id", (pid,))
+        planos_paciente = [dict(zip(["id", "titulo", "prescrito", "nome_arquivo", "enviado_em", "paginas", "refeicoes",
+                                     "kcal", "montado", "tem_pdf"], r)) for r in cur.fetchall()]
     p["idade"] = idade(p["data_nascimento"])
     art = links.artefato(pid, p["nome"])
     url = art and art.get("url")
@@ -204,7 +204,7 @@ def paciente(pid):
     mensagens = [(t, contatos.TITULOS[t], contatos.mensagem(cfg, t, p, extra)) for t in tipos]
     return render_template("paciente.html", p=p, avs=list(reversed(avs)), primeira=primeira, ultima=ultima,
                            url=url, art=art, pedido=links.pedido(pid), historico=historico, mensagens=mensagens,
-                           plano_atual=plano_atual, hoje=date.today().isoformat(),
+                           planos=planos_paciente,
                            tem_whatsapp=bool(contatos.telefone_whatsapp(p["telefone"])), titulos=contatos.TITULOS)
 
 
@@ -372,24 +372,205 @@ def enviar_plano(pid):
     return redirect(voltar)
 
 
-@app.route("/paciente/<int:pid>/plano/remover", methods=["POST"])
-def remover_plano(pid):
+@app.route("/plano/<int:plid>/remover", methods=["POST"])
+def remover_plano(plid):
     with conectar() as con:
         cur = con.cursor()
-        p = buscar_paciente(cur, pid)
-        cur.execute("DELETE FROM plano_alimentar WHERE paciente_id = %s", (pid,))
-    flash("Plano alimentar removido da página." + pedir_atualizacao(pid, p["nome"]))
-    return redirect(url_for("paciente", pid=pid) + "#plano")
+        cur.execute("DELETE FROM plano_alimentar WHERE id = %s RETURNING paciente_id, titulo", (plid,))
+        r = cur.fetchone()
+        if not r:
+            abort(404)
+        p = buscar_paciente(cur, r[0])
+    flash(f"Plano “{r[1]}” removido da página." + pedir_atualizacao(p["id"], p["nome"]))
+    return redirect(url_for("paciente", pid=p["id"]) + "#plano")
 
 
-@app.route("/paciente/<int:pid>/plano.pdf")
-def pdf_do_plano(pid):
+@app.route("/plano/<int:plid>.pdf")
+def pdf_do_plano(plid):
     with conectar() as con:
-        r = con.execute("SELECT pdf, nome_arquivo FROM plano_alimentar WHERE paciente_id = %s", (pid,)).fetchone()
+        r = con.execute("SELECT pdf, nome_arquivo FROM plano_alimentar WHERE id = %s", (plid,)).fetchone()
     if not r or not r[0]:
         abort(404)
     return app.response_class(bytes(r[0]), mimetype="application/pdf",
                               headers={"Content-Disposition": f"inline; filename*=UTF-8''{quote(r[1] or 'plano.pdf')}"})
+
+
+# ---------- editor de planos (montar e calcular no sistema) ----------
+
+def carregar_alimentos(cur, ids=None):
+    """alimentos (nutrientes por 100 g) com suas medidas caseiras: {id: {...}}"""
+    onde, args = ("WHERE a.id = ANY(%s)", (list(ids),)) if ids is not None else ("", ())
+    cur.execute(f"SELECT a.id, a.nome, a.fonte, g.nome, {', '.join('a.' + c for c in nutricao.COLUNAS)} "
+                f"FROM alimento a LEFT JOIN alimento_grupo g ON g.id = a.grupo_id {onde}", args)
+    alimentos = {}
+    for r in cur.fetchall():
+        a = {"id": r[0], "nome": r[1], "fonte": r[2], "grupo": r[3], "medidas": []}
+        a.update({c: (float(v) if v is not None else None) for c, v in zip(nutricao.COLUNAS, r[4:])})
+        alimentos[r[0]] = a
+    if alimentos:
+        cur.execute("SELECT alimento_id, id, nome, gramas FROM medida_caseira WHERE alimento_id = ANY(%s) ORDER BY nome",
+                    (list(alimentos),))
+        for aid, mid, nome, g in cur.fetchall():
+            alimentos[aid]["medidas"].append({"id": mid, "nome": nome, "gramas": float(g)})
+    return alimentos
+
+
+def ids_do_editor(editor):
+    ids = set()
+    for r in editor.get("refeicoes", []):
+        for it in r.get("itens", []):
+            ids.add(it.get("alimento_id"))
+            ids.update(sub.get("alimento_id") for sub in it.get("subs", []))
+    return {i for i in ids if isinstance(i, int)}
+
+
+@app.route("/paciente/<int:pid>/plano/novo")
+@app.route("/plano/<int:plid>/editar")
+def editor_plano(pid=None, plid=None):
+    with conectar() as con:
+        cur = con.cursor()
+        editor = None
+        if plid is not None:
+            cur.execute("SELECT paciente_id, editor FROM plano_alimentar WHERE id = %s", (plid,))
+            r = cur.fetchone()
+            if not r or not r[1]:
+                abort(404)
+            pid, editor = r
+        p = buscar_paciente(cur, pid)
+        ultima = (avaliacoes_do_banco(cur, pid) or [None])[-1]
+        alimentos = carregar_alimentos(cur, ids_do_editor(editor)) if editor else {}
+        cur.execute("SELECT id, nome FROM alimento_grupo ORDER BY id")
+        grupos = cur.fetchall()
+    peso = float(ultima["peso_kg"]) if ultima and ultima["peso_kg"] else None
+    altura = float(ultima["altura_cm"]) if ultima and ultima["altura_cm"] else None
+    imc = peso / (altura / 100) ** 2 if peso and altura else None
+    if editor is None:
+        editor = {"titulo": "", "prescrito": date.today().isoformat(),
+                  "energia": {"sexo": p["genero"], "idade": nutricao.idade_em(p["data_nascimento"]), "peso": peso,
+                              "altura": altura, "acamado": False, "formula": nutricao.formula_sugerida(imc),
+                              "fa": 1.2, "ajuste": 0},
+                  "refeicoes": [{"hora": h, "nome": n, "obs": "", "itens": []}
+                                for h, n in (("07:00", "Café da manhã"), ("10:00", "Lanche da manhã"), ("12:30", "Almoço"),
+                                             ("16:00", "Lanche da tarde"), ("20:00", "Jantar"))]}
+    base = {"imc": round(imc, 1) if imc else None,
+            "data_avaliacao": ultima["data_avaliacao"].strftime("%d/%m/%Y") if ultima else None}
+    return render_template("editor_plano.html", p=p, plid=plid, editor=editor, alimentos=alimentos, base=base,
+                           formulas=nutricao.FORMULAS, grupos=grupos)
+
+
+@app.route("/paciente/<int:pid>/plano/salvar", methods=["POST"])
+def salvar_plano_editor(pid):
+    dados = request.get_json(silent=True) or {}
+    editor, plid = dados.get("editor") or {}, dados.get("plid")
+    if not any(it for r in editor.get("refeicoes", []) for it in r.get("itens", [])):
+        return {"erro": "Coloque pelo menos um alimento no plano."}, 400
+    with conectar() as con:
+        cur = con.cursor()
+        p = buscar_paciente(cur, pid)
+        alimentos = carregar_alimentos(cur, ids_do_editor(editor))
+        editor["energia_calculada"] = nutricao.energia(editor.get("energia") or {})
+        plano = nutricao.plano_para_paciente(editor, alimentos, planos.PROFISSIONAL)
+        prescrito = datetime.strptime(plano["prescrito"], "%d/%m/%Y").date()
+        if plid:
+            cur.execute("UPDATE plano_alimentar SET titulo = %s, prescrito = %s, plano = %s, editor = %s, enviado_em = now() "
+                        "WHERE id = %s AND paciente_id = %s RETURNING id",
+                        (plano["titulo"], prescrito, json.dumps(plano, ensure_ascii=False),
+                         json.dumps(editor, ensure_ascii=False), plid, pid))
+            if not cur.fetchone():
+                return {"erro": "Plano não encontrado."}, 404
+        else:
+            cur.execute("INSERT INTO plano_alimentar (paciente_id, titulo, prescrito, plano, editor) "
+                        "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                        (pid, plano["titulo"], prescrito, json.dumps(plano, ensure_ascii=False),
+                         json.dumps(editor, ensure_ascii=False)))
+            plid = cur.fetchone()[0]
+    flash(f"Plano “{plano['titulo']}” salvo ({plano['totais']['kcal']} kcal). Ele aparece na aba Plano alimentar "
+          f"da página do paciente." + pedir_atualizacao(pid, p["nome"]))
+    return {"ok": True, "plid": plid, "voltar": url_for("paciente", pid=pid) + "#plano"}
+
+
+@app.route("/alimentos/buscar")
+def buscar_alimentos():
+    termos = norm(request.args.get("q", "")).replace(",", " ").split()
+    if not termos:
+        return {"alimentos": []}
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute("SELECT id, nome FROM alimento")
+        achados = [(i, n) for i, n in cur.fetchall() if all(t in norm(n).replace(",", " ") for t in termos)]
+        # primeiro os que começam pela palavra buscada, depois os nomes mais curtos
+        achados.sort(key=lambda a: (not norm(a[1]).startswith(termos[0]), len(a[1])))
+        alimentos = carregar_alimentos(cur, [i for i, _ in achados[:25]])
+    return {"alimentos": [alimentos[i] for i, _ in achados[:25]]}
+
+
+@app.route("/alimentos/<int:aid>/medidas", methods=["POST"])
+def nova_medida(aid):
+    d = request.get_json(silent=True) or {}
+    nome = " ".join(str(d.get("nome", "")).split())
+    try:
+        gramas = float(str(d.get("gramas", "")).replace(",", "."))
+    except ValueError:
+        gramas = 0
+    if not nome or gramas <= 0:
+        return {"erro": "Informe o nome da medida e quantos gramas ela tem."}, 400
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute("INSERT INTO medida_caseira (alimento_id, nome, gramas) VALUES (%s, %s, %s) "
+                    "ON CONFLICT (alimento_id, nome) DO UPDATE SET gramas = EXCLUDED.gramas RETURNING id",
+                    (aid, nome, gramas))
+        mid = cur.fetchone()[0]
+    return {"id": mid, "nome": nome, "gramas": gramas}
+
+
+CAMPOS_ALIMENTO = [("kcal", "Energia (kcal)"), ("proteina_g", "Proteína (g)"), ("carboidrato_g", "Carboidrato (g)"),
+                   ("lipidios_g", "Gorduras totais (g)"), ("ag_saturados_g", "Gorduras saturadas (g)"),
+                   ("ag_trans_g", "Gorduras trans (g)"), ("fibra_g", "Fibra (g)"), ("sodio_mg", "Sódio (mg)")]
+
+
+@app.route("/alimentos", methods=["GET", "POST"])
+def alimentos_proprios():
+    if request.method == "POST":
+        f = request.form
+        nome = " ".join(f.get("nome", "").split())
+        try:
+            porcao = float(f.get("porcao", "100").replace(",", ".") or 100)
+        except ValueError:
+            porcao = 0
+        valores, erros = {}, []
+        for c, rotulo in CAMPOS_ALIMENTO:
+            v = f.get(c, "").strip().replace(",", ".")
+            try:
+                valores[c] = float(v) * 100 / porcao if v else None   # tudo por 100 g
+            except (ValueError, ZeroDivisionError):
+                erros.append(rotulo)
+        if not nome or porcao <= 0 or valores.get("kcal") is None:
+            erros.insert(0, "nome, porção e energia são obrigatórios")
+        if erros:
+            flash("Confira: " + ", ".join(erros) + ".", "aviso")
+        else:
+            with conectar() as con:
+                cur = con.cursor()
+                cols = ["fonte", "nome", "grupo_id"] + list(valores)
+                cur.execute(f"INSERT INTO alimento ({', '.join(cols)}) VALUES ({', '.join(['%s'] * len(cols))}) RETURNING id",
+                            ["proprio", nome, int(f["grupo_id"]) if f.get("grupo_id") else None] + list(valores.values()))
+                aid = cur.fetchone()[0]
+                if f.get("medida_nome", "").strip() and porcao:
+                    cur.execute("INSERT INTO medida_caseira (alimento_id, nome, gramas) VALUES (%s, %s, %s)",
+                                (aid, " ".join(f["medida_nome"].split()), porcao))
+            flash(f"Alimento “{nome}” cadastrado. Já aparece na busca do editor de planos.")
+        return redirect(url_for("alimentos_proprios"))
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute("SELECT id, nome FROM alimento_grupo ORDER BY id")
+        grupos = cur.fetchall()
+        cur.execute("SELECT id FROM alimento WHERE fonte = 'proprio' ORDER BY lower(nome)")
+        ids = [r[0] for r in cur.fetchall()]
+        lista = carregar_alimentos(cur, ids)
+        cur.execute("SELECT count(*) FROM alimento WHERE fonte = 'TACO'")
+        n_taco = cur.fetchone()[0]
+    return render_template("alimentos.html", proprios=[lista[i] for i in ids], grupos=grupos, n_taco=n_taco,
+                           campos=CAMPOS_ALIMENTO)
 
 
 # ---------- links publicados ----------

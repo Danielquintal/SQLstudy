@@ -110,7 +110,7 @@ footer{color:var(--muted);font-size:12px}
 .ref .principal{font-weight:500}
 .ref .subs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
 .ref .subs span.ou{font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-.ref .subs span.op{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--ink)}
+.ref .subs .op{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--ink)}
 .ref .rec-link{margin:0 18px 14px;font-size:13px;color:var(--muted)}
 .ref .qtd{color:var(--muted);font-weight:400}
 .ref .obs{margin:auto 18px 14px;padding:8px 12px;border-radius:8px;background:var(--bg);font-size:13px;color:var(--muted)}
@@ -136,6 +136,28 @@ details summary:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
 .pag img{display:block;width:100%;height:auto;cursor:zoom-in}
 .pag.zoom img{width:200%;max-width:none;cursor:zoom-out}
 .pag figcaption{text-align:center;font-size:12px;color:var(--muted)}
+/* cada plano é uma faixa que abre ao tocar */
+.plano-item>summary{list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;padding:16px 48px 16px 18px;position:relative;
+  background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.plano-item>summary::-webkit-details-marker{display:none}
+.plano-item>summary::after{content:"+";position:absolute;right:18px;top:12px;font:400 24px var(--sans);color:var(--muted)}
+.plano-item[open]>summary::after{content:"−"}
+.plano-item[open]>summary{border-color:var(--brand-soft)}
+.plano-item .pl-tit{font-size:17px;font-weight:600;text-wrap:balance}
+.plano-item .pl-info{font:500 13px var(--mono);color:var(--muted)}
+.plano-corpo{padding-top:16px;display:flex;flex-direction:column;gap:16px}
+/* lista de substituição por grupos e o botão que leva até o grupo */
+.meta .agua{color:var(--ink)}
+.op-grupo{font:inherit;cursor:pointer;color:var(--ink);border-style:dashed!important}
+.op-grupo:hover{border-color:var(--c2)!important}
+.op-grupo:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
+details.grupo{border-top:1px solid var(--line);padding:4px 0}
+details.grupo>summary{font-size:14px;padding:8px 0}
+details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+.grupo-itens{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0 20px;font-size:13px;padding-bottom:8px}
+.grupo-itens div{display:flex;flex-direction:column;gap:1px;border-bottom:1px solid var(--line);padding:7px 0}
+.grupo-itens span{font-weight:500}
+.grupo-itens b{font-weight:400;font-size:12px;color:var(--muted)}
 </style>
 
 <header class="band">
@@ -394,39 +416,40 @@ function drawCls(rows) {
 // alimento do plano: texto pronto ("Banana - 1 unidade") ou {nome, qtd} lido do PDF do App Naive
 const alimento = a => typeof a === 'string' ? esc(a) : `${esc(a.nome)}${a.qtd ? ` <span class="qtd">${esc(a.qtd)}</span>` : ''}`;
 
-function drawPlano() {
-  const P = PLANO, T = P.totais;
+// um ou vários planos (ex.: dia de treino e dia de descanso); páginas antigas trazem um plano só
+const PLANOS = !PLANO ? [] : Array.isArray(PLANO) ? PLANO : [PLANO];
+
+function planoHTML(P, k) {
+  const T = P.totais;
   if (P.paginas) {
     // plano enviado em PDF: as páginas aparecem como imagens, do jeito que o PDF foi feito; tocar amplia
-    document.getElementById('plano').innerHTML = `
-      <div class="card"><div class="meta"><strong>${esc(P.titulo)}</strong><span>Prescrito em ${esc(P.prescrito)}</span><span>${esc(P.profissional)}</span>
+    return `<div class="card"><div class="meta"><strong>${esc(P.titulo)}</strong><span>Prescrito em ${esc(P.prescrito)}</span><span>${esc(P.profissional)}</span>
         <span>Toque numa página para ampliar.</span></div></div>
       ${P.paginas.map((src, i) => `<figure class="pag"><div class="pag-box"><img src="${src}" alt="Página ${i + 1} de ${P.paginas.length} do plano alimentar" loading="lazy"></div>
         <figcaption>Página ${i + 1} de ${P.paginas.length}</figcaption></figure>`).join('')}`;
-    document.querySelectorAll('.pag img').forEach(img => img.addEventListener('click', () => img.closest('.pag').classList.toggle('zoom')));
-    return;
   }
   let macrosCard = '';
   if (T) {
     const kc = { p: T.p * 4, l: T.l * 9, c: T.c * 4 }, soma = kc.p + kc.l + kc.c;
-    const macro = (k, label, tok) => `<div class="macro"><span>${label}</span><span class="bar"><i style="width:${(kc[k] / soma * 100).toFixed(1)}%;background:var(${tok})"></i></span><span class="g">${fmt(T[k])} g · ${Math.round(kc[k] / soma * 100)}%</span></div>`;
+    const macro = (c, label, tok) => `<div class="macro"><span>${label}</span><span class="bar"><i style="width:${(kc[c] / soma * 100).toFixed(1)}%;background:var(${tok})"></i></span><span class="g">${fmt(T[c])} g · ${Math.round(kc[c] / soma * 100)}%</span></div>`;
     macrosCard = `<div class="card">
         <div class="macro-total"><span class="v">${T.kcal.toLocaleString('pt-BR')}</span><small>kcal por dia</small></div>
         <div class="macros">${macro('p', 'Proteínas', '--c2')}${macro('c', 'Carboidratos', '--c4')}${macro('l', 'Lipídeos', '--c3')}</div>
       </div>`;
   }
   const nomesReceitas = (P.receitas || []).map(r => r.nome.toLowerCase()).join(' e ');
-  let marcados = {};
-  try { marcados = JSON.parse(localStorage.getItem('compras') || '{}'); } catch (e) {}
-  document.getElementById('plano').innerHTML = `
+  return `
     <div class="plano-top"${T ? '' : ' style="grid-template-columns:minmax(0,1fr)"'}>
-      <div class="card"><div class="meta"><strong>${esc(P.titulo)}</strong><span>Prescrito em ${esc(P.prescrito)}</span><span>${esc(P.profissional)}</span></div></div>
+      <div class="card"><div class="meta"><strong>${esc(P.titulo)}</strong><span>Prescrito em ${esc(P.prescrito)}</span><span>${esc(P.profissional)}</span>
+        ${P.agua ? `<span class="agua">Água: ${esc(P.agua)}</span>` : ''}</div></div>
       ${macrosCard}
     </div>
     <div class="refeicoes">${P.refeicoes.map(r => `
       <article class="ref">
-        <div class="ref-h">${r.hora ? `<span class="hora">${esc(r.hora)}</span>` : ''}<h3>${esc(r.nome)}</h3>${r.kcal != null ? `<span class="kc">${r.kcal} kcal · P ${fmt(r.p)} · C ${fmt(r.c)} · L ${fmt(r.l)}</span>` : ''}</div>
-        <ul>${r.itens.map(i => `<li><span class="principal">${alimento(i.principal || i)}</span>${i.subs.length ? `<span class="subs"><span class="ou">ou</span>${i.subs.map(s => `<span class="op">${alimento(s)}</span>`).join('')}</span>` : ''}</li>`).join('')}</ul>
+        <div class="ref-h">${r.hora ? `<span class="hora">${esc(r.hora)}</span>` : ''}<h3>${esc(r.nome)}</h3>${r.kcal ? `<span class="kc">${r.kcal} kcal · P ${fmt(r.p)} · C ${fmt(r.c)} · L ${fmt(r.l)}</span>` : ''}</div>
+        ${r.itens.length ? '' : '<p class="obs">Sem alimentos definidos: refeição livre.</p>'}<ul>${r.itens.map(i => `<li><span class="principal">${alimento(i.principal || i)}</span>${i.subs.length ? `<span class="subs"><span class="ou">ou</span>${i.subs.map(s => s.grupo && (P.grupos || []).length
+          ? `<button type="button" class="op op-grupo" data-plano="${k}" data-grupo="${s.grupo}">${esc(s.nome)} <span class="qtd">da lista de substituição</span></button>`
+          : `<span class="op">${alimento(s)}</span>`).join('')}</span>` : ''}</li>`).join('')}</ul>
         ${r.obs ? `<p class="obs"><b>Observação:</b> ${esc(r.obs)}</p>` : ''}
         ${r.receitas && nomesReceitas ? `<p class="rec-link">Veja as receitas (${esc(nomesReceitas)}) abaixo.</p>` : ''}
       </article>`).join('')}
@@ -435,17 +458,47 @@ function drawPlano() {
       <div class="card"><h3>${esc(r.nome)}</h3>
         <p class="lbl">Ingredientes</p><ul>${r.ingredientes.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
         <p class="lbl">Modo de preparo</p><ol>${r.preparo.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>`).join('')}</div>` : ''}
+    ${(P.grupos || []).length ? `<div class="card w12"><details class="lista-subs" id="subs${k}"><summary>Lista de substituição (${P.grupos.length} grupos)</summary>
+      <p class="note" style="margin:6px 0 8px">Quando o plano diz “N porções do Grupo X”, escolha um alimento do grupo e use N vezes a porção indicada.</p>
+      ${P.grupos.map(g => `<details class="grupo" id="g${k}_${(g.nome.match(/\d+/) || [''])[0]}"><summary>${esc(g.nome)} <span class="qtd">${g.itens.length} alimentos</span></summary>
+        <div class="grupo-itens">${g.itens.map(i => `<div><span>${esc(i.nome)}</span><b>${esc(i.qtd)}</b></div>`).join('')}</div></details>`).join('')}
+    </details></div>` : ''}
     ${(P.compras || []).length ? `<div class="card w12"><details><summary>Lista de compras</summary>
       <p class="note" style="margin:6px 0 8px">Marque o que já comprou. As marcações ficam salvas só neste aparelho.</p>
-      <div class="compras">${P.compras.map((c, i) => `<label for="cp${i}"><input type="checkbox" id="cp${i}" data-item="${esc(c)}" ${marcados[c] ? 'checked' : ''}><span>${esc(c)}</span></label>`).join('')}</div>
+      <div class="compras">${P.compras.map((c, i) => `<label for="cp${k}_${i}"><input type="checkbox" id="cp${k}_${i}" data-item="${esc(c)}"><span>${esc(c)}</span></label>`).join('')}</div>
     </details></div>` : ''}
     ${P.micros && P.micros.length ? `<div class="card w12"><details><summary>Vitaminas, minerais e tipos de gordura (total do dia)</summary>
-      <div class="micros" style="margin-top:10px">${P.micros.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+      <div class="micros" style="margin-top:10px">${P.micros.map(([c, v]) => `<div><span>${esc(c)}</span><b>${esc(v)}</b></div>`).join('')}</div>
     </details></div>` : ''}`;
-  document.querySelectorAll('.compras input').forEach(cb => cb.addEventListener('change', () => {
-    marcados[cb.dataset.item] = cb.checked;
-    try { localStorage.setItem('compras', JSON.stringify(marcados)); } catch (e) {}
+}
+
+function drawPlano() {
+  // um plano: aparece direto, como sempre foi; vários: cada um é uma faixa que abre ao tocar (como a de vitaminas)
+  document.getElementById('plano').innerHTML = PLANOS.length === 1 ? planoHTML(PLANOS[0], 0) :
+    `<p class="note">São ${PLANOS.length} planos alimentares. Toque em um para abrir.</p>` +
+    PLANOS.map((P, k) => `<details class="plano-item">
+      <summary><span class="pl-tit">${esc(P.titulo)}</span>
+        <span class="pl-info">Prescrito em ${esc(P.prescrito)}${P.totais ? ` · ${P.totais.kcal.toLocaleString('pt-BR')} kcal por dia` : ''}${P.refeicoes ? ` · ${P.refeicoes.length} refeições` : ''}</span></summary>
+      <div class="plano-corpo">${planoHTML(P, k)}</div>
+    </details>`).join('');
+  document.querySelectorAll('.pag img').forEach(img => img.addEventListener('click', () => img.closest('.pag').classList.toggle('zoom')));
+  document.querySelectorAll('.op-grupo').forEach(b => b.addEventListener('click', () => {
+    const g = document.getElementById(`g${b.dataset.plano}_${b.dataset.grupo}`);
+    if (!g) return;
+    document.getElementById(`subs${b.dataset.plano}`).open = true;
+    g.open = true;
+    g.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }));
+  let marcados = {};
+  try { marcados = JSON.parse(localStorage.getItem('compras') || '{}'); } catch (e) {}
+  document.querySelectorAll('.compras input').forEach(cb => {
+    cb.checked = !!marcados[cb.dataset.item];
+    cb.addEventListener('change', () => {
+      marcados[cb.dataset.item] = cb.checked;
+      document.querySelectorAll('.compras input').forEach(o => { if (o.dataset.item === cb.dataset.item) o.checked = cb.checked; });
+      try { localStorage.setItem('compras', JSON.stringify(marcados)); } catch (e) {}
+    });
+  });
 }
 
 function render() {
@@ -454,7 +507,7 @@ function render() {
   document.getElementById('kpis').hidden = plano;
   document.querySelector('.range').hidden = plano;
   document.getElementById('sub').textContent = plano
-    ? `Plano alimentar prescrito em ${PLANO.prescrito}`
+    ? (PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Plano alimentar prescrito em ${PLANOS[0].prescrito}`)
     : `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${rows[0].dataAvaliacao} a ${rows[rows.length - 1].dataAvaliacao} · Altura ${fmt(n(rows[rows.length - 1].estatura), 0)} cm`;
   if (plano) return;
   drawKpis(rows);
@@ -478,7 +531,7 @@ new MutationObserver(render).observe(document.documentElement, { attributes: tru
 if (document.fonts) document.fonts.ready.then(render);
 
 document.getElementById('foot').textContent = 'Fonte: App Naive · evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
-if (PLANO) { document.getElementById('t-plano').hidden = false; drawPlano(); }
+if (PLANOS.length) { document.getElementById('t-plano').hidden = false; drawPlano(); }
 const inicial = location.hash.slice(1);
 const alvo = document.querySelector(`.tab[data-view="${inicial}"]`);
 if (alvo) alvo.click(); else render();

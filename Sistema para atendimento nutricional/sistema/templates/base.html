@@ -16,6 +16,7 @@
     <nav class="menu" aria-label="Menu">
       <a class="btn" href="{{ url_for('inicio') }}">Pacientes</a>
       <a class="btn" href="{{ url_for('contatos_do_dia') }}">Contatos{% if n_contatos %} <span class="badge">{{ n_contatos }}</span>{% endif %}</a>
+      <a class="btn" href="{{ url_for('alimentos_proprios') }}">Alimentos</a>
       <a class="btn" href="{{ url_for('lista_links') }}">Links{% if n_pedidos %} <span class="badge">{{ n_pedidos }}</span>{% endif %}</a>
       <a class="btn" href="{{ url_for('configuracao') }}">Configuração</a>
     </nav>

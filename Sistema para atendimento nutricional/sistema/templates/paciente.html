@@ -70,38 +70,56 @@
 </div>
 
 <div class="card" id="plano">
-  <h2>Plano alimentar</h2>
-  {% if plano_atual %}
-  <p style="margin:0"><b>{{ plano_atual.titulo }}</b> · prescrito em {{ plano_atual.prescrito|br }}
-    {% if plano_atual.refeicoes %}· {{ plano_atual.refeicoes }} refeições{% if plano_atual.kcal %} · {{ plano_atual.kcal }} kcal{% endif %} (lido do App Naive)
-    {% else %}· {{ plano_atual.paginas }} página{{ 's' if plano_atual.paginas != 1 }} do PDF{% endif %}
-    <span class="note"> · {{ plano_atual.nome_arquivo }}, enviado em {{ plano_atual.enviado_em.strftime('%d/%m/%Y') }}</span></p>
-  <div class="acoes">
-    <a class="btn" href="{{ url_for('pdf_do_plano', pid=p.id) }}" target="_blank" rel="noopener">Abrir o PDF</a>
-    {% if avs %}<a class="btn" href="{{ url_for('evolucao', pid=p.id) }}#plano" target="_blank" rel="noopener">Ver como o paciente vê</a>{% endif %}
-    <form method="post" action="{{ url_for('remover_plano', pid=p.id) }}" class="confirma">
-      <button type="button" class="btn perigo" onclick="this.hidden=true;this.nextElementSibling.hidden=false">Remover da página</button>
-      <span hidden class="confirma">Remover o plano? <button class="btn perigo cheio">Sim, remover</button></span>
-    </form>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2>Plano alimentar</h2>
+    <a class="btn pri" href="{{ url_for('editor_plano', pid=p.id) }}">+ Montar plano no sistema</a>
   </div>
+  {% if planos %}
+  <p class="note">{{ planos|length }} plano{{ 's' if planos|length > 1 }} na página do paciente{% if planos|length > 1 %}: cada um aparece
+    como uma faixa que ele toca para abrir{% endif %}.</p>
+  <div class="tablebox"><table>
+    <tbody>
+    {% for pl in planos %}
+      <tr>
+        <td class="t"><b>{{ pl.titulo }}</b><br><span class="note">prescrito em {{ pl.prescrito|br }}
+          {% if pl.refeicoes and not pl.montado %}· {{ pl.refeicoes }} refeições{% if pl.kcal %} · {{ pl.kcal }} kcal{% endif %} (lido do App Naive)
+          {% elif pl.montado %}· {{ pl.refeicoes }} refeições · {{ pl.kcal }} kcal
+          {% elif pl.montado %}· montado no sistema{% else %}· {{ pl.paginas }} página{{ 's' if pl.paginas != 1 }} do PDF{% endif %}</span></td>
+        <td><div class="acoes" style="justify-content:flex-end">
+          {% if pl.montado %}<a class="btn" href="{{ url_for('editor_plano', plid=pl.id) }}">Editar</a>{% endif %}
+          {% if pl.tem_pdf %}<a class="btn" href="{{ url_for('pdf_do_plano', plid=pl.id) }}" target="_blank" rel="noopener">Abrir o PDF</a>{% endif %}
+          <form method="post" action="{{ url_for('remover_plano', plid=pl.id) }}" class="confirma">
+            <button type="button" class="btn perigo" onclick="this.hidden=true;this.nextElementSibling.hidden=false">Remover</button>
+            <span hidden class="confirma">Remover este plano? <button class="btn perigo cheio">Sim, remover</button></span>
+          </form>
+        </div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if avs %}<div class="acoes"><a class="btn" href="{{ url_for('evolucao', pid=p.id) }}#plano" target="_blank" rel="noopener">Ver como o paciente vê</a></div>{% endif %}
   {% else %}
   <p class="note">Nenhum plano na página deste paciente. Envie o PDF e ele aparece na aba “Plano alimentar” do link.</p>
   {% endif %}
-  <form method="post" action="{{ url_for('enviar_plano', pid=p.id) }}" enctype="multipart/form-data" class="cadastro">
-    <div class="campo"><label for="pl-titulo">Título (opcional)</label>
-      <input class="texto" id="pl-titulo" name="titulo" placeholder="O do PDF do App Naive, ou Plano alimentar"></div>
-    <div class="campo"><label for="pl-data">Prescrito em (opcional)</label>
-      <input id="pl-data" type="date" name="prescrito"></div>
-    <div class="campo"><label for="pl-arq">PDF do plano</label>
-      <input id="pl-arq" type="file" name="arquivo" accept="application/pdf,.pdf" required></div>
-    <div class="campo" style="justify-content:flex-end"><button class="btn pri">{{ 'Trocar o plano' if plano_atual else 'Enviar plano' }}</button></div>
+  <h2 style="font-size:14px;margin-top:6px">{{ 'Ou envie o PDF de outro plano' if planos else 'Ou envie o PDF de um plano' }}</h2>
+  <form method="post" action="{{ url_for('enviar_plano', pid=p.id) }}" enctype="multipart/form-data" class="ficha" style="gap:10px">
+    <div class="cadastro">
+      <div class="campo"><label for="pl-titulo">Título (opcional)</label>
+        <input class="texto" id="pl-titulo" name="titulo" placeholder="Ex.: Dia de treino (ou o título do PDF)"></div>
+      <div class="campo"><label for="pl-data">Prescrito em (opcional)</label>
+        <input id="pl-data" type="date" name="prescrito"></div>
+      <div class="campo"><label for="pl-arq">PDF do plano</label>
+        <input id="pl-arq" type="file" name="arquivo" accept="application/pdf,.pdf" required></div>
+      <div class="campo" style="justify-content:flex-end"><button class="btn pri">{{ 'Adicionar plano' if planos else 'Enviar plano' }}</button></div>
+    </div>
+    <label class="note" style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" name="como_paginas" value="1"> Mostrar o PDF página por página, mesmo sendo do App Naive
+    </label>
   </form>
-  <label class="note" style="display:flex;gap:8px;align-items:center">
-    <input type="checkbox" name="como_paginas" value="1"> Mostrar o PDF página por página, mesmo sendo do App Naive
-  </label>
-  <p class="note">PDF do App Naive vira a dieta interativa (refeições, substituições, calorias e macros), com título e data
-    lidos do próprio PDF. PDF feito por você aparece página por página, do jeito que foi feito.
-    {% if url %}Depois de enviar ou trocar, o link deste paciente entra na fila para atualizar.{% endif %}</p>
+  <p class="note">Cada PDF enviado vira mais um plano (para trocar um plano, remova o antigo). PDF do App Naive vira a dieta
+    interativa, com título e data lidos do próprio PDF; dê um título próprio para diferenciar (ex.: “Dia de treino”,
+    “Dia de descanso”). PDF feito por você aparece página por página.
+    {% if url %}Depois de enviar ou remover, o link deste paciente entra na fila para atualizar.{% endif %}</p>
 </div>
 
 <div class="card" style="padding:6px 8px">

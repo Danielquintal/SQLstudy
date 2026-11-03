@@ -17,7 +17,7 @@
     {
       "label": "3. Recarregar banco (esquema + dados)",
       "type": "shell",
-      "command": "& 'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe' -U postgres -h localhost -d app_naive -v ON_ERROR_STOP=1 -f sql/01_schema.sql -f sql/02_dados.sql -f sql/03_whatsapp.sql -f sql/04_plano.sql",
+      "command": "& 'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe' -U postgres -h localhost -d app_naive -v ON_ERROR_STOP=1 -f sql/01_schema.sql -f sql/02_dados.sql -f sql/03_whatsapp.sql -f sql/04_plano.sql -f sql/05_varios_planos.sql -f sql/06_alimentos.sql -f sql/07_plano_editor.sql; python scripts/carregar_taco.py",
       "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
       "problemMatcher": []
     },

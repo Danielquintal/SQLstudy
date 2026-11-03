@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar plano' if plid else 'Novo plano' }} · {{ p.nome }}{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a> / <a href="{{ url_for('paciente', pid=p.id) }}#plano">{{ p.nome }}</a></p>
+  <h1>{{ 'Editar plano alimentar' if plid else 'Montar plano alimentar' }}</h1>
+  <p class="sub">Busque os alimentos da TACO ou os seus, escolha a quantidade e acompanhe o cálculo ao lado.</p>
+</div>
+{% endblock %}
+{% block corpo %}
+<div class="editor">
+  <div class="ed-main">
+    <div class="card">
+      <div class="cadastro">
+        <div class="campo" style="grid-column:span 2"><label for="titulo">Título do plano</label>
+          <input class="texto" id="titulo" placeholder="Ex.: Dia de treino"></div>
+        <div class="campo"><label for="prescrito">Prescrito em</label><input id="prescrito" type="date"></div>
+      </div>
+    </div>
+    <div id="refeicoes" class="lista"></div>
+    <div class="acoes"><button type="button" class="btn" id="add-ref">+ Refeição</button>
+      <a class="btn" href="{{ url_for('alimentos_proprios') }}" target="_blank" rel="noopener">Cadastrar alimento próprio (abre em outra aba)</a></div>
+  </div>
+
+  <aside class="ed-lado">
+    <div class="card">
+      <h2>Meta energética</h2>
+      <div class="meta-grid">
+        <div class="campo"><label for="e-sexo">Sexo</label>
+          <select id="e-sexo"><option value=""></option><option value="F">Feminino</option><option value="M">Masculino</option></select></div>
+        <div class="campo"><label for="e-idade">Idade</label><input id="e-idade" inputmode="numeric"></div>
+        <div class="campo"><label for="e-peso">Peso (kg)</label><input id="e-peso" inputmode="decimal"></div>
+        <div class="campo"><label for="e-altura">Altura (cm)</label><input id="e-altura" inputmode="decimal"></div>
+      </div>
+      <p class="note" id="e-imc"></p>
+      <label class="note" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="e-acamado"> Paciente acamado</label>
+      <div class="meta-grid">
+        <div class="campo" style="grid-column:span 2"><label for="e-formula">Fórmula</label>
+          <select id="e-formula">{% for k, v in formulas.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+        <div class="campo"><label for="e-fa">Fator atividade</label><input id="e-fa" inputmode="decimal"></div>
+        <div class="campo"><label for="e-ajuste">Ajuste (kcal)</label><input id="e-ajuste" inputmode="decimal" placeholder="ex.: -500"></div>
+      </div>
+      <p class="note" id="e-regra"></p>
+      <div class="energia">
+        <div><span>TMB</span><b id="r-tmb">–</b></div>
+        <div><span>GET</span><b id="r-get">–</b></div>
+        <div class="destaque"><span>Meta</span><b id="r-meta">–</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Plano montado</h2>
+      <div class="total-kcal"><b id="t-kcal">0</b><span>kcal</span><span class="note" id="t-diff"></span></div>
+      <div class="barra-meta"><i id="t-bar"></i></div>
+      <table class="macros-ed">
+        <thead><tr><th class="t"></th><th>g</th><th>kcal %</th><th>g/kg</th></tr></thead>
+        <tbody>
+          <tr><td class="t">Proteína</td><td id="t-p">0</td><td id="t-pp">–</td><td id="t-pk">–</td></tr>
+          <tr><td class="t">Carboidrato</td><td id="t-c">0</td><td id="t-cp">–</td><td id="t-ck">–</td></tr>
+          <tr><td class="t">Gordura</td><td id="t-l">0</td><td id="t-lp">–</td><td id="t-lk">–</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Fibra: <b id="t-fibra">0</b> g · Sódio: <b id="t-sodio">0</b> mg</p>
+      <p class="note">Calorias e nutrientes contam só a opção principal de cada alimento; as trocas vêm com a mesma energia.</p>
+    </div>
+  </aside>
+</div>
+
+<div class="barra">
+  <div class="acoes">
+    <button type="button" class="btn pri" id="salvar">Salvar plano</button>
+    <a class="btn" href="{{ url_for('paciente', pid=p.id) }}#plano">Cancelar</a>
+    <span class="note" id="msg-salvar" role="status"></span>
+  </div>
+</div>
+
+<script>
+// Estado do plano (mesmo formato que o servidor guarda) e cache dos alimentos usados (nutrientes por 100 g)
+const E = {{ editor|tojson }};
+const ALIM = {{ alimentos|tojson }};
+const URL_SALVAR = {{ url_for('salvar_plano_editor', pid=p.id)|tojson }};
+const URL_BUSCA = {{ url_for('buscar_alimentos')|tojson }};
+const PLID = {{ plid|tojson }};
+E.energia = E.energia || {};
+const $ = id => document.getElementById(id);
+const num = v => { const x = parseFloat(String(v ?? '').replace(',', '.')); return isFinite(x) ? x : null; };
+const br = (v, c = 0) => (v ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
+const fmt = v => (Math.round(v * 100) / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let sujo = false;
+
+// ---------- energia (as mesmas fórmulas de scripts/nutricao.py) ----------
+const FAO = [[18, [17.5, 651], [12.2, 746]], [30, [15.3, 679], [14.7, 496]], [60, [11.6, 879], [8.7, 829]], [999, [13.5, 487], [10.5, 596]]];
+function tmb(f, sexo, peso, alt, idade) {
+  if (!peso || idade == null || !['M', 'F'].includes(sexo)) return null;
+  const h = sexo === 'M';
+  if (f === 'fao') { const [a, b] = FAO.find(x => idade < x[0])[h ? 1 : 2]; return a * peso + b; }
+  if (!alt) return null;
+  if (f === 'mifflin') return 10 * peso + 6.25 * alt - 5 * idade + (h ? 5 : -161);
+  return h ? 66.47 + 13.75 * peso + 5.003 * alt - 6.755 * idade : 655.1 + 9.563 * peso + 1.850 * alt - 4.676 * idade;
+}
+const sugerida = (imc, acamado) => acamado ? 'fao' : (imc && imc >= 30 ? 'mifflin' : 'harris');
+let formulaManual = !!PLID;   // num plano já salvo, mantém a fórmula escolhida
+function energia() {
+  const e = E.energia, peso = num(e.peso), alt = num(e.altura), idade = num(e.idade);
+  const imc = peso && alt ? peso / (alt / 100) ** 2 : null;
+  $('e-imc').textContent = imc ? `IMC ${br(imc, 1)} kg/m²{% if base.data_avaliacao %} (peso e altura da avaliação de {{ base.data_avaliacao }}){% endif %}` : 'Informe peso e altura.';
+  if (!formulaManual) { e.formula = sugerida(imc, e.acamado); $('e-formula').value = e.formula; }
+  const regra = e.acamado ? 'Acamado: FAO/OMS.' : imc >= 30 ? 'IMC ≥ 30: Mifflin-St Jeor.' : 'Adulto: Harris-Benedict.';
+  $('e-regra').textContent = `Sugestão: ${regra}${e.formula !== sugerida(imc, e.acamado) ? ' (você escolheu outra fórmula)' : ''}`;
+  const t = tmb(e.formula, e.sexo, peso, alt, idade);
+  const get = t != null ? t * (num(e.fa) || 1) : null, meta = get != null ? get + (num(e.ajuste) || 0) : null;
+  $('r-tmb').textContent = t != null ? `${br(t)} kcal` : '–';
+  $('r-get').textContent = get != null ? `${br(get)} kcal` : '–';
+  $('r-meta').textContent = meta != null ? `${br(meta)} kcal` : '–';
+  return meta;
+}
+
+// ---------- nutrientes ----------
+function nutr(aid, g) {
+  const a = ALIM[aid], f = (g || 0) / 100, o = {};
+  for (const c of ['kcal', 'proteina_g', 'carboidrato_g', 'lipidios_g', 'fibra_g', 'sodio_mg']) o[c] = a && a[c] != null ? a[c] * f : 0;
+  return o;
+}
+function somar(lista) {
+  const t = { kcal: 0, proteina_g: 0, carboidrato_g: 0, lipidios_g: 0, fibra_g: 0, sodio_mg: 0 };
+  for (const n of lista) for (const c in t) t[c] += n[c];
+  return t;
+}
+function equivalente(aidSub, kcal, gPadrao) {
+  // gramas do substituto com a mesma energia da opção principal
+  const k = ALIM[aidSub] && ALIM[aidSub].kcal;
+  return k ? Math.round(kcal / k * 100) : gPadrao;
+}
+
+function atualizarTrocas(k) {
+  // trocas com a mesma energia do principal, recalculadas quando a quantidade dele muda
+  const it = pegar(k), kcal = nutr(it.alimento_id, num(it.gramas)).kcal;
+  (it.subs || []).forEach((s, si) => {
+    if (s.manual) return;
+    const g = equivalente(s.alimento_id, kcal, num(s.gramas));
+    const m = s.medida && (ALIM[s.alimento_id].medidas || []).find(x => x.nome === s.medida.nome);
+    aplicarQtd(s, m ? Math.round(g / m.gramas * 100) / 100 : g, m ? m.nome : 'g');
+    const q = document.querySelector(`.q[data-k="${k}-${si}"]`);
+    if (q) { q.value = qtdMostrada(s); q.parentElement.querySelector('.g-eq').textContent = s.medida ? `= ${fmt(s.gramas)} g` : ''; }
+  });
+}
+
+function totais() {
+  const meta = energia();
+  const todos = [];
+  E.refeicoes.forEach((r, ri) => {
+    const t = somar(r.itens.map(it => nutr(it.alimento_id, num(it.gramas))));
+    todos.push(t);
+    const el = $(`tr-${ri}`);
+    if (el) el.textContent = `${br(t.kcal)} kcal · P ${br(t.proteina_g, 1)} · C ${br(t.carboidrato_g, 1)} · G ${br(t.lipidios_g, 1)}`;
+    r.itens.forEach((it, ii) => {
+      const n = nutr(it.alimento_id, num(it.gramas)), c = $(`ti-${ri}-${ii}`);
+      if (c) c.textContent = `${br(n.kcal)} kcal · P ${br(n.proteina_g, 1)} · C ${br(n.carboidrato_g, 1)} · G ${br(n.lipidios_g, 1)}`;
+      (it.subs || []).forEach((s, si) => {
+        const ns = nutr(s.alimento_id, num(s.gramas)), cs = $(`ts-${ri}-${ii}-${si}`);
+        if (cs) cs.textContent = `${br(ns.kcal)} kcal`;
+      });
+    });
+  });
+  const d = somar(todos), peso = num(E.energia.peso);
+  const kc = { p: d.proteina_g * 4, c: d.carboidrato_g * 4, l: d.lipidios_g * 9 }, soma = kc.p + kc.c + kc.l;
+  $('t-kcal').textContent = br(d.kcal);
+  $('t-diff').textContent = meta ? `${d.kcal >= meta ? '+' : '−'}${br(Math.abs(d.kcal - meta))} kcal da meta (${br(d.kcal / meta * 100)}%)` : '';
+  $('t-bar').style.width = meta ? Math.min(100, d.kcal / meta * 100) + '%' : '0';
+  $('t-bar').classList.toggle('acima', !!meta && d.kcal > meta * 1.05);
+  for (const [k, c] of [['p', 'proteina_g'], ['c', 'carboidrato_g'], ['l', 'lipidios_g']]) {
+    $(`t-${k}`).textContent = br(d[c], 1);
+    $(`t-${k}p`).textContent = soma ? br(kc[k] / soma * 100) + '%' : '–';
+    $(`t-${k}k`).textContent = peso ? br(d[c] / peso, 2) : '–';
+  }
+  $('t-fibra').textContent = br(d.fibra_g, 1);
+  $('t-sodio').textContent = br(d.sodio_mg);
+}
+
+// ---------- quantidade: gramas ou medida caseira ----------
+function opcoesUnidade(it) {
+  const a = ALIM[it.alimento_id] || { medidas: [] };
+  const atual = it.medida ? it.medida.nome : 'g';
+  return `<option value="g"${atual === 'g' ? ' selected' : ''}>g</option>` +
+    a.medidas.map(m => `<option value="${esc(m.nome)}"${m.nome === atual ? ' selected' : ''}>${esc(m.nome)} (${fmt(m.gramas)} g)</option>`).join('') +
+    '<option value="+">+ nova medida…</option>';
+}
+const qtdMostrada = it => it.medida ? fmt(it.medida.qtd) : fmt(num(it.gramas) || 0);
+function aplicarQtd(it, valor, unidade) {
+  const v = num(valor) || 0;
+  if (unidade === 'g' || !unidade) { it.medida = null; it.gramas = v; return; }
+  const m = (ALIM[it.alimento_id].medidas || []).find(x => x.nome === unidade);
+  it.medida = { nome: m.nome, gramas: m.gramas, qtd: v };
+  it.gramas = Math.round(v * m.gramas * 10) / 10;
+}
+
+function linhaQtd(it, chave) {
+  return `<span class="qtd-ed"><input class="q" data-k="${chave}" value="${qtdMostrada(it)}" inputmode="decimal" aria-label="Quantidade">
+    <select class="u" data-k="${chave}" aria-label="Unidade">${opcoesUnidade(it)}</select>
+    <span class="g-eq">${it.medida ? `= ${fmt(num(it.gramas))} g` : ''}</span></span>`;
+}
+
+// ---------- desenho das refeições ----------
+function desenhar() {
+  $('refeicoes').innerHTML = E.refeicoes.map((r, ri) => `
+    <div class="card refeicao" data-ri="${ri}">
+      <div class="ref-top">
+        <input type="time" class="r-hora" data-ri="${ri}" value="${esc(r.hora || '')}" aria-label="Horário">
+        <input class="texto r-nome" data-ri="${ri}" value="${esc(r.nome)}" aria-label="Nome da refeição">
+        <span class="note tot-ref" id="tr-${ri}"></span>
+        <button type="button" class="btn perigo mini" data-acao="del-ref" data-ri="${ri}" title="Remover refeição">×</button>
+      </div>
+      <div class="itens">
+        ${r.itens.map((it, ii) => `
+          <div class="item">
+            <div class="item-lin">
+              <input class="texto i-nome" data-k="${ri}-${ii}" value="${esc(it.nome)}" aria-label="Nome do alimento no plano" title="${esc(ALIM[it.alimento_id] ? ALIM[it.alimento_id].nome : '')}">
+              ${linhaQtd(it, `${ri}-${ii}`)}
+              <button type="button" class="btn perigo mini" data-acao="del-item" data-k="${ri}-${ii}" title="Remover alimento">×</button>
+            </div>
+            <span class="note nutri" id="ti-${ri}-${ii}"></span>
+            <div class="subs-ed">
+              ${(it.subs || []).map((s, si) => `
+                <div class="sub-lin"><span class="ou">ou</span>
+                  <input class="texto s-nome" data-k="${ri}-${ii}-${si}" value="${esc(s.nome)}" aria-label="Nome da troca">
+                  ${linhaQtd(s, `${ri}-${ii}-${si}`)}
+                  <span class="note" id="ts-${ri}-${ii}-${si}"></span>
+                  <button type="button" class="btn perigo mini" data-acao="del-sub" data-k="${ri}-${ii}-${si}" title="Remover troca">×</button>
+                </div>`).join('')}
+              <div class="busca-box"><input class="busca" data-alvo="sub" data-k="${ri}-${ii}" placeholder="+ troca (busque o alimento)" autocomplete="off"><div class="sugestoes" hidden></div></div>
+            </div>
+          </div>`).join('')}
+        <div class="busca-box"><input class="busca principal" data-alvo="item" data-k="${ri}" placeholder="+ alimento (ex.: arroz cozido)" autocomplete="off"><div class="sugestoes" hidden></div></div>
+      </div>
+      <textarea class="r-obs" data-ri="${ri}" rows="1" placeholder="Observação da refeição (opcional)">${esc(r.obs || '')}</textarea>
+    </div>`).join('');
+  totais();
+}
+
+function pegar(k) {
+  const [ri, ii, si] = k.split('-').map(Number);
+  const it = E.refeicoes[ri].itens[ii];
+  return si === undefined || isNaN(si) ? it : it.subs[si];
+}
+
+// ---------- busca de alimentos ----------
+let espera;
+async function buscar(input) {
+  const caixa = input.nextElementSibling, q = input.value.trim();
+  if (q.length < 2) { caixa.hidden = true; return; }
+  try {
+    const r = await fetch(`${URL_BUSCA}?q=${encodeURIComponent(q)}`);
+    const { alimentos } = await r.json();
+    if (input.value.trim() !== q) return;
+    caixa._lista = alimentos;
+    caixa.innerHTML = alimentos.length ? alimentos.map((a, i) => `<button type="button" class="sug" data-i="${i}">
+        <span>${esc(a.nome)}</span><small>${a.fonte === 'proprio' ? 'seu' : 'TACO'} · ${esc(a.grupo || '')} · ${a.kcal != null ? br(a.kcal) + ' kcal/100 g' : 'sem energia'}</small></button>`).join('')
+      : '<p class="note" style="padding:8px 10px">Nada encontrado. Tente outra palavra ou cadastre o alimento.</p>';
+    caixa.hidden = false;
+  } catch (e) { caixa.hidden = true; }
+}
+function escolher(input, a) {
+  ALIM[a.id] = a;
+  const k = input.dataset.k;
+  const novo = { alimento_id: a.id, nome: a.nome, gramas: 100, medida: null };
+  if (input.dataset.alvo === 'item') {
+    novo.subs = [];
+    E.refeicoes[Number(k)].itens.push(novo);
+  } else {
+    const it = pegar(k);
+    novo.gramas = equivalente(a.id, nutr(it.alimento_id, num(it.gramas)).kcal, num(it.gramas) || 100);
+    it.subs.push(novo);
+  }
+  sujo = true;
+  desenhar();
+  const foco = document.querySelector(input.dataset.alvo === 'item' ? `.refeicao[data-ri="${k}"] .busca.principal` : `.busca[data-k="${k}"]`);
+  if (foco) foco.focus();
+}
+
+// ---------- eventos ----------
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.classList.contains('busca')) { clearTimeout(espera); espera = setTimeout(() => buscar(t), 200); return; }
+  sujo = true;
+  if (t.classList.contains('r-nome')) E.refeicoes[t.dataset.ri].nome = t.value;
+  else if (t.classList.contains('r-hora')) E.refeicoes[t.dataset.ri].hora = t.value;
+  else if (t.classList.contains('r-obs')) E.refeicoes[t.dataset.ri].obs = t.value;
+  else if (t.classList.contains('i-nome') || t.classList.contains('s-nome')) pegar(t.dataset.k).nome = t.value;
+  else if (t.classList.contains('q')) {
+    const it = pegar(t.dataset.k), u = t.parentElement.querySelector('.u').value;
+    aplicarQtd(it, t.value, u);
+    t.parentElement.querySelector('.g-eq').textContent = it.medida ? `= ${fmt(it.gramas)} g` : '';
+    if (t.dataset.k.split('-').length === 3) it.manual = true;   // troca ajustada à mão: não recalcula mais
+    else atualizarTrocas(t.dataset.k);
+  }
+  totais();
+});
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if (!t.classList.contains('u')) return;
+  const it = pegar(t.dataset.k);
+  if (t.value === '+') { abrirNovaMedida(t, it); return; }
+  // ao trocar de unidade, mantém o peso: converte a quantidade para a nova unidade
+  const g = num(it.gramas) || 0;
+  const m = (ALIM[it.alimento_id].medidas || []).find(x => x.nome === t.value);
+  aplicarQtd(it, t.value === 'g' ? g : Math.round(g / m.gramas * 100) / 100, t.value);
+  sujo = true;
+  desenhar();
+});
+function abrirNovaMedida(select, it) {
+  const box = document.createElement('span');
+  box.className = 'nova-medida';
+  box.innerHTML = `<input class="texto nm-nome" placeholder="Nome (ex.: Colher de sopa cheia)">
+    <input class="nm-g" placeholder="gramas" inputmode="decimal" style="width:80px">
+    <button type="button" class="btn mini pri nm-ok">Salvar</button><button type="button" class="btn mini nm-x">Cancelar</button>`;
+  select.parentElement.after(box);
+  select.value = it.medida ? it.medida.nome : 'g';
+  box.querySelector('.nm-nome').focus();
+  box.querySelector('.nm-x').onclick = () => box.remove();
+  box.querySelector('.nm-ok').onclick = async () => {
+    const nome = box.querySelector('.nm-nome').value.trim(), gramas = num(box.querySelector('.nm-g').value);
+    if (!nome || !gramas) { box.querySelector('.nm-g').focus(); return; }
+    const r = await fetch(`/alimentos/${it.alimento_id}/medidas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, gramas }) });
+    if (!r.ok) return;
+    const m = await r.json();
+    const lista = ALIM[it.alimento_id].medidas;
+    const i = lista.findIndex(x => x.nome === m.nome);
+    if (i >= 0) lista[i] = m; else lista.push(m);
+    aplicarQtd(it, Math.round((num(it.gramas) || m.gramas) / m.gramas * 100) / 100, m.nome);   // mantém o peso
+    sujo = true;
+    desenhar();
+  };
+}
+document.addEventListener('click', e => {
+  const sug = e.target.closest('.sug');
+  if (sug) {
+    const caixa = sug.parentElement, input = caixa.previousElementSibling;
+    escolher(input, caixa._lista[Number(sug.dataset.i)]);
+    return;
+  }
+  if (!e.target.closest('.busca-box')) document.querySelectorAll('.sugestoes').forEach(c => c.hidden = true);
+  const b = e.target.closest('[data-acao]');
+  if (!b) return;
+  const a = b.dataset.acao;
+  if (a === 'del-ref') {
+    if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Remover?'; return; }
+    E.refeicoes.splice(Number(b.dataset.ri), 1);
+  } else if (a === 'del-item') {
+    const [ri, ii] = b.dataset.k.split('-').map(Number); E.refeicoes[ri].itens.splice(ii, 1);
+  } else if (a === 'del-sub') {
+    const [ri, ii, si] = b.dataset.k.split('-').map(Number); E.refeicoes[ri].itens[ii].subs.splice(si, 1);
+  }
+  sujo = true;
+  desenhar();
+});
+document.addEventListener('keydown', e => {
+  if (e.target.classList.contains('busca') && e.key === 'Enter') {
+    e.preventDefault();
+    const caixa = e.target.nextElementSibling;
+    if (!caixa.hidden && caixa._lista && caixa._lista.length) escolher(e.target, caixa._lista[0]);
+  }
+  if (e.target.classList.contains('busca') && e.key === 'Escape') e.target.nextElementSibling.hidden = true;
+});
+$('add-ref').onclick = () => { E.refeicoes.push({ hora: '', nome: 'Nova refeição', obs: '', itens: [] }); sujo = true; desenhar(); };
+
+// cabeçalho e meta
+$('titulo').value = E.titulo || ''; $('prescrito').value = E.prescrito || '';
+$('titulo').oninput = e => { E.titulo = e.target.value; sujo = true; };
+$('prescrito').oninput = e => { E.prescrito = e.target.value; sujo = true; };
+const CAMPOS_E = { 'e-sexo': 'sexo', 'e-idade': 'idade', 'e-peso': 'peso', 'e-altura': 'altura', 'e-fa': 'fa', 'e-ajuste': 'ajuste' };
+for (const [id, k] of Object.entries(CAMPOS_E)) {
+  $(id).value = E.energia[k] ?? '';
+  if (['peso', 'altura', 'fa'].includes(k) && num(E.energia[k]) != null) $(id).value = fmt(num(E.energia[k]));   // aceita "1,55" guardado
+  $(id).addEventListener('input', ev => { E.energia[k] = ev.target.value; sujo = true; totais(); });
+}
+$('e-acamado').checked = !!E.energia.acamado;
+$('e-acamado').onchange = ev => { E.energia.acamado = ev.target.checked; formulaManual = false; sujo = true; totais(); };
+$('e-formula').value = E.energia.formula || 'harris';
+$('e-formula').onchange = ev => { E.energia.formula = ev.target.value; formulaManual = true; sujo = true; totais(); };
+
+// salvar
+$('salvar').onclick = async () => {
+  const msg = $('msg-salvar');
+  msg.textContent = 'Salvando…';
+  try {
+    const r = await fetch(URL_SALVAR, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ editor: E, plid: PLID }) });
+    const res = await r.json();
+    if (!r.ok) { msg.textContent = res.erro || 'Não foi possível salvar.'; return; }
+    sujo = false;
+    location = res.voltar;
+  } catch (e) { msg.textContent = 'Sem resposta do sistema. A janela preta está aberta?'; }
+};
+addEventListener('beforeunload', e => { if (sujo) e.preventDefault(); });
+desenhar();
+</script>
+{% endblock %}

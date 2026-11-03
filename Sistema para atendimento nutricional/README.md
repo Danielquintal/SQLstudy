@@ -21,6 +21,10 @@ Pacientes e avaliações antropométricas em PostgreSQL, com as planilhas por pa
 | `web/template.html` | Modelo da página de evolução |
 | `web/planos/` | Planos alimentares antigos em JSON (os atuais ficam no banco, tabela `plano_alimentar`) |
 | `sql/04_plano.sql` | Tabela dos planos alimentares enviados em PDF |
+| `sql/06_alimentos.sql` | Tabelas de alimentos (TACO e próprios) e medidas caseiras |
+| `sql/07_plano_editor.sql` | Guarda a montagem dos planos feitos no sistema, para editar depois |
+| `scripts/nutricao.py` | Fórmulas de energia (Harris-Benedict, Mifflin-St Jeor, FAO/OMS) e cálculo dos nutrientes |
+| `dados/taco/` | TACO 4ª edição em CSV; `scripts/carregar_taco.py` carrega no banco |
 | `web/artefatos.json` | Link publicado de cada paciente; publicar sempre no mesmo link |
 | `web/pedidos.json` | Fila de links a publicar (criada pelo sistema) |
 | `scripts/publicar_pedidos.py` | Gera as páginas da fila e registra os links publicados |
@@ -115,15 +119,43 @@ Faz o mesmo que o passo 2 sem Excel e sem terminal.
 ## Plano alimentar na página do paciente
 
 - **Ficha do paciente → Plano alimentar:** envie o PDF do plano.
-  - **PDF do App Naive** (os dois modelos de exportação: em cartões, com horário, e em lista, com "Opções de substituição"):
+  - **PDF do App Naive** (os modelos de exportação conhecidos: em cartões, com horário; em lista, com "Opções de
+    substituição"; em lista com "• Alimento" e trocas "Ou ..."; e a exportação completa, com tabela de opções,
+    meta de água e "Lista de substituição" por grupos, que aparece na página com botões "N porções do Grupo X"):
     é lido sozinho (`scripts/plano_app_naive.py`) e vira a dieta interativa: refeições, opção principal e substituições,
     observações, calorias e macros por refeição e do dia, micronutrientes, receitas e lista de compras.
     Título e data vêm do próprio PDF, a não ser que você preencha.
   - **PDF feito por você** (ou marcando "mostrar página por página"): cada página vira uma imagem, do jeito que foi
     feito; no celular, tocar na página amplia.
-  - Enviar outro PDF troca o plano; "Remover da página" tira a aba.
+  - **Vários planos** (ex.: dia de treino e dia de descanso): cada PDF enviado vira mais um plano; dê um título para
+    diferenciar. Na página do paciente, cada plano é uma faixa (título, data, kcal) que abre ao tocar; com um plano só,
+    ele já vem aberto. Para trocar um plano, remova o antigo e envie o novo.
 - Quem já tem link entra sozinho na fila de Links ao enviar, trocar ou remover o plano.
-- Fica na tabela `plano_alimentar` (`sql/04_plano.sql`), com o PDF original; a conversão está em `scripts/plano.py`.
+- Fica na tabela `plano_alimentar` (`sql/04_plano.sql` e `05_varios_planos.sql`), com o PDF original; a conversão está em `scripts/plano.py`.
+
+## Montar o plano no sistema
+
+Ficha do paciente → **Plano alimentar** → **+ Montar plano no sistema** (planos montados ganham o botão **Editar**).
+- **Refeições:** horário, nome e observação; busque o alimento (TACO ou seus) e informe a quantidade em gramas ou numa
+  medida caseira (“+ nova medida…” guarda, por exemplo, “Colher de sopa cheia = 25 g” para os próximos planos).
+- **Trocas:** “+ troca” em cada alimento; a quantidade vem com a mesma energia da opção principal e acompanha as
+  mudanças dela (a não ser que você ajuste a troca à mão).
+- **Meta energética** (painel ao lado): TMB por Harris-Benedict (adulto), Mifflin-St Jeor (IMC >= 30) ou FAO/OMS
+  (acamado), escolhida sozinha pelo IMC da última avaliação e pela marcação de acamado (dá para trocar);
+  GET = TMB x fator atividade; meta = GET + ajuste. O painel mostra kcal do plano x meta, macros em g, % e g/kg,
+  fibra e sódio.
+- **Salvar:** o plano vai para a aba Plano alimentar do paciente (refeições, trocas, kcal e macros por refeição,
+  micronutrientes do dia, lista de compras) e o link entra na fila. Contas em `scripts/nutricao.py`.
+- **Alimentos** (menu de cima): cadastre marcas e suplementos pelo rótulo (porção e valores; o sistema converte
+  para 100 g).
+
+## Tabela de alimentos (TACO)
+
+A TACO 4ª edição (NEPA/UNICAMP: 597 alimentos em 15 grupos, nutrientes por 100 g) fica no banco, na tabela
+`alimento` (`sql/06_alimentos.sql`), para montar e calcular planos. Os arquivos estão em `dados/taco/` (veja o
+`LEIAME.md` de lá: origem e conferência com a planilha original); carregar ou recarregar:
+`python scripts/carregar_taco.py` (a tarefa 3 já faz). Alimentos próprios (marcas, suplementos) entram na mesma
+tabela com `fonte = 'proprio'`, e as medidas caseiras ficam em `medida_caseira`.
 
 ## WhatsApp
 
