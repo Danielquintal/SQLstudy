@@ -20,7 +20,10 @@
     · {{ avs|length }} avaliaç{{ 'ão' if avs|length == 1 else 'ões' }}
   </p>
 </div>
-<a class="btn pri" href="{{ url_for('avaliacao', pid=p.id) }}">+ Nova avaliação</a>
+<div class="acoes">
+  <a class="btn" href="{{ url_for('perfil', pid=p.id) }}">Editar perfil</a>
+  <a class="btn pri" href="{{ url_for('avaliacao', pid=p.id) }}">+ Nova avaliação</a>
+</div>
 {% endblock %}
 {% block corpo %}
 {% if avs %}

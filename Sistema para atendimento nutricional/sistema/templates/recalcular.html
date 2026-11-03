@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block titulo %}Recalcular · {{ p.nome }}{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a> / <a href="{{ url_for('paciente', pid=p.id) }}">{{ p.nome }}</a></p>
+  <h1>Recalcular avaliações</h1>
+  <p class="sub">Com o cadastro atual: {{ {'F': 'Feminino', 'M': 'Masculino'}.get(p.genero, 'sexo não informado') }}{% if p.idade is not none %}, {{ p.idade }} anos{% endif %}</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if com_mudanca %}
+<div class="card">
+  <p style="margin:0">O sexo ou a data de nascimento mudou, e <b>{{ com_mudanca }} de {{ comparacao|length }} avaliações</b> ficam
+    diferentes quando calculadas com o cadastro atual. Confira abaixo (antes → depois). As medidas (peso, dobras,
+    circunferências) não mudam; só os resultados calculados a partir delas.</p>
+  <form method="post" class="acoes">
+    <button class="btn pri">Recalcular as {{ com_mudanca }} avaliações</button>
+    <a class="btn" href="{{ url_for('paciente', pid=p.id) }}">Agora não (manter como estão)</a>
+  </form>
+</div>
+<div class="card" style="padding:6px 8px">
+  <div class="tablebox"><table>
+    <thead><tr><th class="t">Avaliação</th>{% for c, rot in mostrar %}<th class="t">{{ rot }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for a, dif in comparacao|reverse if dif %}
+      <tr><td class="t n">{{ a.data_avaliacao|br }}</td>
+        {% for c, rot in mostrar %}<td class="t">{% if c in dif %}<span class="note">{{ dif[c][0]|num if dif[c][0] is number else (dif[c][0] or '–') }}</span>
+          → <b>{{ dif[c][1]|num if dif[c][1] is number else dif[c][1] }}</b>{% endif %}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% else %}
+<div class="card"><p style="margin:0">Nenhuma avaliação muda com o cadastro atual.</p>
+  <div class="acoes"><a class="btn pri" href="{{ url_for('paciente', pid=p.id) }}">Voltar para a ficha</a></div></div>
+{% endif %}
+{% endblock %}

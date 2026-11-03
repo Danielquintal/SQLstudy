@@ -1,6 +1,8 @@
 """Preenche o template com as avaliacoes de um paciente."""
 import json, re, sys
 
+from plano import PROFISSIONAL
+
 KEEP = ["dataAvaliacao", "dataOrdem", "massa", "estatura", "gc", "peso_m", "peso_g", "mlg", "somatorio", "razao",
         "c_cintura", "c_abdomen", "c_quadril", "c_torax", "c_ombro",
         "c_bracorelaxado", "c_bracorelaxado_dir", "c_bracocontraido", "c_bracocontraido_dir",
@@ -37,7 +39,8 @@ def gerar_html(template, nome, avaliacoes, plano):
          .replace("__DATA__", json.dumps(rows, ensure_ascii=False))
          .replace("__PLANO__", json.dumps(plano, ensure_ascii=False))
          .replace("__NOME__", nome.strip())
-         .replace("__PROTOCOLO__", protocolo))
+         .replace("__PROTOCOLO__", protocolo)
+         .replace("__PROFISSIONAL__", PROFISSIONAL))
     return t
 
 

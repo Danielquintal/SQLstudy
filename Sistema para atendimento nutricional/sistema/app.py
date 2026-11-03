@@ -610,6 +610,155 @@ def lista_links():
 # ---------- WhatsApp ----------
 
 
+# ---------- perfil do paciente ----------
+
+PERFIL = ["nome", "genero", "data_nascimento", "cpf", "telefone", "email", "cep", "endereco", "bairro", "cidade",
+          "estado", "etiquetas", "retorno_em", "whatsapp_bloqueado"]
+UFS = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split()
+
+
+def ler_perfil(f):
+    """formulário -> (valores, erros)"""
+    v, erros = {}, []
+    v["nome"] = " ".join(f.get("nome", "").split())
+    if not v["nome"]:
+        erros.append("Informe o nome")
+    v["genero"] = f.get("genero") if f.get("genero") in ("M", "F") else None
+    for campo, rotulo in (("data_nascimento", "Data de nascimento"), ("retorno_em", "Próxima consulta")):
+        try:
+            v[campo] = date.fromisoformat(f[campo]) if f.get(campo) else None
+        except ValueError:
+            v[campo] = None
+            erros.append(f"{rotulo} inválida")
+    if v["data_nascimento"] and v["data_nascimento"] > date.today():
+        erros.append("A data de nascimento está no futuro")
+    cpf = "".join(c for c in f.get("cpf", "") if c.isdigit())
+    if cpf and len(cpf) != 11:
+        erros.append("O CPF precisa ter 11 números")
+    v["cpf"] = f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}" if len(cpf) == 11 else None
+    cep = "".join(c for c in f.get("cep", "") if c.isdigit())
+    if cep and len(cep) != 8:
+        erros.append("O CEP precisa ter 8 números")
+    v["cep"] = f"{cep[:5]}-{cep[5:]}" if len(cep) == 8 else None
+    v["email"] = f.get("email", "").strip() or None
+    if v["email"] and ("@" not in v["email"] or "." not in v["email"].split("@")[-1]):
+        erros.append("E-mail inválido")
+    v["estado"] = f.get("estado", "").strip().upper() or None
+    if v["estado"] and v["estado"] not in UFS:
+        erros.append("Estado (UF) inválido")
+    for campo in ("telefone", "endereco", "bairro", "cidade", "etiquetas"):
+        v[campo] = " ".join(f.get(campo, "").split()) or None
+    v["whatsapp_bloqueado"] = bool(f.get("whatsapp_bloqueado"))
+    return v, erros
+
+
+@app.route("/paciente/<int:pid>/perfil", methods=["GET", "POST"])
+def perfil(pid):
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute(f"SELECT {', '.join(PERFIL)} FROM paciente WHERE id = %s", (pid,))
+        r = cur.fetchone()
+        if not r:
+            abort(404)
+        atual = dict(zip(PERFIL, r))
+        cur.execute("SELECT count(*) FROM avaliacao WHERE paciente_id = %s", (pid,))
+        n_avs = cur.fetchone()[0]
+        erros, form = [], atual
+        if request.method == "POST":
+            novo, erros = ler_perfil(request.form)
+            form = novo
+            if not erros:
+                if novo["nome"] != atual["nome"]:
+                    links.vincular(pid, atual["nome"])          # o link publicado continua deste paciente
+                cur.execute(f"UPDATE paciente SET {', '.join(f'{c} = %s' for c in PERFIL)}, modificado_em = now() "
+                            f"WHERE id = %s", [novo[c] for c in PERFIL] + [pid])
+                con.commit()
+                avisos = renomear_planilha(atual["nome"], novo["nome"]) if novo["nome"] != atual["nome"] else []
+                for a in avisos:
+                    flash(a, "aviso")
+                flash("Perfil salvo.")
+                mudou_calculo = (novo["genero"], novo["data_nascimento"]) != (atual["genero"], atual["data_nascimento"])
+                if mudou_calculo and n_avs:
+                    return redirect(url_for("recalcular", pid=pid))
+                if novo["nome"] != atual["nome"]:
+                    for a in gerar_arquivos(cur, pid, novo["nome"]):
+                        flash(a, "aviso")
+                    flash("Nome alterado: a planilha e a página foram geradas de novo." + pedir_atualizacao(pid, novo["nome"]))
+                return redirect(url_for("paciente", pid=pid))
+    return render_template("perfil.html", p={"id": pid, "nome": atual["nome"]}, form=form, erros=erros, ufs=UFS,
+                           n_avs=n_avs)
+
+
+def renomear_planilha(antigo, novo):
+    """a planilha do paciente tem o nome dele no arquivo: acompanha a troca de nome"""
+    from atualizar_paciente import PLANILHAS
+    origem, destino = PLANILHAS / f"{safe_name(antigo)}.xlsx", PLANILHAS / f"{safe_name(novo)}.xlsx"
+    if not origem.exists() or origem == destino:
+        return []
+    if destino.exists():
+        return [f"Já existe uma planilha chamada “{destino.name}”; a antiga ficou com o nome anterior."]
+    try:
+        origem.rename(destino)
+    except PermissionError:
+        return ["A planilha está aberta no Excel e ficou com o nome antigo. Feche o Excel e clique em “Gerar planilha de novo”."]
+    finally:
+        (PAGINAS / f"{safe_name(antigo)}.html").unlink(missing_ok=True)   # a página é gerada de novo com o nome novo
+    return []
+
+
+# campos que dependem do sexo e da idade e que o recálculo refaz (as medidas não mudam)
+RECALCULAVEIS = sorted(CALCULADOS)
+MOSTRAR_RECALCULO = [("gordura_pct", "% gordura"), ("classificacao_gordura", "Classificação % gordura"),
+                     ("massa_gordura_kg", "Massa de gordura"), ("massa_muscular_kg", "Massa muscular"),
+                     ("massa_residual_kg", "Massa residual"), ("mlg_kg", "Massa livre de gordura"),
+                     ("densidade_corporal", "Densidade"), ("risco_rcq", "Risco RCQ"), ("cmb_adequacao_pct", "Adequação CMB"),
+                     ("classificacao_cmb", "Classificação CMB"), ("classificacao_imc", "Classificação IMC"),
+                     ("peso_ideal", "Peso ideal"), ("bia_classificacao_gordura", "Classif. bioimpedância")]
+
+
+def comparar_recalculo(cur, pid):
+    """[(avaliação, {campo: (antes, depois)})] com o sexo e a data de nascimento atuais do cadastro"""
+    p = buscar_paciente(cur, pid)
+    saida = []
+    for a in avaliacoes_do_banco(cur, pid):
+        v = {k: (float(x) if type(x).__name__ == "Decimal" else x) for k, x in a.items()}
+        for k in RECALCULAVEIS:
+            v[k] = None
+        novo = calcular(v, p["genero"], p["data_nascimento"], a["data_avaliacao"])
+        dif = {}
+        for k, val in novo.items():
+            antes = a.get(k)
+            igual = (str(antes) == str(val)) if isinstance(val, str) or antes is None or isinstance(antes, str) \
+                else abs(float(antes) - float(val)) < 0.05
+            if not igual:
+                dif[k] = (antes, val)
+        saida.append((a, dif))
+    return p, saida
+
+
+@app.route("/paciente/<int:pid>/recalcular", methods=["GET", "POST"])
+def recalcular(pid):
+    with conectar() as con:
+        cur = con.cursor()
+        p, comparacao = comparar_recalculo(cur, pid)
+        if request.method == "POST":
+            n = 0
+            for a, dif in comparacao:
+                if dif:
+                    cur.execute(f"UPDATE avaliacao SET {', '.join(f'{k} = %s' for k in dif)} WHERE id = %s",
+                                [d for _, d in dif.values()] + [a["id"]])
+                    n += 1
+            con.commit()
+            for aviso in gerar_arquivos(cur, pid, p["nome"]):
+                flash(aviso, "aviso")
+            flash(f"{n} avaliaç{'ão recalculada' if n == 1 else 'ões recalculadas'} com o sexo e a idade do cadastro. "
+                  f"A planilha e a página foram geradas de novo." + (pedir_atualizacao(pid, p["nome"]) if n else ""))
+            return redirect(url_for("paciente", pid=pid))
+    p["idade"] = idade(p["data_nascimento"])
+    return render_template("recalcular.html", p=p, comparacao=comparacao, mostrar=MOSTRAR_RECALCULO,
+                           com_mudanca=sum(1 for _, d in comparacao if d))
+
+
 @app.route("/paciente/<int:pid>/acompanhamento", methods=["POST"])
 def acompanhamento(pid):
     f = request.form

@@ -158,6 +158,15 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 .grupo-itens div{display:flex;flex-direction:column;gap:1px;border-bottom:1px solid var(--line);padding:7px 0}
 .grupo-itens span{font-weight:500}
 .grupo-itens b{font-weight:400;font-size:12px;color:var(--muted)}
+/* Relatórios em PDF: botões no cabeçalho */
+.relatorios{display:flex;flex-direction:column;gap:4px}
+.relatorios>span{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-soft)}
+.relatorios .bts{display:flex;gap:8px;flex-wrap:wrap}
+.relatorios button{font:500 14px var(--sans);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:var(--brand-ink);cursor:pointer}
+.relatorios button:hover{background:rgba(255,255,255,.16)}
+.relatorios button:disabled{opacity:.6;cursor:progress}
+.relatorios button:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
+.relatorios .msg{font-size:13px;color:var(--brand-soft);text-transform:none;letter-spacing:0;max-width:34ch}
 </style>
 
 <header class="band">
@@ -170,6 +179,14 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
     <div class="range">
       <label for="de">De <select id="de"></select></label>
       <label for="ate">Até <select id="ate"></select></label>
+    </div>
+    <div class="relatorios">
+      <span>Relatórios em PDF</span>
+      <div class="bts">
+        <button type="button" id="rel-av">Avaliação física</button>
+        <button type="button" id="rel-plano" hidden>Plano alimentar</button>
+      </div>
+      <span class="msg" id="rel-msg" role="status" aria-live="polite"></span>
     </div>
   </div>
   <div class="wrap">
@@ -530,7 +547,276 @@ new MutationObserver(render).observe(document.documentElement, { attributes: tru
 // redesenha quando as fontes chegam, senão os eixos ficam medidos com a fonte provisória e cortados
 if (document.fonts) document.fonts.ready.then(render);
 
-document.getElementById('foot').textContent = 'Fonte: App Naive · evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
+// ---------- relatórios em PDF (avaliação do período escolhido e plano alimentar) ----------
+const NOME = document.querySelector('h1').textContent.trim();
+const PROFISSIONAL = '__PROFISSIONAL__';
+const PROTOCOLO = '__PROTOCOLO__';
+// o PDF é sempre branco: cores fixas do tema claro
+const COR = { brand: [18, 67, 79], soft: [201, 220, 223], ink: [19, 38, 46], muted: [94, 113, 120], line: [220, 229, 230], fundo: [242, 246, 246] };
+const LINHA = { c1: '#12434F', c2: '#1A9E8F', c3: '#E4572E', c4: '#E6A23C' };
+
+let libs;
+const carregar = src => new Promise((ok, erro) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = erro; document.head.appendChild(s); });
+const pdfLibs = () => libs || (libs = carregar('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+  .then(() => carregar('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'))
+  .catch(e => { libs = null; throw e; }));
+
+// as fontes padrão do PDF só têm o alfabeto latino: troca travessões, aspas curvas etc.
+const t = s => String(s ?? '').replace(/[–—−]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[•●]/g, '-')
+  .replace(/…/g, '...').replace(/→/g, '->').replace(/[^\x00-\xFF]/g, '');
+const hoje = () => new Date().toLocaleDateString('pt-BR');
+
+function novoPDF(tipo, sub) {
+  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  doc.setFillColor(...COR.brand); doc.rect(0, 0, 210, 32, 'F');
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...COR.soft);
+  doc.text(t(tipo).toUpperCase(), 15, 11, { charSpace: 0.6 });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(255, 255, 255); doc.text(t(NOME), 15, 20);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...COR.soft); doc.text(t(sub), 15, 27);
+  doc.y = 42;
+  return doc;
+}
+const espaco = (doc, h) => { if (doc.y + h > 280) { doc.addPage(); doc.y = 18; } };
+function secao(doc, txt) {
+  if (doc.y > 45) doc.y += 3;
+  espaco(doc, 20);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5); doc.setTextColor(...COR.brand); doc.text(t(txt), 15, doc.y);
+  doc.setDrawColor(...COR.line); doc.setLineWidth(0.3); doc.line(15, doc.y + 2, 195, doc.y + 2);
+  doc.y += 8;
+}
+function texto(doc, txt, { tam = 10, cor = COR.ink, negrito = false, rec = 0 } = {}) {
+  doc.setFont('helvetica', negrito ? 'bold' : 'normal'); doc.setFontSize(tam); doc.setTextColor(...cor);
+  for (const l of doc.splitTextToSize(t(txt), 180 - rec)) { espaco(doc, tam * 0.45); doc.text(l, 15 + rec, doc.y); doc.y += tam * 0.45; }
+  doc.y += 1.5;
+}
+// direita: colunas numéricas, alinhadas à direita também no cabeçalho
+function tabela(doc, head, body, opts = {}, direita = []) {
+  doc.autoTable({
+    startY: doc.y, head: head ? [head.map(t)] : undefined, showHead: head ? 'everyPage' : 'never',
+    didParseCell: c => { if (direita.includes(c.column.index)) c.cell.styles.halign = 'right'; }, body: body.map(r => r.map(t)), margin: { left: 15, right: 15, top: 18, bottom: 18 },
+    theme: 'plain', styles: { font: 'helvetica', fontSize: 9, textColor: COR.ink, cellPadding: { top: 1.8, bottom: 1.8, left: 2, right: 2 }, lineColor: COR.line, lineWidth: { bottom: 0.2 } },
+    headStyles: { fillColor: COR.fundo, textColor: COR.muted, fontStyle: 'bold', fontSize: 8 },
+    ...opts,
+  });
+  doc.y = doc.lastAutoTable.finalY + 7;
+}
+function rodapes(doc) {
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...COR.muted);
+    doc.text(t(`${NOME} · gerado em ${hoje()}${PROFISSIONAL ? ' · ' + PROFISSIONAL : ''}`), 15, 289);
+    doc.text(`Página ${i} de ${total}`, 195, 289, { align: 'right' });
+  }
+}
+
+// gráfico desenhado fora da tela, em tamanho fixo, para virar imagem no PDF
+function grafico(rows, series, dec = 1, rotulos = false) {
+  const cv = document.createElement('canvas'); cv.width = 1400; cv.height = 460;
+  const ch = new Chart(cv, {
+    type: 'line',
+    data: { labels: rows.map(r => curta(r.dataAvaliacao)), datasets: series.map(([k, label, cor]) => ({ label, data: rows.map(r => n(r[k])), borderColor: cor, backgroundColor: cor, pointBackgroundColor: '#fff', pointBorderWidth: 3, pointRadius: 6, borderWidth: 4, tension: 0.25, spanGaps: true })) },
+    options: {
+      responsive: false, animation: false, devicePixelRatio: 1, layout: { padding: { top: 26, right: 20 } },
+      plugins: { legend: { display: series.length > 1, align: 'start', labels: { color: '#5E7178', usePointStyle: true, boxWidth: 14, padding: 24, font: { size: 22 } } }, tooltip: { enabled: false } },
+      scales: { x: { ticks: { color: '#5E7178', font: { size: 20 }, maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
+        y: { ticks: { color: '#5E7178', font: { size: 20 }, callback: v => fmt(v, dec) }, grid: { color: '#DCE5E6' }, border: { display: false } } },
+    },
+    plugins: [{ id: 'folga', beforeInit(c) { const fit = c.legend.fit; c.legend.fit = function () { fit.call(this); this.height += 18; }; } },
+      { id: 'fundo', beforeDraw(c) { c.ctx.save(); c.ctx.fillStyle = '#fff'; c.ctx.fillRect(0, 0, c.width, c.height); c.ctx.restore(); } }].concat(rotulos ? [{ id: 'rotulos', afterDatasetsDraw(c) {
+      const { ctx } = c, pts = c.getDatasetMeta(0).data, step = Math.ceil(pts.length / 10);
+      ctx.save(); ctx.font = '600 20px sans-serif'; ctx.fillStyle = '#13262E'; ctx.textAlign = 'center';
+      pts.forEach((p, i) => { const v = c.data.datasets[0].data[i]; if (v != null && (i % step === 0 || i === pts.length - 1)) ctx.fillText(fmt(v, dec), p.x, p.y - 16); });
+      ctx.restore();
+    } }] : []),
+  });
+  const url = cv.toDataURL('image/jpeg', 0.92); ch.destroy(); return url;
+}
+function figura(doc, titulo, rows, series, dec, rotulos) {
+  series = series.filter(([k]) => rows.some(r => n(r[k]) != null));
+  if (!series.length) return;
+  espaco(doc, 70);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...COR.ink); doc.text(t(titulo), 15, doc.y);
+  doc.addImage(grafico(rows, series, dec, rotulos), 'JPEG', 15, doc.y + 2, 180, 59); doc.y += 68;
+}
+// medidas nas linhas e datas nas colunas (as 6 últimas do período), para caber na folha
+function porMedida(doc, rows, cols, dec = 1) {
+  const ult = rows.slice(-6);
+  const body = cols.filter(([k]) => ult.some(r => n(r[k]) != null)).map(([k, label, , d]) => [label, ...ult.map(r => fmt(n(r[k]), d ?? dec))]);
+  if (!body.length) return false;
+  tabela(doc, ['Medida', ...ult.map(r => r.dataAvaliacao)], body, {}, ult.map((_, i) => i + 1));
+  if (rows.length > 6) texto(doc, `Mostrando as 6 avaliações mais recentes de ${rows.length} do período.`, { tam: 8, cor: COR.muted });
+  return true;
+}
+
+function relatorioAvaliacao() {
+  const rows = recorte(), a = rows[0], b = rows[rows.length - 1];
+  const doc = novoPDF('Relatório de avaliação física', `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${a.dataAvaliacao}${rows.length > 1 ? ' a ' + b.dataAvaliacao : ''} · Altura ${fmt(n(b.estatura), 0)} cm`);
+
+  secao(doc, rows.length > 1 ? 'Resumo do período' : 'Resultados');
+  const medidas = [['massa', 'Peso', 'kg'], ['imc', 'IMC', 'kg/m²'], ['gc', '% de gordura', '%'], ['peso_m', 'Massa muscular', 'kg'], ['peso_g', 'Massa de gordura', 'kg'],
+    ['mlg', 'Massa livre de gordura', 'kg'], ['c_cintura', 'Cintura', 'cm'], ['c_abdomen', 'Abdômen', 'cm'], ['c_quadril', 'Quadril', 'cm'], ['somatorio', 'Somatório de dobras', 'mm']]
+    .filter(([k]) => rows.some(r => n(r[k]) != null));
+  const dec = k => k === 'somatorio' ? 0 : 1;
+  const val = (r, k, u) => n(r[k]) == null ? '-' : `${fmt(n(r[k]), dec(k))} ${u}`;
+  if (rows.length > 1) {
+    tabela(doc, ['Medida', a.dataAvaliacao, b.dataAvaliacao, 'Variação'], medidas.map(([k, label, u]) => {
+      const d = n(a[k]) != null && n(b[k]) != null ? n(b[k]) - n(a[k]) : null;
+      return [label, val(a, k, u), val(b, k, u), d == null ? '-' : `${d > 0 ? '+' : d < 0 ? '-' : ''}${fmt(Math.abs(d), dec(k))} ${u}`];
+    }), { columnStyles: { 3: { fontStyle: 'bold' } } }, [1, 2, 3]);
+  } else {
+    tabela(doc, ['Medida', 'Valor'], medidas.map(([k, label, u]) => [label, val(b, k, u)]), {}, [1]);
+  }
+
+  const cls = [];
+  let r = ultimo(rows, 'class_imc') || ultimo(rows, 'imc');
+  if (r && n(r.imc) != null) cls.push(['Índice de massa corporal', `${fmt(n(r.imc))} kg/m²`, r.class_imc || '-', r.dataAvaliacao]);
+  r = ultimo(rows, 'peso_ideal');
+  const fx = r && faixaPeso(r.peso_ideal);
+  if (fx) cls.push(['Faixa de peso ideal', `${fmt(fx[0])} a ${fmt(fx[1])} kg`, n(r.massa) == null ? '-' : n(r.massa) > fx[1] ? `${fmt(n(r.massa) - fx[1])} kg acima` : n(r.massa) < fx[0] ? `${fmt(fx[0] - n(r.massa))} kg abaixo` : 'Dentro da faixa', r.dataAvaliacao]);
+  for (const [k, c, label, unit, d] of [['gc', 'class_gc', '% de gordura (dobras)', '%', 1], ['razao', 'risco', 'Relação cintura/quadril (risco)', '', 2], ['bioimpedancia_gordura', 'class_gc_bio', '% de gordura (bioimpedância)', '%', 1]]) {
+    r = ultimo(rows, c) || ultimo(rows, k);
+    if (r && n(r[k]) != null) cls.push([label, `${fmt(n(r[k]), d)}${unit ? ' ' + unit : ''}`, r[c] || '-', r.dataAvaliacao]);
+  }
+  r = ultimo(rows, 'cmb_pct');
+  if (r) cls.push(['Circunferência muscular do braço', `${fmt(n(r.cmb_cm))} cm (${fmt(n(r.cmb_pct))}%)`, r.class_cmb || '-', r.dataAvaliacao]);
+  if (cls.length) { secao(doc, 'Classificações'); tabela(doc, ['Indicador', 'Valor', 'Classificação', 'Avaliação'], cls, {}, [1]); }
+
+  if (rows.length > 1) {
+    secao(doc, 'Evolução');
+    figura(doc, 'Peso corporal (kg)', rows, [['massa', 'Peso', LINHA.c1]], 1, true);
+    figura(doc, 'Percentual de gordura (%)', rows, [['gc', '% Gordura', LINHA.c3]], 1, true);
+    figura(doc, 'Composição corporal (kg)', rows, [['mlg', 'Massa livre de gordura', LINHA.c1], ['peso_m', 'Massa muscular', LINHA.c2], ['peso_g', 'Massa de gordura', LINHA.c3]]);
+  }
+
+  secao(doc, 'Circunferências (cm)');
+  if (!porMedida(doc, rows, VIEWS.circunferencias.flatMap(c => c.series).filter(([k]) => k !== 'razao').concat([['razao', 'Relação cintura/quadril', , 2]])))
+    texto(doc, 'Sem circunferências no período.', { cor: COR.muted });
+  secao(doc, 'Dobras cutâneas (mm)');
+  if (!porMedida(doc, rows, VIEWS.dobras[1].series.concat([['somatorio', 'Somatório', , 0], ['gc', '% de gordura']])))
+    texto(doc, 'Sem dobras cutâneas no período.', { cor: COR.muted });
+  texto(doc, `Composição corporal calculada por dobras cutâneas (protocolo ${PROTOCOLO}).`, { tam: 8, cor: COR.muted });
+
+  rodapes(doc);
+  return doc;
+}
+
+const alimTxt = a => typeof a === 'string' ? a : `${a.nome}${a.qtd ? ' - ' + a.qtd : ''}`;
+const imagem = src => new Promise((ok, erro) => { const i = new Image(); i.onload = () => ok(i); i.onerror = erro; i.src = src; });
+
+async function relatorioPlano() {
+  const doc = novoPDF('Plano alimentar', PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Prescrito em ${PLANOS[0].prescrito}`);
+  for (const [k, P] of PLANOS.entries()) {
+    if (k) { doc.addPage(); doc.y = 18; }
+    secao(doc, P.titulo);
+    texto(doc, [`Prescrito em ${P.prescrito}`, P.profissional, P.agua && `Água: ${P.agua}`].filter(Boolean).join(' · '), { tam: 9, cor: COR.muted });
+    if (P.paginas) {
+      // plano feito em PDF: cada página entra como imagem, do jeito que foi feita
+      for (const src of P.paginas) {
+        const img = await imagem(src);
+        // usa o espaço que sobra na folha se a página não encolher muito; senão vai para a próxima
+        const cheia = Math.min(180 / img.width, 262 / img.height), resto = Math.min(180 / img.width, (280 - doc.y) / img.height);
+        if (resto < cheia * 0.8) { doc.addPage(); doc.y = 18; }
+        const z = resto < cheia * 0.8 ? cheia : resto, w = img.width * z, h = img.height * z;
+        doc.addImage(src, src.startsWith('data:image/png') ? 'PNG' : 'JPEG', 15 + (180 - w) / 2, doc.y, w, h);
+        doc.y += h + 6;
+      }
+      continue;
+    }
+    const T = P.totais;
+    if (T && T.kcal) {
+      const kc = { p: T.p * 4, l: T.l * 9, c: T.c * 4 }, soma = kc.p + kc.l + kc.c || 1, pc = c => Math.round(kc[c] / soma * 100);
+      tabela(doc, ['Energia', 'Proteínas', 'Carboidratos', 'Lipídeos'], [[`${T.kcal.toLocaleString('pt-BR')} kcal por dia`, `${fmt(T.p)} g (${pc('p')}%)`, `${fmt(T.c)} g (${pc('c')}%)`, `${fmt(T.l)} g (${pc('l')}%)`]],
+        { styles: { fontSize: 10, fontStyle: 'bold', textColor: COR.ink, cellPadding: 2.5 } });
+    }
+    for (const ref of P.refeicoes) {
+      espaco(doc, 22);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...COR.ink);
+      doc.text(t([ref.hora, ref.nome].filter(Boolean).join(' · ')), 15, doc.y);
+      if (ref.kcal) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...COR.muted); doc.text(t(`${ref.kcal} kcal · P ${fmt(ref.p)} · C ${fmt(ref.c)} · L ${fmt(ref.l)}`), 195, doc.y, { align: 'right' }); }
+      doc.y += 3;
+      if (ref.itens.length) {
+        const temSubs = ref.itens.some(i => (i.subs || []).length);
+        tabela(doc, temSubs ? ['Alimento', 'Ou substituir por'] : null, ref.itens.map(i => {
+          const linha = [alimTxt(i.principal || i)];
+          if (temSubs) linha.push((i.subs || []).map(s => s.grupo ? `${s.nome} (lista de substituição)` : alimTxt(s)).join('\n') || '-');
+          return linha;
+        }), { columnStyles: temSubs ? { 0: { cellWidth: 85 } } : {} });
+        doc.y -= 3;
+      } else texto(doc, 'Sem alimentos definidos: refeição livre.', { tam: 9, cor: COR.muted });
+      if (ref.obs) texto(doc, `Observação: ${ref.obs}`, { tam: 9, cor: COR.muted });
+      doc.y += 4;
+    }
+    for (const rec of P.receitas || []) {
+      secao(doc, `Receita: ${rec.nome}`);
+      texto(doc, 'Ingredientes', { tam: 9.5, negrito: true });
+      rec.ingredientes.forEach(x => texto(doc, `- ${x}`, { tam: 9.5, rec: 3 }));
+      texto(doc, 'Modo de preparo', { tam: 9.5, negrito: true });
+      rec.preparo.forEach((x, i) => texto(doc, `${i + 1}. ${x}`, { tam: 9.5, rec: 3 }));
+    }
+    if ((P.grupos || []).length) {
+      secao(doc, 'Lista de substituição');
+      texto(doc, 'Quando o plano diz "N porções do Grupo X", escolha um alimento do grupo e use N vezes a porção indicada.', { tam: 9, cor: COR.muted });
+      for (const g of P.grupos) {
+        espaco(doc, 16);
+        texto(doc, g.nome, { tam: 10, negrito: true });
+        tabela(doc, null, g.itens.map(i => [i.nome, i.qtd]), { columnStyles: { 1: { textColor: COR.muted } } }, [1]);
+      }
+    }
+    if ((P.compras || []).length) {
+      secao(doc, 'Lista de compras');
+      const c = P.compras, meio = Math.ceil(c.length / 2);
+      tabela(doc, null, c.slice(0, meio).map((x, i) => [`[  ]  ${x}`, c[meio + i] ? `[  ]  ${c[meio + i]}` : '']));
+    }
+    if ((P.micros || []).length) {
+      secao(doc, 'Vitaminas, minerais e tipos de gordura (total do dia)');
+      const m = P.micros, meio = Math.ceil(m.length / 2);
+      tabela(doc, null, m.slice(0, meio).map(([c, v], i) => [c, v, ...(m[meio + i] || ['', ''])]),
+        {}, [1, 3]);
+    }
+  }
+  rodapes(doc);
+  return doc;
+}
+
+// no link publicado o download passa pela confirmação do claude.ai; aberto no sistema local, baixa direto
+async function salvar(nome, blob) {
+  const cl = window.claude;
+  if (cl && cl.use) {
+    const d = await cl.use('downloads');
+    if (!d) throw { code: 'unavailable' };
+    return d.save({ filename: nome, data: blob });
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+const relMsg = document.getElementById('rel-msg');
+async function gerarRelatorio(tipo) {
+  const bts = document.querySelectorAll('.relatorios button');
+  bts.forEach(b => b.disabled = true);
+  relMsg.textContent = 'Gerando o relatório…';
+  try {
+    await pdfLibs();
+    const doc = tipo === 'plano' ? await relatorioPlano() : relatorioAvaliacao();
+    const nome = `${tipo === 'plano' ? 'Plano alimentar' : 'Avaliação física'} - ${NOME} - ${hoje().replace(/\//g, '-')}.pdf`;
+    relMsg.textContent = 'Confirme o download.';
+    await salvar(nome, doc.output('blob'));
+    relMsg.textContent = 'Relatório pronto.';
+  } catch (e) {
+    relMsg.textContent = e && e.code === 'declined' ? 'Download cancelado.'
+      : e && ['unavailable', 'not_granted', 'capability_disabled', 'capability_removed'].includes(e.code) ? 'O download não está disponível nesta visualização.'
+      : e && e.code === 'rate_limited' ? 'Aguarde um instante e tente de novo.'
+      : 'Não foi possível gerar o relatório. Verifique a internet e tente de novo.';
+  } finally {
+    bts.forEach(b => b.disabled = false);
+  }
+}
+document.getElementById('rel-av').addEventListener('click', () => gerarRelatorio('avaliacao'));
+document.getElementById('rel-plano').addEventListener('click', () => gerarRelatorio('plano'));
+if (PLANOS.length) document.getElementById('rel-plano').hidden = false;
+
+document.getElementById('foot').textContent ='Fonte: App Naive · evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
 if (PLANOS.length) { document.getElementById('t-plano').hidden = false; drawPlano(); }
 const inicial = location.hash.slice(1);
 const alvo = document.querySelector(`.tab[data-view="${inicial}"]`);

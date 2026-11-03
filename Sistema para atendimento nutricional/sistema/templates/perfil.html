@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block titulo %}Perfil · {{ p.nome }}{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a> / <a href="{{ url_for('paciente', pid=p.id) }}">{{ p.nome }}</a></p>
+  <h1>Perfil do paciente</h1>
+  <p class="sub">Todos os dados do cadastro. Sexo e data de nascimento entram nos cálculos das avaliações.</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if erros %}<div class="msg erro" role="alert">Nada foi salvo. Confira:<ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="ficha">
+  <div class="card">
+    <h2>Identificação</h2>
+    <div class="cadastro">
+      <div class="campo" style="grid-column:span 2"><label for="nome">Nome completo</label>
+        <input class="texto" id="nome" name="nome" value="{{ form.nome or '' }}" required></div>
+      <div class="campo"><label for="genero">Sexo</label>
+        <select id="genero" name="genero">
+          <option value=""></option>
+          <option value="F" {{ 'selected' if form.genero == 'F' }}>Feminino</option>
+          <option value="M" {{ 'selected' if form.genero == 'M' }}>Masculino</option>
+        </select></div>
+      <div class="campo"><label for="nasc">Data de nascimento</label>
+        <input id="nasc" type="date" name="data_nascimento" value="{{ form.data_nascimento.isoformat() if form.data_nascimento }}"></div>
+      <div class="campo"><label for="cpf">CPF</label>
+        <input class="texto" id="cpf" name="cpf" value="{{ form.cpf or '' }}" inputmode="numeric" placeholder="11 dígitos"></div>
+    </div>
+    {% if n_avs %}<p class="note">Se mudar o sexo ou a data de nascimento, o sistema mostra como ficam as {{ n_avs }} avaliações
+      recalculadas (% de gordura, classificações, massas) antes de gravar qualquer mudança nelas.</p>{% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Contato</h2>
+    <div class="cadastro">
+      <div class="campo"><label for="tel">Telefone / WhatsApp</label>
+        <input class="texto" id="tel" name="telefone" value="{{ form.telefone or '' }}" placeholder="DDD + número"></div>
+      <div class="campo" style="grid-column:span 2"><label for="email">E-mail</label>
+        <input class="texto" id="email" type="email" name="email" value="{{ form.email or '' }}"></div>
+    </div>
+    <label class="note" style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" name="whatsapp_bloqueado" value="1" {{ 'checked' if form.whatsapp_bloqueado }}> Não quer receber mensagens
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>Endereço</h2>
+    <div class="cadastro">
+      <div class="campo"><label for="cep">CEP</label>
+        <input class="texto" id="cep" name="cep" value="{{ form.cep or '' }}" inputmode="numeric" placeholder="00000-000"></div>
+      <div class="campo" style="grid-column:span 2"><label for="end">Endereço</label>
+        <input class="texto" id="end" name="endereco" value="{{ form.endereco or '' }}" placeholder="Rua, número, complemento"></div>
+      <div class="campo"><label for="bairro">Bairro</label><input class="texto" id="bairro" name="bairro" value="{{ form.bairro or '' }}"></div>
+      <div class="campo"><label for="cidade">Cidade</label><input class="texto" id="cidade" name="cidade" value="{{ form.cidade or '' }}"></div>
+      <div class="campo"><label for="uf">Estado</label>
+        <select id="uf" name="estado"><option value=""></option>{% for u in ufs %}<option {{ 'selected' if form.estado == u }}>{{ u }}</option>{% endfor %}</select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Acompanhamento</h2>
+    <div class="cadastro">
+      <div class="campo"><label for="ret">Próxima consulta</label>
+        <input id="ret" type="date" name="retorno_em" value="{{ form.retorno_em.isoformat() if form.retorno_em }}"></div>
+      <div class="campo" style="grid-column:span 2"><label for="etq">Etiquetas</label>
+        <input class="texto" id="etq" name="etiquetas" value="{{ form.etiquetas or '' }}" placeholder="Ex.: atleta, gestante"></div>
+    </div>
+  </div>
+
+  <div class="barra"><div class="acoes">
+    <button class="btn pri">Salvar perfil</button>
+    <a class="btn" href="{{ url_for('paciente', pid=p.id) }}">Cancelar</a>
+  </div></div>
+</form>
+<script>
+let mudou = false, salvando = false;
+document.querySelector('form.ficha').addEventListener('input', () => mudou = true);
+document.querySelector('form.ficha').addEventListener('submit', () => salvando = true);
+addEventListener('beforeunload', e => { if (mudou && !salvando) e.preventDefault(); });
+</script>
+{% endblock %}

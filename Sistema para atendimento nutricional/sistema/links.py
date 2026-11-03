@@ -61,6 +61,16 @@ def cancelar(pid):
                       "pedidos": [p for p in pedidos() if p["id"] != pid]})
 
 
+def vincular(pid, nome):
+    """grava o número do paciente no link achado pelo nome, para o link continuar dele se o nome mudar"""
+    dados = _ler(ARTEFATOS, {"pacientes": {}})
+    for n, v in dados["pacientes"].items():
+        if "id" not in v and norm(n) == norm(nome):
+            v["id"] = pid
+            _gravar(ARTEFATOS, dados)
+            return
+
+
 def concluir(pid, nome, url):
     """grava o link publicado e tira o pedido da fila"""
     dados = _ler(ARTEFATOS, {"pacientes": {}})

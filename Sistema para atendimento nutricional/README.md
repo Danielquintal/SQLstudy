@@ -133,6 +133,14 @@ Faz o mesmo que o passo 2 sem Excel e sem terminal.
 - Quem já tem link entra sozinho na fila de Links ao enviar, trocar ou remover o plano.
 - Fica na tabela `plano_alimentar` (`sql/04_plano.sql` e `05_varios_planos.sql`), com o PDF original; a conversão está em `scripts/plano.py`.
 
+## Perfil do paciente
+
+Ficha do paciente → **Editar perfil**: nome, sexo, data de nascimento, CPF, telefone/WhatsApp, e-mail, endereço,
+próxima consulta e etiquetas (CPF e CEP são conferidos e formatados). Se o **sexo ou a data de nascimento** mudar,
+o sistema mostra, antes de gravar, como ficam as avaliações recalculadas (% de gordura, classificações, massas,
+risco da RCQ, CMB) e só recalcula se você confirmar; as medidas não mudam. Trocar o nome renomeia a planilha e
+mantém o link publicado do paciente.
+
 ## Montar o plano no sistema
 
 Ficha do paciente → **Plano alimentar** → **+ Montar plano no sistema** (planos montados ganham o botão **Editar**).
