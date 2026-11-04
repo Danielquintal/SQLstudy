@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block titulo %}Desempenho · {{ p.nome }}{% endblock %}
+{% macro var(v, melhor) %}{% if v is not none %}<span class="{{ 'var-boa' if (v > 0) == (melhor == 'maior') and v != 0 else 'var-ruim' if v != 0 else 'note' }}">{{ '+' if v > 0 }}{{ v|round(1)|num }}%</span>{% else %}<span class="note">–</span>{% endif %}{% endmacro %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a> / <a href="{{ url_for('paciente', pid=p.id) }}">{{ p.nome }}</a></p>
+  <h1>Testes de desempenho</h1>
+  <p class="sub">Cargas, dinamometria, saltos, sprints e outros testes{% if p.idade is not none %} · {{ p.idade }} anos{% endif %}</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if erros %}<div class="msg erro" role="alert">Nada foi salvo. Confira:<ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+<div class="card" id="lancar">
+  <h2>Lançar resultado</h2>
+  <form method="post" action="{{ url_for('desempenho_salvar', pid=p.id) }}" class="ficha" style="gap:10px" id="form-dp">
+    <div class="cadastro">
+      <div class="campo"><label for="dp-data">Data</label><input id="dp-data" type="date" name="data" value="{{ form.data }}" required></div>
+      <div class="campo"><label for="dp-teste">Teste</label><input class="texto" id="dp-teste" name="teste" list="dp-sugestoes" value="{{ form.teste or '' }}" required autocomplete="off"
+        placeholder="Ex.: Supino reto, Sprint 20 m">
+        <datalist id="dp-sugestoes">{% for t in testes %}<option value="{{ t.teste }}">{% endfor %}{% for n, u, m, b in sugestoes %}<option value="{{ n }}">{% endfor %}</datalist></div>
+      <div class="campo"><label for="dp-un">Unidade</label><input class="texto" id="dp-un" name="unidade" value="{{ form.unidade or '' }}" placeholder="kg, s, cm, repetições"></div>
+      <div class="campo"><label for="dp-melhor">Melhor quando</label><select id="dp-melhor" name="melhor">
+        <option value="maior" {{ 'selected' if form.melhor != 'menor' }}>maior (carga, salto, repetições)</option>
+        <option value="menor" {{ 'selected' if form.melhor == 'menor' }}>menor (tempo de sprint, FC de repouso)</option></select></div>
+      <div class="campo"><label for="dp-valor" id="dp-l-valor">Resultado</label><input id="dp-valor" name="valor" inputmode="decimal" value="{{ form.valor or '' }}" required></div>
+      <div class="campo"><label for="dp-esq">Lado esquerdo (se tiver dois lados)</label><input id="dp-esq" name="valor_esq" inputmode="decimal" value="{{ form.valor_esq or '' }}"
+        placeholder="Dinamometria, testes unilaterais"></div>
+      <div class="campo" style="grid-column:1/-1"><label for="dp-obs">Observação (opcional)</label><input class="texto" id="dp-obs" name="observacao" value="{{ form.observacao or '' }}"
+        placeholder="Ex.: 1RM estimado, 3 repetições"></div>
+    </div>
+    <div class="acoes"><button class="btn pri">Salvar</button><span class="note" id="dp-ultimo" role="status"></span></div>
+  </form>
+</div>
+
+<div class="card" id="testes">
+  <h2>Evolução</h2>
+  {% if testes %}
+  <p class="note" style="margin:0">Evolução em relação ao primeiro teste e ao anterior; em verde quando melhorou (carga subiu, tempo de sprint caiu).
+    Nos testes com dois lados, assimetria acima de 10% merece atenção.</p>
+  <div class="dp-grid">{% for t in testes %}{% set u = t.registros[-1] %}
+    <div class="dp-card">
+      <h3>{{ t.teste }} <span class="note" style="font-weight:400">{{ t.registros|length }} teste{{ 's' if t.registros|length != 1 }}</span></h3>
+      <div><span class="v">{{ fmt(u.valor) }}{% if u.valor_esq is not none %} / {{ fmt(u.valor_esq) }}{% endif %}<small>{{ t.unidade }}</small></span>
+        {% if t.bilateral %}<span class="note">direita / esquerda</span>{% endif %}
+        {% if t.var_total is not none %}<div class="note">Desde {{ t.registros[0].data|br }}: {{ var(t.var_total, t.melhor) }}{% if t.var_total_esq is not none %} / {{ var(t.var_total_esq, t.melhor) }}{% endif %}</div>{% endif %}</div>
+      {% if t.registros|length > 1 %}
+      {% set vals = t.registros|map(attribute='valor')|list + (t.registros|selectattr('valor_esq')|map(attribute='valor_esq')|list) %}
+      {% set lo, hi = vals|min, vals|max %}{% set amp = (hi - lo) or 1 %}{% set n = t.registros|length - 1 %}
+      <svg viewBox="0 0 300 90" preserveAspectRatio="none" role="img" aria-label="Evolução de {{ t.teste }}">
+        <polyline class="d" points="{% for r in t.registros %}{{ (10 + 280 * loop.index0 / n)|round(1) }},{{ (80 - 70 * (r.valor - lo) / amp)|round(1) }} {% endfor %}"/>
+        {% if t.bilateral %}<polyline class="e" points="{% for r in t.registros %}{% if r.valor_esq is not none %}{{ (10 + 280 * loop.index0 / n)|round(1) }},{{ (80 - 70 * (r.valor_esq - lo) / amp)|round(1) }} {% endif %}{% endfor %}"/>{% endif %}
+      </svg>
+      {% endif %}
+      <div class="tablebox"><table>
+        <thead><tr><th class="t">Data</th><th>{{ 'Dir. / Esq.' if t.bilateral else 'Resultado' }}</th><th>Vs. anterior</th>{% if t.bilateral %}<th title="Diferença entre os lados">Assim.</th>{% endif %}<th></th></tr></thead>
+        <tbody>{% for r in t.registros|reverse %}
+          <tr><td class="t n">{{ r.data|br }}{% if r.observacao %}<br><span class="note">{{ r.observacao }}</span>{% endif %}</td>
+            <td class="n">{{ fmt(r.valor) }}{% if r.valor_esq is not none %} / {{ fmt(r.valor_esq) }}{% endif %}</td>
+            <td class="n">{{ var(r.var_ant, t.melhor) }}{% if t.bilateral and r.var_ant_esq is not none %} / {{ var(r.var_ant_esq, t.melhor) }}{% endif %}</td>
+            {% if t.bilateral %}<td class="n {{ 'var-ruim' if r.assimetria and r.assimetria > 10 }}">{{ r.assimetria|round(1)|num if r.assimetria is not none else '–' }}{{ '%' if r.assimetria is not none }}</td>{% endif %}
+            <td><form method="post" action="{{ url_for('desempenho_excluir', did=r.id) }}"><button class="btn perigo mini" title="Excluir"
+              onclick="if(this.dataset.ok){return true} this.dataset.ok=1; this.textContent='Excluir?'; return false">×</button></form></td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+    </div>
+  {% endfor %}</div>
+  {% else %}
+  <p class="note" style="margin:0">Nenhum teste lançado ainda.</p>
+  {% endif %}
+</div>
+<script>
+// ao escolher um teste conhecido, preenche unidade e direção (e lembra o último resultado)
+const SUG = Object.fromEntries({{ sugestoes|tojson }}.map(([n, u, m, b]) => [n.toLowerCase(), { u, m, b }]));
+const JA = Object.fromEntries({{ testes|map(attribute='teste')|list|tojson }}.map((n, i) => [n.toLowerCase(), i]));
+const META = [{% for t in testes %}{% set u = t.registros[-1] %}{ u: {{ t.unidade|tojson }}, m: {{ t.melhor|tojson }}, b: {{ t.bilateral|tojson }},
+  ult: {{ (fmt(u.valor) + (' / ' + fmt(u.valor_esq) if u.valor_esq is not none else '') + ' ' + t.unidade + ' em ' + u.data.strftime('%d/%m/%Y'))|tojson }} },{% endfor %}];
+const teste = document.getElementById('dp-teste');
+teste.addEventListener('input', () => {
+  const k = teste.value.trim().toLowerCase(), i = JA[k], s = i != null ? META[i] : SUG[k];
+  const ult = document.getElementById('dp-ultimo');
+  ult.textContent = i != null ? `Último: ${META[i].ult}` : '';
+  if (!s) return;
+  document.getElementById('dp-un').value = s.u;
+  document.getElementById('dp-melhor').value = s.m;
+  document.getElementById('dp-l-valor').textContent = s.b ? 'Lado direito' : 'Resultado';
+});
+</script>
+{% endblock %}

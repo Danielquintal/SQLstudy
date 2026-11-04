@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block titulo %}Exames · {{ p.nome }}{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a> / <a href="{{ url_for('paciente', pid=p.id) }}">{{ p.nome }}</a></p>
+  <h1>Exames laboratoriais</h1>
+  <p class="sub">{{ {'F': 'Referências femininas', 'M': 'Referências masculinas'}.get(p.genero, 'Sexo não informado: referências gerais') }}
+    {% if p.idade is not none %} · {{ p.idade }} anos{% endif %} · <a href="{{ url_for('exames_referencias') }}" style="color:inherit">editar referências</a></p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if erros %}<div class="msg erro" role="alert">Nada foi salvo. Confira:<ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+{% if alertas %}
+<div class="card">
+  <h2>Fora da referência em {{ exames[-1].data|br }}</h2>
+  <ul class="ex-causas">{% for a in alertas %}
+    <li><span class="chip {{ 'warn' if a.nivel == 'atencao' else 'bad' }}">{{ a.rotulo }}</span>
+      <b>{{ a.nome }}</b>: {{ a.valor|round(2)|num }} {{ a.unidade }}{% if a.ref %} <span class="note">(referência {{ a.ref }})</span>{% endif %}
+      {% if a.causas %}<span class="note">Possíveis causas: {{ a.causas }}.</span>{% endif %}</li>{% endfor %}
+  </ul>
+  <p class="note" style="margin:0">As possíveis causas ajudam no raciocínio clínico e não aparecem na página do paciente. Diagnóstico é médico.</p>
+</div>
+{% endif %}
+
+{% if exames %}
+<div class="card" id="historico">
+  <h2>Histórico</h2>
+  <p class="note" style="margin:0">Toque numa linha para ver o gráfico daquele exame. Em vermelho, fora da referência (↑ alto, ↓ baixo).</p>
+  <div class="tablebox"><table class="ex">
+    <thead><tr><th class="t">Exame</th><th class="t">Referência</th>
+      {% for e in exames %}<th>{{ e.data|br }}{% if e.laboratorio %}<br><span class="note" style="font-weight:400">{{ e.laboratorio }}</span>{% endif %}
+        <div class="ex-th-acoes"><a class="btn mini" href="{{ url_for('exames_paciente', pid=p.id, editar=e.id) }}#lancar" title="Editar">Editar</a>
+          <form method="post" action="{{ url_for('exame_excluir', eid=e.id) }}"><button class="btn perigo mini" title="Excluir o exame desta data"
+            onclick="if(this.dataset.ok){return true} this.dataset.ok=1; this.textContent='Excluir?'; return false">×</button></form></div></th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for g in grupos %}
+      <tr><td class="gr" colspan="{{ exames|length + 2 }}">{{ g.nome }}</td></tr>
+      {% for l in g.linhas %}
+      <tr class="linha" data-item="{{ l.item.id }}"><td class="t">{{ l.item.nome }}{% if l.item.unidade %} <span class="note">{{ l.item.unidade }}</span>{% endif %}</td>
+        <td class="t note">{{ l.ref }}</td>
+        {% for x in l.valores %}{% if x %}<td class="n v-{{ x.nivel }}" title="{{ x.rotulo }}{% if x.ref %} · referência {{ x.ref }}{% endif %}">{{ x.valor|round(2)|num }}{% if x.nivel in ('alto', 'baixo', 'atencao') %}<span class="seta">{{ '↓' if x.nivel == 'baixo' else '↑' }}</span>{% endif %}</td>
+        {% else %}<td class="n note">–</td>{% endif %}{% endfor %}</tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <div class="ex-grafico" id="ex-grafico" hidden>
+    <h2 id="eg-tit" style="font-size:15px;margin:0"></h2>
+    <svg id="eg-svg" viewBox="0 0 640 200" role="img"></svg>
+    <p class="note" id="eg-nota" style="margin:0"></p>
+  </div>
+</div>
+{% endif %}
+
+<div class="card" id="lancar">
+  <h2>{% if editar %}Editar o exame de {{ editar.data|br }}{% else %}Lançar exame{% endif %}</h2>
+  <p class="note" style="margin:0">Preencha só o que veio no laudo. Contagens podem ir como no laudo (4,52 milhões ou 4.520.000; 6,5 mil ou 6.500):
+    o sistema converte. Se o laboratório usa outra referência, digite em "ref. do laudo" (ex.: 0,4 a 4,5 · até 190 · acima de 40).
+    Os índices (HOMA-IR, TyG, não HDL, NLR, MLR, PLR) são calculados sozinhos.</p>
+  <form method="post" action="{{ url_for('exames_salvar', pid=p.id) }}" class="ficha ex-form" style="gap:12px">
+    {% if editar %}<input type="hidden" name="exame_id" value="{{ editar.id }}">{% endif %}
+    <div class="cadastro">
+      <div class="campo"><label for="ex-data">Data da coleta</label><input id="ex-data" type="date" name="data" value="{{ form.data }}" required></div>
+      <div class="campo"><label for="ex-lab">Laboratório (opcional)</label><input class="texto" id="ex-lab" name="laboratorio" value="{{ form.laboratorio or '' }}"></div>
+      <div class="campo"><label for="ex-obs">Observação (opcional)</label><input class="texto" id="ex-obs" name="observacao" value="{{ form.observacao or '' }}" placeholder="Ex.: após 3 dias sem treino"></div>
+    </div>
+    {% for g in catalogo if not g['itens'][0].get('calculado') %}
+    {% set ns = namespace(n=0) %}{% for it in g['itens'] if form.get('v_' + it.id) %}{% set ns.n = ns.n + 1 %}{% endfor %}
+    <details class="secao ex-grupo" {{ 'open' if loop.first or ns.n }}>
+      <summary>{{ g.nome }} <span class="preenchidos" data-grupo="{{ loop.index }}"></span></summary>
+      <div class="ex-itens" data-grupo="{{ loop.index }}">
+        {% for it in g['itens'] %}
+        <div class="ex-item">
+          <label for="v-{{ it.id }}">{{ it.nome }}{% if it.unidade %} <span class="note" style="font-weight:400">({{ it.unidade }})</span>{% endif %}</label>
+          <div class="linha-in campo">
+            <input class="val" id="v-{{ it.id }}" name="v_{{ it.id }}" inputmode="decimal" value="{{ form.get('v_' + it.id, '') }}" data-item="{{ it.id }}" autocomplete="off">
+            <input class="rl texto" name="r_{{ it.id }}" value="{{ form.get('r_' + it.id, '') }}" placeholder="ref. do laudo" aria-label="Referência do laudo para {{ it.nome }}" data-item="{{ it.id }}">
+          </div>
+          <span class="ref">{% if ref(it) %}Referência: {{ ref(it) }}{% elif it.nota %}{{ it.nota }}{% else %}Sem referência padrão{% endif %}
+            <span class="previa" data-previa="{{ it.id }}"></span></span>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+    <div class="barra"><div class="acoes">
+      <button class="btn pri">{{ 'Salvar alterações' if editar else 'Salvar exame' }}</button>
+      {% if editar %}<a class="btn" href="{{ url_for('exames_paciente', pid=p.id) }}">Cancelar</a>{% endif %}
+    </div><span class="note" id="ex-cont" role="status"></span></div>
+  </form>
+</div>
+
+<script>
+const ITENS = {{ catalogo|tojson }}.flatMap(g => g.itens);
+const POR_ID = Object.fromEntries(ITENS.map(i => [i.id, i]));
+const GENERO = {{ p.genero|tojson }};
+const HIST = {
+  datas: {{ exames|map(attribute='data')|map('string')|list|tojson }},
+  valores: { {% for g in grupos %}{% for l in g.linhas %}{{ l.item.id|tojson }}: [{% for x in l.valores %}{{ (x.valor if x else none)|tojson }},{% endfor %}],{% endfor %}{% endfor %} },
+};
+const fmt = v => v == null ? '–' : (+v.toFixed(Math.abs(v) >= 100 ? 0 : 2)).toLocaleString('pt-BR');
+const num = s => {
+  s = String(s ?? '').trim().replace(/\s/g, '');
+  if (!s) return null;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const x = parseFloat(s); return isFinite(x) ? x : null;
+};
+const ESCALA = { hemacias: v => v > 100 ? v / 1e6 : v, leucocitos: v => v < 100 ? v * 1000 : v, neutrofilos: v => v < 100 ? v * 1000 : v,
+  plaquetas: v => v < 2000 ? v * 1000 : v, hematocrito: v => v < 1 ? v * 100 : v, rdw: v => v < 1 ? v * 100 : v };
+function lerRef(t) {
+  t = String(t || '').toLowerCase().replace(/\s/g, '');
+  const ns = (t.match(/\d+(?:[.,]\d+)*/g) || []).map(num).filter(n => n != null);
+  if (!ns.length) return null;
+  if (/^(até|ate|<|≤|inferiora|menorque|abaixode)/.test(t)) return [null, ns[0]];
+  if (/^(acimade|>|≥|superiora|maiorque|maiorouiguala)/.test(t)) return [ns[0], null];
+  return ns.length >= 2 ? [ns[0], ns[1]] : null;
+}
+function classificar(it, v, refLaudo) {
+  let r = lerRef(refLaudo);
+  if (!r && it.faixas) { const f = it.faixas.find(f => f.ate == null || v < f.ate); return [f.nivel, f.rotulo]; }
+  r = r || it[GENERO] || it.ref;
+  if (!r) return ['', ''];
+  if (r[0] != null && v < r[0]) return ['baixo', 'Baixo'];
+  if (r[1] != null && v > r[1]) return ['alto', 'Alto'];
+  return ['ok', 'Normal'];
+}
+// prévia da classificação enquanto digita (o servidor confere ao salvar)
+const form = document.querySelector('.ex-form');
+function previa(id) {
+  const it = POR_ID[id], el = form.querySelector(`[data-previa="${id}"]`);
+  let v = num(form.querySelector(`input[name="v_${id}"]`).value);
+  if (v == null) { el.textContent = ''; el.className = 'previa'; return; }
+  v = ESCALA[id] ? ESCALA[id](v) : v;
+  const [nivel, rot] = classificar(it, v, form.querySelector(`input[name="r_${id}"]`).value);
+  el.textContent = rot ? `· ${rot}${ESCALA[id] && v !== num(form.querySelector(`input[name="v_${id}"]`).value) ? ` (${fmt(v)})` : ''}` : '';
+  el.className = 'previa ' + nivel;
+}
+function contar() {
+  let total = 0;
+  form.querySelectorAll('.ex-itens').forEach(box => {
+    const n = [...box.querySelectorAll('input.val')].filter(i => i.value.trim()).length; total += n;
+    form.querySelector(`.preenchidos[data-grupo="${box.dataset.grupo}"]`).textContent = n ? `${n} preenchido${n > 1 ? 's' : ''}` : '';
+  });
+  document.getElementById('ex-cont').textContent = total ? `${total} resultado${total > 1 ? 's' : ''}` : '';
+}
+form.addEventListener('input', e => { if (e.target.dataset.item) previa(e.target.dataset.item); contar(); });
+ITENS.forEach(i => { if (form.querySelector(`input[name="v_${i.id}"]`)) previa(i.id); });
+contar();
+
+// gráfico do exame escolhido no histórico, com a faixa de referência
+function grafico(id) {
+  const it = POR_ID[id], vals = HIST.valores[id] || [], box = document.getElementById('ex-grafico');
+  const pts = vals.map((v, i) => [i, v]).filter(p => p[1] != null);
+  if (!pts.length) return;
+  box.hidden = false;
+  document.getElementById('eg-tit').textContent = `${it.nome}${it.unidade ? ' (' + it.unidade + ')' : ''}`;
+  const r = it[GENERO] || it.ref || [null, null];
+  const ys = pts.map(p => p[1]).concat(r.filter(x => x != null));
+  let lo = Math.min(...ys), hi = Math.max(...ys);
+  const pad = (hi - lo) * 0.15 || Math.abs(hi) * 0.1 || 1; lo -= pad; hi += pad;
+  const W = 640, H = 200, L = 56, R = 16, T = 14, B = 28, n = Math.max(HIST.datas.length - 1, 1);
+  const x = i => HIST.datas.length === 1 ? (L + W - R) / 2 : L + (W - L - R) * i / n, y = v => T + (H - T - B) * (hi - v) / (hi - lo);
+  let s = '';
+  if (r[0] != null || r[1] != null) {
+    const y1 = y(r[1] != null ? Math.min(r[1], hi) : hi), y2 = y(r[0] != null ? Math.max(r[0], lo) : lo);
+    s += `<rect class="faixa" x="${L}" y="${y1}" width="${W - L - R}" height="${Math.max(y2 - y1, 0)}"/>`;
+  }
+  [lo + pad, (lo + hi) / 2, hi - pad].forEach(v => { s += `<text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(v)}</text>`; });
+  HIST.datas.forEach((d, i) => { s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(2, 4)}</text>`; });
+  s += `<polyline points="${pts.map(p => `${x(p[0])},${y(p[1])}`).join(' ')}"/>`;
+  pts.forEach(p => { s += `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="4"><title>${fmt(p[1])}</title></circle><text x="${x(p[0])}" y="${y(p[1]) - 9}" text-anchor="middle">${fmt(p[1])}</text>`; });
+  const svg = document.getElementById('eg-svg'); svg.innerHTML = s; svg.setAttribute('aria-label', `Gráfico de ${it.nome}`);
+  document.getElementById('eg-nota').textContent = (r[0] != null || r[1] != null ? 'Faixa verde: referência padrão. ' : '') + (it.nota || '');
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+document.querySelectorAll('tr.linha').forEach(tr => tr.addEventListener('click', () => grafico(tr.dataset.item)));
+</script>
+{% endblock %}

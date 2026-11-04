@@ -190,6 +190,18 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 .aviso-novo b{font-size:16px}
 .aviso-novo p{margin:0;color:var(--muted);font-size:14px}
 .ck-dados{display:flex;flex-direction:column;gap:12px}
+.ex-tab td.gr{text-align:left;background:var(--bg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ex-tab td.v-baixo,.ex-tab td.v-alto{color:var(--bad);font-weight:600}
+.ex-tab td.v-atencao{color:var(--warn);font-weight:600}
+.dp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}
+.dp-card{display:flex;flex-direction:column;gap:8px;min-width:0;grid-column:auto}
+.dp-card h3{margin:0;font-size:15px}
+.dp-card .v{font:500 22px var(--mono)}
+.dp-card .v small{font-size:13px;color:var(--muted);margin-left:3px}
+.dp-card svg{width:100%;height:80px}
+.dp-card svg polyline{fill:none;stroke-width:2.5;vector-effect:non-scaling-stroke}
+.dp-card svg .d{stroke:var(--c2)} .dp-card svg .e{stroke:var(--c4);stroke-dasharray:4 3}
+.var-boa{color:var(--good);font-weight:600} .var-ruim{color:var(--bad);font-weight:600}
 .ck-tab{width:100%;border-collapse:collapse;font-size:13px}
 .nota-baixa{color:var(--bad);font-weight:600}
 .chip.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
@@ -232,6 +244,8 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
         <button type="button" id="rel-plano" hidden>Plano alimentar</button>
         <button type="button" id="rel-ck" hidden>Check-in</button>
         <button type="button" id="rel-reds" hidden>Rastreio RED-S</button>
+        <button type="button" id="rel-ex" hidden>Exames</button>
+        <button type="button" id="rel-dp" hidden>Desempenho</button>
       </div>
       <span class="msg" id="rel-msg" role="status" aria-live="polite"></span>
     </div>
@@ -244,6 +258,7 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
       <button class="tab" role="tab" id="t-dobras" aria-selected="false" data-view="dobras">Dobras cutâneas</button>
       <button class="tab" role="tab" id="t-plano" aria-selected="false" data-view="plano" hidden>Plano alimentar</button>
       <button class="tab" role="tab" id="t-checkin" aria-selected="false" data-view="checkin" hidden>Check-in e rastreios</button>
+      <button class="tab" role="tab" id="t-exames" aria-selected="false" data-view="exames" hidden>Exames e desempenho</button>
     </nav>
   </div>
 </header>
@@ -283,6 +298,7 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 
     <section class="plano view" data-view="plano" id="plano" hidden></section>
 
+    <section class="view ck-dados" data-view="exames" id="ex-dados" hidden></section>
     <section class="view" data-view="checkin" hidden>
       <div class="card ck-card" id="ck-card" hidden>
         <h2>Check-in da semana</h2>
@@ -306,6 +322,8 @@ const PLANO = __PLANO__;
 const CHECKIN = __CHECKIN__;
 const CHECKINS = __CHECKINS__;
 const REDS = __REDS__;
+const EXAMES = __EXAMES__;
+const DESEMPENHO = __DESEMPENHO__;
 
 const n = v => { if (v == null) return null; const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? null : x; };
 const fmt = (v, d = 1) => v == null ? '–' : v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -682,6 +700,57 @@ function desenharCheckins() {
   const faixa = document.getElementById('ck-respostas');
   if (faixa) faixa.addEventListener('toggle', () => { if (faixa.open) desenharGraficoCk(); });
 }
+// ---------- aba Exames e desempenho ----------
+const pct = (v, melhor) => v == null ? '<span class="note">–</span>'
+  : `<span class="${v === 0 ? '' : (v > 0) === (melhor === 'maior') ? 'var-boa' : 'var-ruim'}">${v > 0 ? '+' : ''}${fmt(v)}%</span>`;
+const fmtV = v => v == null ? '–' : v.toLocaleString('pt-BR', { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 2 });
+function variacoes(t) {
+  // evolução de cada registro em relação ao anterior (os dois lados, quando houver)
+  return t.registros.map((r, i) => {
+    const a = t.registros[i - 1];
+    return { ...r, var: a && a.valor ? (r.valor - a.valor) / a.valor * 100 : null,
+      varE: a && r.esq != null && a.esq ? (r.esq - a.esq) / a.esq * 100 : null };
+  });
+}
+function desenharExames() {
+  const partes = [];
+  if (EXAMES.datas.length) {
+    const ult = EXAMES.datas.length - 1;
+    const fora = EXAMES.grupos.flatMap(g => g.linhas).filter(l => l.valores[ult] && ['alto', 'baixo', 'atencao'].includes(l.valores[ult][1])).length;
+    const datas = EXAMES.datas.slice(-4), ini = EXAMES.datas.length - datas.length;
+    partes.push(`<details class="plano-item" id="ex-lab">
+      <summary><span class="pl-tit">Exames laboratoriais</span>
+        <span class="pl-info">${EXAMES.datas.length} coleta${EXAMES.datas.length > 1 ? 's' : ''} · último em ${esc(EXAMES.datas[ult])} · ${fora ? `${fora} fora da referência` : 'tudo dentro da referência'}</span></summary>
+      <div class="plano-corpo ck-dados"><div class="card"><div class="tablebox"><table class="ck-tab ex-tab">
+        <thead><tr><th style="text-align:left">Exame</th><th style="text-align:left">Referência</th>${datas.map(d => `<th>${esc(d)}</th>`).join('')}</tr></thead>
+        <tbody>${EXAMES.grupos.map(g => `<tr><td class="gr" colspan="${datas.length + 2}">${esc(g.nome)}</td></tr>` + g.linhas.map(l => `<tr>
+          <td style="text-align:left">${esc(l.nome)}${l.unidade ? ` <span class="note">${esc(l.unidade)}</span>` : ''}</td><td style="text-align:left" class="note">${esc(l.ref)}</td>
+          ${l.valores.slice(ini).map(x => x ? `<td class="v-${x[1]}" title="${esc(x[2])}">${fmtV(x[0])}${x[1] === 'baixo' ? ' ↓' : ['alto', 'atencao'].includes(x[1]) ? ' ↑' : ''}</td>` : '<td class="note">–</td>').join('')}</tr>`).join('')).join('')}</tbody>
+      </table></div>
+      <p class="note" style="margin:6px 0 0">Em vermelho, fora da referência (↑ acima, ↓ abaixo)${EXAMES.datas.length > 4 ? '; na tela, as 4 coletas mais recentes (o relatório em PDF traz até 6)' : ''}.
+        Converse sobre os resultados com o seu nutricionista e o seu médico.</p></div></div></details>`);
+  }
+  if (DESEMPENHO.length) {
+    partes.push(`<details class="plano-item" id="ex-dp">
+      <summary><span class="pl-tit">Testes de desempenho</span>
+        <span class="pl-info">${DESEMPENHO.length} teste${DESEMPENHO.length > 1 ? 's' : ''} · último em ${esc(DESEMPENHO.flatMap(t => t.registros).map(r => r.data).sort((a, b) => a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''))).pop())}</span></summary>
+      <div class="plano-corpo"><div class="dp-grid">${DESEMPENHO.map(t => {
+        const regs = variacoes(t), u = regs[regs.length - 1];
+        const vals = regs.flatMap(r => [r.valor, r.esq]).filter(v => v != null), lo = Math.min(...vals), amp = (Math.max(...vals) - lo) || 1, n = Math.max(regs.length - 1, 1);
+        const linha = k => regs.map((r, i) => r[k] == null ? '' : `${(10 + 280 * i / n).toFixed(1)},${(72 - 62 * (r[k] - lo) / amp).toFixed(1)}`).filter(Boolean).join(' ');
+        return `<div class="card dp-card"><h3>${esc(t.teste)}</h3>
+          <div><span class="v">${fmtV(u.valor)}${u.esq != null ? ' / ' + fmtV(u.esq) : ''}<small>${esc(t.unidade)}</small></span>${t.bilateral ? ' <span class="note">direita / esquerda</span>' : ''}
+          ${t.var_total != null ? `<div class="note">Desde ${esc(regs[0].data)}: ${pct(t.var_total, t.melhor)}${t.var_total_esq != null ? ' / ' + pct(t.var_total_esq, t.melhor) : ''}</div>` : ''}</div>
+          ${regs.length > 1 ? `<svg viewBox="0 0 300 80" preserveAspectRatio="none" role="img" aria-label="Evolução de ${esc(t.teste)}"><polyline class="d" points="${linha('valor')}"/>${t.bilateral ? `<polyline class="e" points="${linha('esq')}"/>` : ''}</svg>` : ''}
+          <div class="tablebox"><table class="ck-tab"><thead><tr><th style="text-align:left">Data</th><th>${t.bilateral ? 'Dir. / Esq.' : 'Resultado'}</th><th>Vs. anterior</th>${t.bilateral ? '<th>Assim.</th>' : ''}</tr></thead>
+          <tbody>${regs.slice().reverse().map(r => `<tr><td style="text-align:left">${esc(r.data)}${r.obs ? `<br><span class="note">${esc(r.obs)}</span>` : ''}</td>
+            <td>${fmtV(r.valor)}${r.esq != null ? ' / ' + fmtV(r.esq) : ''}</td><td>${pct(r.var, t.melhor)}${t.bilateral && r.varE != null ? ' / ' + pct(r.varE, t.melhor) : ''}</td>
+            ${t.bilateral ? `<td>${r.assimetria != null ? fmt(r.assimetria) + '%' : '–'}</td>` : ''}</tr>`).join('')}</tbody></table></div></div>`;
+      }).join('')}</div>
+      <p class="note" style="margin:0">Em verde quando melhorou (carga ou salto subiu, tempo caiu). Assimetria é a diferença entre os lados.</p></div></details>`);
+  }
+  document.getElementById('ex-dados').innerHTML = partes.join('');
+}
 function desenharGraficoCk() {
   const cv = document.getElementById('ch-ck');
   if (!cv) return;
@@ -700,11 +769,11 @@ function desenharGraficoCk() {
 
 function render() {
   const rows = recorte();
-  const plano = view === 'plano', ck = view === 'checkin';
+  const plano = view === 'plano', ck = view === 'checkin' || view === 'exames';
   document.getElementById('kpis').hidden = plano || ck || !DADOS.length;
   document.querySelector('.range').hidden = plano || ck || !DADOS.length;
   if (!DADOS.length && !plano && !ck) return;   // paciente ainda sem avaliação
-  document.getElementById('sub').textContent = ck ? 'Check-in e rastreios'
+  document.getElementById('sub').textContent = view === 'exames' ? 'Exames e desempenho' : ck ? 'Check-in e rastreios'
     : plano ? (PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Plano alimentar prescrito em ${PLANOS[0].prescrito}`)
     : `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${rows[0].dataAvaliacao} a ${rows[rows.length - 1].dataAvaliacao} · Altura ${fmt(n(rows[rows.length - 1].estatura), 0)} cm`;
   if (plano || ck) return;
@@ -928,6 +997,59 @@ function relatorioReds() {
   return doc;
 }
 
+function relatorioExames() {
+  const datas = EXAMES.datas.slice(-6), ini = EXAMES.datas.length - datas.length;
+  const doc = novoPDF('Exames laboratoriais', `${EXAMES.datas.length} coleta${EXAMES.datas.length > 1 ? 's' : ''} · último em ${EXAMES.datas[EXAMES.datas.length - 1]}`);
+  texto(doc, 'Valores marcados em vermelho estão fora da referência: (A) acima, (B) abaixo. Converse sobre os resultados com o seu nutricionista e o seu médico.', { tam: 9, cor: COR.muted });
+  const cols = datas.map((_, i) => i + 2);
+  EXAMES.grupos.forEach(g => {
+    secao(doc, g.nome);
+    const marcas = [];
+    const body = g.linhas.map((l, li) => [`${l.nome}${l.unidade ? ' (' + l.unidade + ')' : ''}`, l.ref,
+      ...l.valores.slice(ini).map((x, ci) => {
+        if (!x) return '-';
+        const fora = ['alto', 'baixo', 'atencao'].includes(x[1]);
+        if (fora) marcas.push(`${li}:${ci + 2}`);
+        return fmtV(x[0]) + (x[1] === 'baixo' ? ' (B)' : fora ? ' (A)' : '');
+      })]);
+    tabela(doc, ['Exame', 'Referência', ...datas], body, {
+      didParseCell: c => {
+        if (cols.includes(c.column.index)) c.cell.styles.halign = 'right';
+        if (c.section === 'body' && marcas.includes(`${c.row.index}:${c.column.index}`)) { c.cell.styles.textColor = [194, 69, 45]; c.cell.styles.fontStyle = 'bold'; }
+      },
+      columnStyles: { 0: { cellWidth: 52 }, 1: { cellWidth: 30, textColor: COR.muted } },
+    });
+  });
+  if (EXAMES.datas.length > 6) texto(doc, `Mostrando as 6 coletas mais recentes de ${EXAMES.datas.length}.`, { tam: 8, cor: COR.muted });
+  rodapes(doc);
+  return doc;
+}
+
+function relatorioDesempenho() {
+  const doc = novoPDF('Testes de desempenho', `${DESEMPENHO.length} teste${DESEMPENHO.length > 1 ? 's' : ''}`);
+  secao(doc, 'Resumo');
+  tabela(doc, ['Teste', 'Primeiro', 'Último', 'Evolução'], DESEMPENHO.map(t => {
+    const a = t.registros[0], b = t.registros[t.registros.length - 1];
+    const v = r => `${fmtV(r.valor)}${r.esq != null ? ' / ' + fmtV(r.esq) : ''} ${t.unidade}`;
+    return [t.teste + (t.bilateral ? ' (dir. / esq.)' : ''), `${v(a)} (${a.data})`, t.registros.length > 1 ? `${v(b)} (${b.data})` : '-',
+      t.var_total == null ? '-' : `${t.var_total > 0 ? '+' : ''}${fmt(t.var_total)}%${t.var_total_esq != null ? ` / ${t.var_total_esq > 0 ? '+' : ''}${fmt(t.var_total_esq)}%` : ''}`];
+  }), {}, [3]);
+  texto(doc, 'Evolução do primeiro ao último teste. Nos testes de tempo (sprint, corrida), cair é melhorar.', { tam: 8, cor: COR.muted });
+  DESEMPENHO.forEach(t => {
+    secao(doc, `${t.teste}${t.unidade ? ' (' + t.unidade + ')' : ''}`);
+    if (t.registros.length > 1)
+      figura(doc, t.bilateral ? 'Direita e esquerda' : t.teste, t.registros.map(r => ({ dataAvaliacao: r.data, d: r.valor, e: r.esq })),
+        [['d', t.bilateral ? 'Direita' : t.teste, LINHA.c2], ['e', 'Esquerda', LINHA.c4]],
+        Math.max(...t.registros.map(r => r.valor)) < 10 ? 2 : 1, true);
+    tabela(doc, ['Data', t.bilateral ? 'Direita / esquerda' : 'Resultado', 'Vs. anterior', ...(t.bilateral ? ['Assimetria'] : []), 'Observação'],
+      variacoes(t).reverse().map(r => [r.data, `${fmtV(r.valor)}${r.esq != null ? ' / ' + fmtV(r.esq) : ''}`,
+        r.var == null ? '-' : `${r.var > 0 ? '+' : ''}${fmt(r.var)}%${r.varE != null ? ` / ${r.varE > 0 ? '+' : ''}${fmt(r.varE)}%` : ''}`,
+        ...(t.bilateral ? [r.assimetria != null ? fmt(r.assimetria) + '%' : '-'] : []), r.obs]), {}, t.bilateral ? [1, 2, 3] : [1, 2]);
+  });
+  rodapes(doc);
+  return doc;
+}
+
 async function relatorioPlano() {
   const doc = novoPDF('Plano alimentar', PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Prescrito em ${PLANOS[0].prescrito}`);
   for (const [k, P] of PLANOS.entries()) {
@@ -1028,8 +1150,10 @@ async function gerarRelatorio(tipo) {
   relMsg.textContent = 'Gerando o relatório…';
   try {
     await pdfLibs();
-    const doc = tipo === 'plano' ? await relatorioPlano() : tipo === 'checkin' ? relatorioCheckin() : tipo === 'reds' ? relatorioReds() : relatorioAvaliacao();
-    const titulo = { plano: 'Plano alimentar', checkin: 'Check-in semanal', reds: 'Rastreio RED-S' }[tipo] || 'Avaliação física';
+    const doc = tipo === 'plano' ? await relatorioPlano() : tipo === 'checkin' ? relatorioCheckin() : tipo === 'reds' ? relatorioReds()
+      : tipo === 'exames' ? relatorioExames() : tipo === 'desempenho' ? relatorioDesempenho() : relatorioAvaliacao();
+    const titulo = { plano: 'Plano alimentar', checkin: 'Check-in semanal', reds: 'Rastreio RED-S', exames: 'Exames laboratoriais',
+      desempenho: 'Testes de desempenho' }[tipo] || 'Avaliação física';
     const nome = `${titulo} - ${NOME} - ${hoje().replace(/\//g, '-')}.pdf`;
     relMsg.textContent = 'Confirme o download.';
     await salvar(nome, doc.output('blob'));
@@ -1050,23 +1174,29 @@ document.getElementById('rel-ck').addEventListener('click', () => gerarRelatorio
 document.getElementById('rel-reds').addEventListener('click', () => gerarRelatorio('reds'));
 if (CHECKINS.length) document.getElementById('rel-ck').hidden = false;
 if ((REDS.leafq || []).length || (REDS.energia || []).length) document.getElementById('rel-reds').hidden = false;
+document.getElementById('rel-ex').addEventListener('click', () => gerarRelatorio('exames'));
+document.getElementById('rel-dp').addEventListener('click', () => gerarRelatorio('desempenho'));
+if (EXAMES.datas.length) document.getElementById('rel-ex').hidden = false;
+if (DESEMPENHO.length) document.getElementById('rel-dp').hidden = false;
 
 document.getElementById('foot').textContent ='Fonte: App Naive · evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
 if (PLANOS.length) { document.getElementById('t-plano').hidden = false; drawPlano(); }
 if (CHECKIN) { document.getElementById('ck-card').hidden = false; document.getElementById('ck-link').href = CHECKIN; }
 const TEM_REDS = (REDS.leafq || []).length || (REDS.energia || []).length;
 if (CHECKIN || CHECKINS.length || TEM_REDS) { document.getElementById('t-checkin').hidden = false; desenharCheckins(); }
+if (EXAMES.datas.length || DESEMPENHO.length) { document.getElementById('t-exames').hidden = false; desenharExames(); }
 // paciente novo, ainda sem avaliação: a página mostra só o plano e o check-in
 if (!DADOS.length) {
   ['composicao', 'classificacoes', 'circunferencias', 'dobras'].forEach(v => { document.getElementById('t-' + v).hidden = true; });
   document.getElementById('rel-av').hidden = true;
   document.getElementById('foot').textContent = '';
-  if (!PLANOS.length) document.querySelector('.relatorios').hidden = true;
+  if (![...document.querySelectorAll('.relatorios button')].some(b => !b.hidden)) document.querySelector('.relatorios').hidden = true;
   // aviso para o paciente não estranhar a página com pouca coisa
   document.getElementById('aviso-titulo').textContent = 'Bem-vindo(a) à sua página!';
   document.getElementById('aviso-texto').textContent = PLANOS.length
     ? 'Os gráficos da sua evolução (peso, composição corporal, medidas e classificações) vão aparecer aqui depois da sua primeira avaliação.'
-    : 'Suas avaliações e seu plano alimentar vão aparecer aqui depois da consulta. Enquanto isso, você já pode fazer o check-in semanal.';
+    : CHECKIN ? 'Suas avaliações e seu plano alimentar vão aparecer aqui depois da consulta. Enquanto isso, você já pode fazer o check-in semanal.'
+    : 'Suas avaliações e seu plano alimentar vão aparecer aqui depois da consulta.';
   document.getElementById('aviso-novo').hidden = false;
 }
 const inicial = location.hash.slice(1);

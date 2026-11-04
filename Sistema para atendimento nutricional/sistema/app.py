@@ -22,6 +22,7 @@ from planilha_paciente import SECTIONS, build, safe_name
 import agenda
 import checkin
 import reds
+import exames
 import contatos
 import links
 import plano as planos
@@ -134,13 +135,8 @@ def gerar_arquivos(cur, pid, nome):
                       "\"Gerar planilha e página\".")
     PAGINAS.mkdir(parents=True, exist_ok=True)
     montar(str(TEMPLATE), nome, avs, planos.plano_do_banco(cur, pid), str(PAGINAS / f"{safe_name(nome)}.html"),
-           checkin.link_paciente(cur, contatos.carregar(), pid, nome), extras_pagina(cur, pid))
+           checkin.link_paciente(cur, contatos.carregar(), pid, nome), exames.extras_pagina(cur, pid))
     return avisos
-
-
-def extras_pagina(cur, pid):
-    """check-ins e rastreio de RED-S para a aba "Check-in e rastreios" da página do paciente"""
-    return {"checkins": checkin.para_pagina(cur, pid), "reds": reds.para_pagina(cur, pid)}
 
 
 def opcoes_texto(cur):
@@ -207,6 +203,10 @@ def paciente(pid):
         cur.execute("SELECT data, ingestao_kcal, gasto_exercicio_kcal, mlg_kg FROM reds_energia WHERE paciente_id = %s "
                     "ORDER BY data DESC, id DESC LIMIT 1", (pid,))
         ult_ed = cur.fetchone()
+        lista_ex, grupos_ex = exames.historico(cur, pid, p["genero"], 1)
+        ult_exame = lista_ex and {"data": lista_ex[-1]["data"], "n": sum(1 for g in grupos_ex for l in g["linhas"] if l["valores"][-1] and not l["item"].get("calculado")),
+                                  "alertas": exames.alertas(grupos_ex)}
+        testes = exames.desempenho(cur, pid)
         avs = avaliacoes_do_banco(cur, pid)
         cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s ORDER BY feito_em DESC LIMIT 6", (pid,))
         historico = cur.fetchall()
@@ -227,7 +227,8 @@ def paciente(pid):
              + (["checkin"] if checkin.configurado(cfg) and not p["checkin_pausado"] else []))
     mensagens = [(t, contatos.TITULOS[t], contatos.mensagem(cfg, t, p, extra)) for t in tipos]
     # a página do paciente tem conteúdo com avaliação, plano alimentar ou check-in (paciente novo já pode ter link)
-    tem_pagina = bool(avs or planos_paciente or (checkin.configurado(cfg) and not p["checkin_pausado"]))
+    tem_pagina = bool(avs or planos_paciente or (checkin.configurado(cfg) and not p["checkin_pausado"])
+                      or ult_exame or testes or ult_leafq or ult_ed)
     return render_template("paciente.html", p=p, avs=list(reversed(avs)), primeira=primeira, ultima=ultima,
                            url=url, art=art, pedido=links.pedido(pid), historico=historico, mensagens=mensagens,
                            planos=planos_paciente, checkins=checkins, grafico=checkin.grafico_peso(checkins),
@@ -236,6 +237,7 @@ def paciente(pid):
                            reds_leafq=ult_leafq and {"data": ult_leafq[0], "total": ult_leafq[1], "risco": ult_leafq[1] >= reds.RISCO_LEAFQ},
                            reds_ed=ult_ed and (lambda ed: {"data": ult_ed[0], "ed": ed, "classe": reds.classe_ed(ed)})(
                                reds.energia_disponivel(*ult_ed[1:])),
+                           ult_exame=ult_exame, testes=testes,
                            passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,
                            email_ok=checkin.email_valido(p["email"]),
                            tem_whatsapp=bool(contatos.telefone_whatsapp(p["telefone"])), titulos=contatos.ROTULOS)
@@ -249,8 +251,8 @@ def evolucao(pid):
         avs = [para_app_naive(r) for r in avaliacoes_do_banco(cur, pid)]
         plano = planos.plano_do_banco(cur, pid)
         link_ck = checkin.link_paciente(cur, contatos.carregar(), pid, p["nome"])
-        extras = extras_pagina(cur, pid)
-    if not (avs or plano or link_ck):
+        extras = exames.extras_pagina(cur, pid)
+    if not (avs or plano or link_ck or exames.tem_extras(extras)):
         flash("A página deste paciente ainda não tem conteúdo: lance uma avaliação ou um plano alimentar.")
         return redirect(url_for("paciente", pid=pid))
     return gerar_html(str(TEMPLATE), p["nome"], avs, plano, link_ck, extras)
@@ -739,7 +741,8 @@ def perfil(pid):
 
 
 # ---------- excluir paciente ----------
-EXCLUIDOS = Path(__file__).resolve().parent.parent / "_backup" / "pacientes_excluidos"
+RAIZ = Path(__file__).resolve().parent.parent
+EXCLUIDOS = RAIZ / "_backup" / "pacientes_excluidos"
 
 
 def _para_json(v):
@@ -1034,6 +1037,169 @@ def _numero_form(v):
         return float(str(v).replace(",", ".")) if str(v).strip() else None
     except ValueError:
         return None
+
+
+# ---------- exames laboratoriais ----------
+@app.route("/paciente/<int:pid>/exames")
+def exames_paciente(pid, erros=(), form=None):
+    with conectar() as con:
+        cur = con.cursor()
+        p = buscar_paciente(cur, pid)
+        lista, grupos = exames.historico(cur, pid, p["genero"])
+    p["idade"] = idade(p["data_nascimento"])
+    editar = next((e for e in lista if str(e["id"]) == request.args.get("editar", "")), None)
+    if form is None:
+        form = {"data": editar["data"].isoformat() if editar else date.today().isoformat(),
+                "laboratorio": editar and editar["laboratorio"] or "", "observacao": editar and editar["observacao"] or ""}
+        for k, (v, ref) in (editar["valores"] if editar else {}).items():
+            form["v_" + k], form["r_" + k] = exames.fmt(v), ref or ""
+    return render_template("exames.html", p=p, exames=lista, grupos=grupos, alertas=exames.alertas(grupos),
+                           catalogo=exames.carregar()["grupos"], editar=editar, form=form, erros=erros,
+                           ref=lambda it: exames.texto_ref(exames.ref_padrao(it, p["genero"])))
+
+
+@app.route("/paciente/<int:pid>/exames", methods=["POST"])
+def exames_salvar(pid):
+    f = request.form
+    erros, valores = [], {}
+    try:
+        data = date.fromisoformat(f.get("data", ""))
+    except ValueError:
+        data = None
+        erros.append("Informe a data da coleta.")
+    for k, it in exames.itens().items():
+        if it.get("calculado") or not f.get("v_" + k, "").strip():
+            continue
+        v = exames.ler_numero(f["v_" + k])
+        if v is None or v < 0:
+            erros.append(f"{it['nome']}: \"{f['v_' + k]}\" não é um número.")
+            continue
+        valores[k] = (exames.normalizar(k, v), f.get("r_" + k, "").strip() or None)
+    if not valores and not erros:
+        erros.append("Preencha pelo menos um exame.")
+    if erros:
+        return exames_paciente(pid, erros, f.to_dict())
+    eid = f.get("exame_id", type=int)
+    lab, obs = f.get("laboratorio", "").strip() or None, f.get("observacao", "").strip() or None
+    with conectar() as con:
+        cur = con.cursor()
+        buscar_paciente(cur, pid)
+        cur.execute("SELECT id FROM exame WHERE paciente_id = %s AND data = %s", (pid, data))
+        mesma = cur.fetchone()
+        if eid:
+            # edição: troca todos os valores do exame
+            if mesma and mesma[0] != eid:
+                return exames_paciente(pid, [f"Já existe um exame em {data:%d/%m/%Y}: edite aquele."], f.to_dict())
+            cur.execute("UPDATE exame SET data = %s, laboratorio = %s, observacao = %s WHERE id = %s AND paciente_id = %s RETURNING id",
+                        (data, lab, obs, eid, pid))
+            cur.fetchone() or abort(404)
+            cur.execute("DELETE FROM exame_valor WHERE exame_id = %s", (eid,))
+        elif mesma:
+            # mesma data de um exame que já existe: completa aquele
+            eid = mesma[0]
+            cur.execute("UPDATE exame SET laboratorio = coalesce(%s, laboratorio), observacao = coalesce(%s, observacao) WHERE id = %s",
+                        (lab, obs, eid))
+        else:
+            cur.execute("INSERT INTO exame (paciente_id, data, laboratorio, observacao) VALUES (%s, %s, %s, %s) RETURNING id",
+                        (pid, data, lab, obs))
+            eid = cur.fetchone()[0]
+        for k, (v, ref) in valores.items():
+            cur.execute("INSERT INTO exame_valor (exame_id, item, valor, ref_laudo) VALUES (%s, %s, %s, %s) "
+                        "ON CONFLICT (exame_id, item) DO UPDATE SET valor = EXCLUDED.valor, ref_laudo = EXCLUDED.ref_laudo",
+                        (eid, k, v, ref))
+    n = len(valores)
+    flash(f"Exame de {data:%d/%m/%Y} salvo ({n} resultado{'s' if n != 1 else ''}).")
+    return redirect(url_for("exames_paciente", pid=pid) + "#historico")
+
+
+@app.route("/exame/<int:eid>/excluir", methods=["POST"])
+def exame_excluir(eid):
+    with conectar() as con:
+        r = con.execute("DELETE FROM exame WHERE id = %s RETURNING paciente_id, data", (eid,)).fetchone() or abort(404)
+    flash(f"Exame de {r[1]:%d/%m/%Y} excluído.")
+    return redirect(url_for("exames_paciente", pid=r[0]) + "#historico")
+
+
+@app.route("/exames/referencias", methods=["GET", "POST"])
+def exames_referencias():
+    dados = exames.carregar()
+    if request.method == "POST":
+        f = request.form
+        backup = RAIZ / "_backup" / "exames_original.json"
+        if not backup.exists():
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(exames.CATALOGO, backup)
+        par = lambda a, b: [exames.ler_numero(f.get(a)), exames.ler_numero(f.get(b))]
+        for g in dados["grupos"]:
+            for it in g["itens"]:
+                k = it["id"]
+                if f"u_{k}" not in f:
+                    continue
+                it["unidade"] = f[f"u_{k}"].strip()
+                m, fe = par(f"m0_{k}", f"m1_{k}"), par(f"f0_{k}", f"f1_{k}")
+                for c in ("ref", "M", "F"):
+                    it.pop(c, None)
+                if m == fe:
+                    if m != [None, None]:
+                        it["ref"] = m
+                else:
+                    if m != [None, None]:
+                        it["M"] = m
+                    if fe != [None, None]:
+                        it["F"] = fe
+        exames.gravar(dados)
+        flash("Referências salvas. Os exames passam a ser classificados com elas.")
+        return redirect(url_for("exames_referencias"))
+    lado = lambda it, s: it.get(s) or it.get("ref") or [None, None]
+    return render_template("exames_referencias.html", grupos=dados["grupos"], lado=lado, fmt=exames.fmt)
+
+
+# ---------- testes de desempenho ----------
+@app.route("/paciente/<int:pid>/desempenho")
+def desempenho_paciente(pid, erros=(), form=None):
+    with conectar() as con:
+        cur = con.cursor()
+        p = buscar_paciente(cur, pid)
+        testes = exames.desempenho(cur, pid)
+    p["idade"] = idade(p["data_nascimento"])
+    return render_template("desempenho.html", p=p, testes=testes, sugestoes=exames.TESTES, erros=erros,
+                           form=form or {"data": date.today().isoformat()}, fmt=exames.fmt)
+
+
+@app.route("/paciente/<int:pid>/desempenho", methods=["POST"])
+def desempenho_salvar(pid):
+    f = request.form
+    erros = []
+    try:
+        data = date.fromisoformat(f.get("data", ""))
+    except ValueError:
+        erros.append("Informe a data do teste.")
+    teste = " ".join(f.get("teste", "").split())
+    if not teste:
+        erros.append("Informe o nome do teste.")
+    valor, esq = exames.ler_numero(f.get("valor")), exames.ler_numero(f.get("valor_esq"))
+    if valor is None:
+        erros.append("Informe o resultado" + (" do lado direito." if f.get("valor_esq", "").strip() else "."))
+    if f.get("valor_esq", "").strip() and esq is None:
+        erros.append("O resultado do lado esquerdo não é um número.")
+    if erros:
+        return desempenho_paciente(pid, erros, f.to_dict())
+    with conectar() as con:
+        buscar_paciente(con.cursor(), pid)
+        con.execute("INSERT INTO desempenho (paciente_id, data, teste, unidade, melhor, valor, valor_esq, observacao) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (pid, data, teste, f.get("unidade", "").strip(), "menor" if f.get("melhor") == "menor" else "maior",
+                     valor, esq, f.get("observacao", "").strip() or None))
+    flash(f"{teste}: resultado de {data:%d/%m/%Y} salvo.")
+    return redirect(url_for("desempenho_paciente", pid=pid) + "#testes")
+
+
+@app.route("/desempenho/<int:did>/excluir", methods=["POST"])
+def desempenho_excluir(did):
+    with conectar() as con:
+        r = con.execute("DELETE FROM desempenho WHERE id = %s RETURNING paciente_id", (did,)).fetchone() or abort(404)
+    flash("Resultado excluído.")
+    return redirect(url_for("desempenho_paciente", pid=r[0]) + "#testes")
 
 
 @app.route("/paciente/<int:pid>/reds")

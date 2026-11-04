@@ -17,7 +17,7 @@ from atualizar_paciente import CONEXAO, PAGINAS, TEMPLATE, avaliacoes_do_banco, 
 from montar_pagina import montar
 from plano import plano_do_banco
 from planilha_paciente import safe_name
-import checkin, contatos, links, reds
+import checkin, contatos, exames, links
 
 
 def preparar():
@@ -38,15 +38,15 @@ def preparar():
             nome = r[0]
             avs = [para_app_naive(a) for a in avaliacoes_do_banco(cur, p["id"])]
             plano, link_ck = plano_do_banco(cur, p["id"]), checkin.link_paciente(cur, cfg, p["id"], nome)
-            if not (avs or plano or link_ck):
+            extras = exames.extras_pagina(cur, p["id"])
+            if not (avs or plano or link_ck or exames.tem_extras(extras)):
                 print(json.dumps({"id": p["id"], "nome": nome, "erro": "sem avaliação, plano ou check-in"}, ensure_ascii=False))
                 continue
             cur.execute("SELECT count(*) FROM paciente WHERE id <> %s AND lower(nome) = lower(%s)", (p["id"], nome))
             homonimo = cur.fetchone()[0] > 0
             sufixo = f" ({p['id']})" if homonimo else ""
             arq = PAGINAS / f"{safe_name(nome)}{sufixo}.html"
-            montar(str(TEMPLATE), nome, avs, plano, str(arq), link_ck,
-                   {"checkins": checkin.para_pagina(cur, p["id"]), "reds": reds.para_pagina(cur, p["id"])})
+            montar(str(TEMPLATE), nome, avs, plano, str(arq), link_ck, extras)
             atual = links.artefato(p["id"], nome)
             print(json.dumps({"id": p["id"], "nome": nome, "arquivo": str(arq), "url_atual": atual and atual.get("url"),
                               "motivo": p["motivo"]}, ensure_ascii=False))

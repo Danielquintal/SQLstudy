@@ -234,6 +234,35 @@
   {% endif %}
 </div>
 
+<div class="card" id="exames">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2>Exames laboratoriais</h2>
+    <a class="btn" href="{{ url_for('exames_paciente', pid=p.id) }}">{{ 'Abrir exames' if ult_exame else 'Lançar exames' }}</a>
+  </div>
+  {% if ult_exame %}
+  <p class="note" style="margin:0">Último exame em {{ ult_exame.data|br }} · {{ ult_exame.n }} resultado{{ 's' if ult_exame.n != 1 }} ·
+    {% if ult_exame.alertas %}{{ ult_exame.alertas|length }} fora da referência{% else %}todos dentro da referência{% endif %}</p>
+  {% if ult_exame.alertas %}<div class="ex-alertas">{% for a in ult_exame.alertas[:8] %}
+    <span class="chip {{ 'warn' if a.nivel == 'atencao' else 'bad' }}">{{ a.nome }}: {{ a.valor|round(2)|num }} {{ a.unidade }} · {{ a.rotulo }}</span>{% endfor %}
+    {% if ult_exame.alertas|length > 8 %}<span class="note">e mais {{ ult_exame.alertas|length - 8 }}</span>{% endif %}</div>{% endif %}
+  {% else %}
+  <p class="note" style="margin:0">Hemograma, glicemia, lípides, hormônios, vitaminas e índices (HOMA-IR, TyG, NLR), com as referências por sexo.</p>
+  {% endif %}
+</div>
+
+<div class="card" id="desempenho">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2>Testes de desempenho</h2>
+    <a class="btn" href="{{ url_for('desempenho_paciente', pid=p.id) }}">{{ 'Abrir testes' if testes else 'Lançar testes' }}</a>
+  </div>
+  {% if testes %}
+  <div class="ex-alertas">{% for t in testes[:10] %}{% set u = t.registros[-1] %}
+    <span class="chip {{ 'good' if t.melhorou else 'bad' if t.melhorou == false else '' }}">{{ t.teste }}: {{ u.valor|num }}{% if u.valor_esq is not none %} / {{ u.valor_esq|num }}{% endif %} {{ t.unidade }}{% if t.var_total is not none %} · {{ '+' if t.var_total > 0 }}{{ t.var_total|round(1)|num }}%{% endif %}</span>{% endfor %}</div>
+  {% else %}
+  <p class="note" style="margin:0">Cargas, dinamometria (direita e esquerda), saltos, sprints e outros testes, com a evolução de cada um.</p>
+  {% endif %}
+</div>
+
 <div class="card" id="checkin" style="padding:6px 8px">
   <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding:10px 10px 0">
     <h2>Check-in semanal</h2>

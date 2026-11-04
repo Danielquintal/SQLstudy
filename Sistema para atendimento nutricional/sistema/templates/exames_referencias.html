@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block titulo %}Referências dos exames{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a></p>
+  <h1>Referências dos exames</h1>
+  <p class="sub">Valores de adultos usados para classificar os exames de todos os pacientes</p>
+</div>
+{% endblock %}
+{% block corpo %}
+<div class="card">
+  <p class="note" style="margin:0">Deixe o mínimo ou o máximo em branco quando não houver limite (ex.: colesterol total, só máximo; HDL, só mínimo).
+    Se masculino e feminino forem iguais, vale para os dois. Glicose, hemoglobina glicada e vitamina D são classificadas pelas faixas das
+    diretrizes (SBD e SBPC/SBEM), escritas ao lado. A referência digitada no laudo de um paciente vale no lugar desta.
+    A primeira vez que salvar, a tabela original fica guardada em _backup/exames_original.json.</p>
+</div>
+<form method="post" class="ficha" style="gap:12px">
+  {% for g in grupos %}
+  <details class="secao" {{ 'open' if loop.first }}>
+    <summary>{{ g.nome }}</summary>
+    <div class="tablebox" style="padding:0 18px 14px"><table class="ref-tab">
+      <thead><tr><th class="t">Exame</th><th class="t">Unidade</th><th>Masc. mín.</th><th>Masc. máx.</th><th>Fem. mín.</th><th>Fem. máx.</th><th class="t">Observação</th></tr></thead>
+      <tbody>{% for it in g['itens'] %}{% set m, f = lado(it, 'M'), lado(it, 'F') %}
+        <tr><td class="t">{{ it.nome }}{% if it.calculado %}<br><span class="note">{{ it.calculado }}</span>{% endif %}</td>
+          <td class="t campo"><input class="un texto" name="u_{{ it.id }}" value="{{ it.unidade or '' }}" aria-label="Unidade de {{ it.nome }}"></td>
+          <td class="campo"><input name="m0_{{ it.id }}" value="{{ fmt(m[0]) }}" inputmode="decimal" aria-label="{{ it.nome }}: mínimo masculino"></td>
+          <td class="campo"><input name="m1_{{ it.id }}" value="{{ fmt(m[1]) }}" inputmode="decimal" aria-label="{{ it.nome }}: máximo masculino"></td>
+          <td class="campo"><input name="f0_{{ it.id }}" value="{{ fmt(f[0]) }}" inputmode="decimal" aria-label="{{ it.nome }}: mínimo feminino"></td>
+          <td class="campo"><input name="f1_{{ it.id }}" value="{{ fmt(f[1]) }}" inputmode="decimal" aria-label="{{ it.nome }}: máximo feminino"></td>
+          <td class="t note">{% if it.faixas %}Faixas: {% for x in it.faixas %}{{ x.rotulo }}{% if x.ate is not none %} abaixo de {{ fmt(x.ate) }}{% endif %}{{ '; ' if not loop.last }}{% endfor %}. {% endif %}{{ it.nota or '' }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </details>
+  {% endfor %}
+  <div class="barra"><div class="acoes"><button class="btn pri">Salvar referências</button></div></div>
+</form>
+{% endblock %}
