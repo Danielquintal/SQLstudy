@@ -60,6 +60,9 @@
         </select></div>
       <div class="campo" style="grid-column:span 2"><label for="ag-prof">Seu nome nos e-mails e no convite</label>
         <input class="texto" id="ag-prof" name="profissional" value="{{ cfg.agenda.profissional }}"></div>
+      <div class="campo" style="grid-column:span 2"><label for="ag-whats">Seu WhatsApp (para os pacientes)</label>
+        <input class="texto" id="ag-whats" name="whatsapp" inputmode="tel" value="{{ cfg.agenda.whatsapp or '' }}" placeholder="DDD + número, ex.: 11 91234-5678">
+        <span class="note">No link do paciente, quando o claude.ai não deixa baixar o PDF, aparece “Peça pelo WhatsApp” para este número.</span></div>
       <div class="campo" style="grid-column:1/-1"><label for="ag-end">Endereço do consultório (consulta presencial)</label>
         <input class="texto" id="ag-end" name="local_presencial" value="{{ cfg.agenda.local_presencial }}" placeholder="Rua, número, sala, bairro, cidade"></div>
       <div class="campo" style="grid-column:1/-1"><label for="ag-link">Link padrão da consulta online (opcional)</label>

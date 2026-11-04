@@ -1,5 +1,5 @@
 """Preenche o template com as avaliacoes de um paciente."""
-import json, re, sys
+import json, os, re, sys
 
 from plano import PROFISSIONAL
 
@@ -25,6 +25,16 @@ def separar_cmb(a):
     return dict(a, cmb_cm=m.group(1) if m else "", cmb_pct=m.group(2) if m else "")
 
 
+def _whatsapp():
+    """WhatsApp do nutricionista (Configuração do sistema), no formato do wa.me: 55 + DDD + número"""
+    arq = os.environ.get("SISTEMA_CONFIG") or os.path.join(os.path.dirname(__file__), "..", "sistema", "config.json")
+    try:
+        num = re.sub(r"\D", "", json.load(open(arq, encoding="utf-8")).get("agenda", {}).get("whatsapp", ""))
+    except (OSError, ValueError):
+        return ""
+    return num if not num or num.startswith("55") and len(num) > 11 else "55" + num
+
+
 def montar(template, nome, avaliacoes, plano, out, checkin=None, extras=None):
     t = gerar_html(template, nome, avaliacoes, plano, checkin, extras)
     open(out, "w", encoding="utf-8").write(t)
@@ -43,6 +53,7 @@ def gerar_html(template, nome, avaliacoes, plano, checkin=None, extras=None):
          .replace("__DATA__", json.dumps(rows, ensure_ascii=False))
          .replace("__PLANO__", json.dumps(plano, ensure_ascii=False))
          .replace("__CHECKIN__", json.dumps(checkin))
+         .replace("__WHATSAPP__", json.dumps(_whatsapp()))
          .replace("__CHECKINS__", json.dumps(extras.get("checkins") or [], ensure_ascii=False))
          .replace("__REDS__", json.dumps(extras.get("reds") or {"leafq": [], "energia": []}, ensure_ascii=False))
          .replace("__EXAMES__", json.dumps(extras.get("exames") or {"datas": [], "grupos": []}, ensure_ascii=False))

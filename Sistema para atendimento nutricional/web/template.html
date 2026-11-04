@@ -280,6 +280,7 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
 .relatorios button:disabled{opacity:.6;cursor:progress}
 .relatorios button:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
 .relatorios .msg{font-size:13px;color:var(--brand-soft);text-transform:none;letter-spacing:0;max-width:34ch}
+.relatorios .msg a{color:var(--brand-ink);font-weight:600}
 </style>
 
 <header class="band">
@@ -382,6 +383,7 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
 const DADOS = __DATA__;
 const PLANO = __PLANO__;
 const CHECKIN = __CHECKIN__;
+const WHATSAPP = __WHATSAPP__;   // WhatsApp do nutricionista, para o paciente pedir o PDF
 const CHECKINS = __CHECKINS__;
 const REDS = __REDS__;
 const EXAMES = __EXAMES__;
@@ -1577,7 +1579,10 @@ async function relatorioPlano() {
   return doc;
 }
 
-// no link publicado o download passa pela confirmação do claude.ai; aberto no sistema local, baixa direto
+// no link publicado o download passa pela confirmação do claude.ai; aberto no sistema local, baixa direto.
+// O claude.ai só deixa baixar para quem é membro da conta: para os pacientes (link público) o PDF é
+// pedido pelo WhatsApp do nutricionista.
+const INDISPONIVEL = ['unavailable', 'not_granted', 'capability_disabled', 'capability_removed'];
 async function salvar(nome, blob) {
   const cl = window.claude;
   if (cl && cl.use) {
@@ -1587,7 +1592,14 @@ async function salvar(nome, blob) {
   }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = nome; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+function pedirWhatsApp(titulo) {
+  const txt = `Olá! Aqui é ${NOME}. Pode me enviar o PDF "${titulo}" que está na minha página de acompanhamento?`;
+  const a = document.createElement('a');
+  a.href = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(txt)}`; a.target = '_blank'; a.rel = 'noopener';
+  a.textContent = 'Peça pelo WhatsApp';
+  relMsg.replaceChildren('Para receber este PDF no celular: ', a, '.');
 }
 
 const relMsg = document.getElementById('rel-msg');
@@ -1595,20 +1607,22 @@ async function gerarRelatorio(tipo) {
   const bts = document.querySelectorAll('.relatorios button');
   bts.forEach(b => b.disabled = true);
   relMsg.textContent = 'Gerando o relatório…';
+  let titulo = '';
   try {
     await pdfLibs();
     const doc = tipo === 'plano' ? await relatorioPlano() : tipo === 'checkin' ? relatorioCheckin() : tipo === 'reds' ? relatorioReds()
       : tipo === 'exames' ? relatorioExames() : tipo === 'desempenho' ? relatorioDesempenho() : tipo === 'perfil' ? relatorioPerfil()
       : tipo === 'metas' ? relatorioMetas() : relatorioAvaliacao();
-    const titulo = { plano: 'Plano alimentar', checkin: 'Check-in semanal', reds: 'Rastreio RED-S', exames: 'Exames laboratoriais',
+    titulo = { plano: 'Plano alimentar', checkin: 'Check-in semanal', reds: 'Rastreio RED-S', exames: 'Exames laboratoriais',
       desempenho: 'Testes de desempenho', perfil: 'Perfil antropométrico', metas: `Metas diárias ${nomeMes(mtMes)}` }[tipo] || 'Avaliação física';
     const nome = `${titulo} - ${NOME} - ${hoje().replace(/\//g, '-')}.pdf`;
     relMsg.textContent = 'Confirme o download.';
     await salvar(nome, doc.output('blob'));
     relMsg.textContent = 'Relatório pronto.';
   } catch (e) {
+    if (e && INDISPONIVEL.includes(e.code) && WHATSAPP && titulo) { pedirWhatsApp(titulo); return; }
     relMsg.textContent = e && e.code === 'declined' ? 'Download cancelado.'
-      : e && ['unavailable', 'not_granted', 'capability_disabled', 'capability_removed'].includes(e.code) ? 'O download não está disponível nesta visualização.'
+      : e && INDISPONIVEL.includes(e.code) ? 'O download não está disponível nesta visualização. Abra este link no aplicativo Claude ou num computador.'
       : e && e.code === 'rate_limited' ? 'Aguarde um instante e tente de novo.'
       : 'Não foi possível gerar o relatório. Verifique a internet e tente de novo.';
   } finally {

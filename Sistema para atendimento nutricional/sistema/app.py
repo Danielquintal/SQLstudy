@@ -3,7 +3,7 @@
 Uso:  python sistema/app.py   (ou dois cliques em "Abrir sistema.bat")  ->  http://localhost:5000
 Só atende este computador (127.0.0.1). Depois de gravar uma avaliação, gera de novo a planilha e a página do paciente.
 """
-import base64, json, os, shutil, sys, webbrowser
+import base64, json, os, re, shutil, sys, webbrowser
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -982,6 +982,8 @@ def configuracao():
         for k in ("local_presencial", "local_online", "profissional"):     # podem ficar vazios
             if k in request.form:
                 ag[k] = request.form[k].strip()
+        if "whatsapp" in request.form:     # só os números (DDD + celular); vai no botão "peça pelo WhatsApp" das páginas
+            ag["whatsapp"] = re.sub(r"\D", "", request.form["whatsapp"])
         for k in ("email_assunto", "email_texto"):                          # vazio = mantém o texto atual
             if request.form.get(k, "").strip():
                 ag[k] = request.form[k].strip().replace("\r\n", "\n")
