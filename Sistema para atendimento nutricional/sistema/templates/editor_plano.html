@@ -17,9 +17,64 @@
         <div class="campo"><label for="prescrito">Prescrito em</label><input id="prescrito" type="date"></div>
       </div>
     </div>
-    <div id="refeicoes" class="lista"></div>
-    <div class="acoes"><button type="button" class="btn" id="add-ref">+ Refeição</button>
-      <a class="btn" href="{{ url_for('alimentos_proprios') }}" target="_blank" rel="noopener">Cadastrar alimento próprio (abre em outra aba)</a></div>
+    <nav class="abas" role="tablist" aria-label="Partes do plano">
+      <button type="button" class="aba" role="tab" data-aba="refs" aria-selected="true">Refeições</button>
+      <button type="button" class="aba" role="tab" data-aba="supl" aria-selected="false">Suplementação <span class="badge" id="n-supl" hidden></span></button>
+    </nav>
+    <section id="aba-refs" class="lista">
+      <div id="refeicoes" class="lista"></div>
+      <div class="acoes"><button type="button" class="btn" id="add-ref">+ Refeição</button>
+        <a class="btn" href="{{ url_for('alimentos_proprios') }}" target="_blank" rel="noopener">Cadastrar alimento próprio (abre em outra aba)</a></div>
+    </section>
+
+    <section id="aba-supl" class="lista" hidden>
+      {% if suplementos %}
+      <div class="card">
+        <h2>Atleta</h2>
+        <div class="cadastro">
+          <div class="campo" style="grid-column:span 2"><label for="s-mod">Modalidade</label>
+            <select id="s-mod"><option value="">Escolha a modalidade</option>
+              {% for grupo, mods in suplementos.modalidades.items()|groupby('1.grupo') %}<optgroup label="{{ grupo }}">
+                {% for nome, m in mods %}<option value="{{ nome }}">{{ nome }}</option>{% endfor %}</optgroup>{% endfor %}
+            </select></div>
+          <div class="campo"><label>Peso usado</label><p class="note" id="s-peso" style="margin:6px 0 0"></p></div>
+        </div>
+        <div id="s-sug"></div>
+      </div>
+      <div class="card">
+        <h2>Suplementos prescritos</h2>
+        <p class="note" style="margin:0">Aparecem no plano do paciente (página e PDF), com dose, horário e observação.</p>
+        <div id="s-itens" class="lista"></div>
+        <div class="acoes">
+          <select id="s-add" aria-label="Suplemento para adicionar"><option value="">+ Adicionar suplemento…</option>
+            {% for s in suplementos.suplementos %}<option value="{{ s.chave }}">{{ s.nome }}</option>{% endfor %}
+            <option value="_outro">Outro (digitar)</option></select>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Carboidratos</h2>
+        <p class="note" style="margin:0">Pelo peso do paciente (da Meta energética). Só para consulta; não vai para o plano.</p>
+        <div class="tablebox"><table id="s-cho"></table></div>
+      </div>
+      <div class="card">
+        <h2>Hidratação e taxa de sudorese</h2>
+        <div class="meta-grid hidr">
+          <div class="campo"><label for="h-pre">Peso pré-treino (kg)</label><input id="h-pre" inputmode="decimal"></div>
+          <div class="campo"><label for="h-pos">Peso pós-treino (kg)</label><input id="h-pos" inputmode="decimal"></div>
+          <div class="campo"><label for="h-ing">Líquido ingerido (L)</label><input id="h-ing" inputmode="decimal"></div>
+          <div class="campo"><label for="h-uri">Urina no treino (L)</label><input id="h-uri" inputmode="decimal"></div>
+          <div class="campo"><label for="h-dur">Duração do treino (h)</label><input id="h-dur" inputmode="decimal"></div>
+        </div>
+        <div class="tablebox"><table id="s-hidr"></table></div>
+        <p class="note" style="margin:0">ACSM (Sawka et al., 2007). Os dados ficam salvos no plano, para consultar depois.</p>
+      </div>
+      <p class="note">Dados da planilha “{{ suplementos.fonte }}”, importada em {{ suplementos.importado_em[8:10] }}/{{ suplementos.importado_em[5:7] }}/{{ suplementos.importado_em[:4] }}.
+        Mudou a planilha? Rode <code>python scripts/importar_suplementos.py</code>.</p>
+      {% else %}
+      <div class="card"><p style="margin:0">Os protocolos de suplementação ainda não foram importados. Rode
+        <code>python scripts/importar_suplementos.py</code> com a planilha na pasta Downloads.</p></div>
+      {% endif %}
+    </section>
   </div>
 
   <aside class="ed-lado">
@@ -182,6 +237,7 @@ function atualizarTrocas(k) {
 
 function totais() {
   agua();
+  if (typeof desenharSupl === 'function') desenharSupl();
   const meta = energia();
   const todos = [];
   E.refeicoes.forEach((r, ri) => {
@@ -316,6 +372,7 @@ function escolher(input, a) {
 // ---------- eventos ----------
 document.addEventListener('input', e => {
   const t = e.target;
+  if (t.closest('#aba-supl')) return;   // a aba Suplementação cuida dos próprios campos
   if (t.classList.contains('busca')) { clearTimeout(espera); espera = setTimeout(() => buscar(t), 200); return; }
   sujo = true;
   if (t.classList.contains('r-nome')) E.refeicoes[t.dataset.ri].nome = t.value;
@@ -375,6 +432,7 @@ document.addEventListener('click', e => {
     return;
   }
   if (!e.target.closest('.busca-box')) document.querySelectorAll('.sugestoes').forEach(c => c.hidden = true);
+  if (e.target.closest('#aba-supl')) return;
   const b = e.target.closest('[data-acao]');
   if (!b) return;
   const a = b.dataset.acao;
@@ -421,6 +479,141 @@ $('a-dir').onchange = ev => { E.agua.ml_kg = Number(ev.target.value); E.agua.ml 
 $('a-ml').addEventListener('input', ev => { E.agua.ml = ev.target.value.trim() || null; sujo = true; agua(); });
 $('a-ml').addEventListener('blur', agua);
 $('a-recalc').onclick = () => { E.agua.ml = null; sujo = true; agua(); };
+
+// ---------- abas Refeições / Suplementação ----------
+document.querySelectorAll('.abas .aba').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.abas .aba').forEach(o => o.setAttribute('aria-selected', String(o === b)));
+  $('aba-refs').hidden = b.dataset.aba !== 'refs';
+  $('aba-supl').hidden = b.dataset.aba !== 'supl';
+}));
+
+// ---------- suplementação (dados de sistema/suplementos.json, vindos da planilha) ----------
+const SUPL = {{ suplementos|tojson }};
+const SP = SUPL ? Object.fromEntries(SUPL.suplementos.map(s => [s.chave, s])) : {};
+E.suplementacao = E.suplementacao || { modalidade: '', itens: [], hidr: {} };
+E.suplementacao.hidr = E.suplementacao.hidr || {};
+const S = E.suplementacao;
+
+// dose de um nível do protocolo, já pelo peso: "198 mg (3 mg/kg)"
+function doseNivel(s, valor) {
+  const peso = num(E.energia.peso);
+  const un = (s.unidade || '').split('/')[0].trim().replace(/^ui$/i, 'UI');
+  if (s.por_kg) {
+    if (!peso) return null;
+    const v = valor * peso;
+    const txt = un === 'mg' && v >= 1000 ? `${br(v / 1000, 1)} g` : `${br(v, un === 'mg' ? 0 : 1)} ${un}`;
+    return `${txt} (${fmt(valor)} ${s.unidade})`;
+  }
+  const dia = /\/dia/.test(s.unidade || '') ? ' por dia' : '';
+  return `${fmt(valor)} ${un}${dia}`.replace(/\s+/g, ' ').trim();
+}
+function doseItem(it) {
+  const s = SP[it.chave];
+  if (!s) return it.dose || '';
+  if (it.chave === 'probioticos' && it.cepa != null && SUPL.cepas[it.cepa]) return SUPL.cepas[it.cepa].dose;
+  let base = it.nivel != null && s.doses[it.nivel] != null ? doseNivel(s, s.doses[it.nivel]) : (it.dose_livre || s.texto_dose || '');
+  if (it.chave === 'creatina' && it.saturacao) {
+    const peso = num(E.energia.peso), sat = SUPL.saturacao_creatina, n = Number(it.tomadas || 4);
+    if (peso) {
+      const dia = Math.round(peso * sat.g_kg_dia * 10) / 10;
+      base = `Saturação: ${br(dia, 1)} g por dia (${n} tomadas de ${br(dia / n, 1)} g) por ${sat.dias} dias; depois ${base || 'manutenção'}`;
+    }
+  }
+  return base || '';
+}
+function desenharSupl() {
+  if (!SUPL) return;
+  const peso = num(E.energia.peso);
+  $('s-peso').textContent = peso ? `${br(peso, 1)} kg` : 'Informe o peso em Meta energética.';
+  $('s-mod').value = S.modalidade || '';
+  // sugestões pela modalidade (matriz Suplementos A e B da planilha)
+  const m = SUPL.modalidades[S.modalidade];
+  const ja = new Set(S.itens.map(i => i.chave));
+  $('s-sug').innerHTML = !m ? '<p class="note" style="margin:0">Escolha a modalidade para ver os suplementos indicados na planilha.</p>'
+    : `<p class="note" style="margin:0">Indicados para ${esc(S.modalidade)} (${esc(m.grupo)}): toque para adicionar.</p>
+       <div class="supl-sug">${m.indicados.map(k => SP[k] ? `<button type="button" class="btn sug-supl${ja.has(k) ? ' ja' : ''}" data-k="${k}" ${ja.has(k) ? 'disabled' : ''}>${ja.has(k) ? '✓ ' : '+ '}${esc(SP[k].nome)}</button>` : '').join('')}</div>`;
+  // itens prescritos
+  for (const it of S.itens) if (SP[it.chave]) it.dose = doseItem(it);
+  $('s-itens').innerHTML = S.itens.length ? S.itens.map((it, i) => {
+    const s = SP[it.chave];
+    const opcoes = s && s.doses.length ? s.doses.map((v, n) => `<option value="${n}" ${it.nivel === n ? 'selected' : ''}>${esc(doseNivel(s, v) || fmt(v) + ' ' + s.unidade)}</option>`).join('') : '';
+    const livre = !s || !s.doses.length || it.nivel == null;
+    return `<div class="s-item" data-i="${i}">
+      <div class="s-top"><b>${esc(it.nome)}</b>${s && s.categoria ? `<span class="chip">${esc(s.categoria)}</span>` : ''}
+        <button type="button" class="btn perigo mini" data-acao="del" data-i="${i}" title="Remover">×</button></div>
+      <div class="s-campos">
+        ${s && it.chave === 'probioticos' ? `<div class="campo" style="grid-column:1/-1"><label>Cepa</label><select data-campo="cepa" data-i="${i}"><option value="">Escolha a cepa</option>${SUPL.cepas.map((c, n) => `<option value="${n}" ${it.cepa === n ? 'selected' : ''}>${esc(c.cepa)} — ${esc(c.dose)}</option>`).join('')}</select></div>` : ''}
+        ${opcoes ? `<div class="campo"><label>Dose</label><select data-campo="nivel" data-i="${i}">${opcoes}<option value="livre" ${it.nivel == null ? 'selected' : ''}>Outra dose (digitar)</option></select></div>` : ''}
+        ${livre && it.chave !== 'probioticos' ? `<div class="campo"><label>${opcoes ? 'Dose digitada' : 'Dose'}</label><input class="texto" data-campo="dose_livre" data-i="${i}" value="${esc(it.dose_livre ?? (s ? s.texto_dose : '') ?? '')}" placeholder="Ex.: 5 g por dia"></div>` : ''}
+        <div class="campo"><label>Quando tomar</label><input class="texto" data-campo="horario" data-i="${i}" value="${esc(it.horario || '')}" placeholder="Ex.: 30–60 min antes do treino"></div>
+        <div class="campo" style="grid-column:1/-1"><label>Observação para o paciente</label><input class="texto" data-campo="obs" data-i="${i}" value="${esc(it.obs || '')}"></div>
+        ${it.chave === 'creatina' ? `<label class="note s-sat"><input type="checkbox" data-campo="saturacao" data-i="${i}" ${it.saturacao ? 'checked' : ''}> Começar com saturação (${fmt(SUPL.saturacao_creatina.g_kg_dia)} g/kg/dia por ${SUPL.saturacao_creatina.dias} dias)</label>
+          ${it.saturacao ? `<div class="campo"><label>Tomadas na saturação</label><select data-campo="tomadas" data-i="${i}">${[3, 4, 5].map(n => `<option ${Number(it.tomadas || 4) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>` : ''}` : ''}
+      </div>
+      <p class="s-dose">Vai para o plano: <b>${esc(it.dose || '—')}</b>${it.horario ? ` · ${esc(it.horario)}` : ''}</p>
+      ${s && (s.impacto || s.mecanismo || s.efeitos) ? `<details class="s-info"><summary>Sobre o protocolo</summary>
+        ${s.impacto ? `<p><b>Impacto no desempenho:</b> ${esc(s.impacto)}</p>` : ''}${s.mecanismo ? `<p><b>Mecanismo:</b> ${esc(s.mecanismo)}</p>` : ''}${s.efeitos ? `<p><b>Efeitos colaterais:</b> ${esc(s.efeitos)}</p>` : ''}
+        ${it.chave === 'probioticos' && it.cepa != null && SUPL.cepas[it.cepa] ? `<p><b>Cepa:</b> ${esc(SUPL.cepas[it.cepa].uso)} ${esc(SUPL.cepas[it.cepa].obs)}</p>` : ''}</details>` : ''}
+    </div>`;
+  }).join('') : '<p class="vazio" style="margin:0">Nenhum suplemento prescrito.</p>';
+  $('n-supl').hidden = !S.itens.length; $('n-supl').textContent = S.itens.length;
+  // carboidratos
+  const faixaG = g => peso && g ? `${br(peso * g[0])}–${br(peso * g[1] ?? peso * g[0])}` : '–';
+  $('s-cho').innerHTML = `<thead><tr><th class="t">Nível de treino</th><th>g/kg/dia</th><th>Total (g/dia)</th><th class="t">Observação</th></tr></thead><tbody>`
+    + SUPL.carboidratos.diario.map(c => `<tr><td class="t"><b>${esc(c.nivel)}</b><br><span class="note">${esc(c.descricao)}</span></td><td>${c.g_kg ? fmt(c.g_kg[0]) + '–' + fmt(c.g_kg[1]) : ''}</td><td>${faixaG(c.g_kg)}</td><td class="t note">${esc(c.obs)}</td></tr>`).join('')
+    + `<tr><th class="t" colspan="4">Pré, durante e pós-prova</th></tr>`
+    + SUPL.carboidratos.prova.map(c => `<tr><td class="t"><b>${esc(c.fase)}</b><br><span class="note">${esc(c.objetivo)}</span></td><td>${esc(c.recomendacao)}</td><td>${c.g_kg ? faixaG(c.g_kg) + (c.por_hora ? ' g/h' : ' g') : esc(c.recomendacao)}</td><td class="t note">${esc(c.obs)}</td></tr>`).join('') + '</tbody>';
+  // hidratação
+  const h = S.hidr, pre = num(h.pre) ?? peso, pos = num(h.pos), ing = num(h.ing) || 0, uri = num(h.uri) || 0, dur = num(h.dur);
+  const perda = pre != null && pos != null ? pre - pos : null, suor = perda != null ? perda + ing - uri : null;
+  const linhas = [
+    ['Antes do treino (5–7 ml/kg, ~4 h antes)', pre ? `${br(pre * 0.005, 2)} a ${br(pre * 0.007, 2)} L` : '–'],
+    ['Perda de peso no treino', perda != null ? `${br(perda, 2)} kg (${br(perda / pre * 100, 1)}% do peso)` : '–'],
+    ['Perda de suor', suor != null ? `${br(suor, 2)} L` : '–'],
+    ['Taxa de sudorese', suor != null && dur ? `${br(suor / dur, 2)} L/h` : '–'],
+    ['Beber em treinos parecidos (perder até 2% do peso)', suor != null && dur ? `${br(Math.max(0, suor - pre * 0.02) / dur, 2)} L/h` : '–'],
+    ['Repor depois do treino (125–150% do peso perdido)', perda != null ? `${br(perda * 1.25, 2)} a ${br(perda * 1.5, 2)} L` : '–'],
+  ];
+  $('s-hidr').innerHTML = '<tbody>' + linhas.map(([a, b]) => `<tr><td class="t">${a}</td><td><b>${b}</b></td></tr>`).join('') + '</tbody>';
+}
+if (SUPL) {
+  for (const [id, k] of [['h-pre', 'pre'], ['h-pos', 'pos'], ['h-ing', 'ing'], ['h-uri', 'uri'], ['h-dur', 'dur']]) {
+    $(id).value = S.hidr[k] ?? '';
+    $(id).addEventListener('input', ev => { S.hidr[k] = ev.target.value; sujo = true; desenharSupl(); });
+  }
+  $('s-mod').addEventListener('change', ev => { S.modalidade = ev.target.value; sujo = true; desenharSupl(); });
+  const adicionar = k => {
+    if (k === '_outro') S.itens.push({ chave: '_outro', nome: 'Suplemento', dose_livre: '', horario: '', obs: '' });
+    else if (SP[k] && !S.itens.some(i => i.chave === k)) S.itens.push({ chave: k, nome: SP[k].nome, nivel: SP[k].doses.length ? 0 : null, horario: '', obs: '' });
+    sujo = true; desenharSupl();
+  };
+  $('s-add').addEventListener('change', ev => { if (ev.target.value) adicionar(ev.target.value); ev.target.value = ''; });
+  $('s-sug').addEventListener('click', ev => { const b = ev.target.closest('.sug-supl'); if (b) adicionar(b.dataset.k); });
+  $('s-itens').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-acao=del]');
+    if (b) { S.itens.splice(+b.dataset.i, 1); sujo = true; desenharSupl(); }
+  });
+  $('s-itens').addEventListener('change', ev => {
+    const el = ev.target, it = S.itens[+el.dataset.i]; if (!it) return;
+    const c = el.dataset.campo;
+    if (c === 'nivel') it.nivel = el.value === 'livre' ? null : +el.value;
+    else if (c === 'cepa') { it.cepa = el.value === '' ? null : +el.value; if (it.cepa != null && !it.obs) it.obs = SUPL.cepas[it.cepa].uso.replace(/;$/, ''); }
+    else if (c === 'saturacao') it.saturacao = el.checked;
+    else if (c === 'tomadas') it.tomadas = +el.value;
+    else return;
+    sujo = true; desenharSupl();
+  });
+  $('s-itens').addEventListener('input', ev => {
+    const el = ev.target, it = S.itens[+el.dataset.i]; if (!it || !['dose_livre', 'horario', 'obs'].includes(el.dataset.campo)) return;
+    it[el.dataset.campo] = el.value;
+    if (it.chave === '_outro' && el.dataset.campo === 'dose_livre') it.dose = el.value;
+    if (el.dataset.campo === 'dose_livre') it.dose = doseItem(it);
+    const p = el.closest('.s-item').querySelector('.s-dose');
+    p.innerHTML = `Vai para o plano: <b>${esc(it.dose || '—')}</b>${it.horario ? ` · ${esc(it.horario)}` : ''}`;
+    sujo = true;
+  });
+  desenharSupl();
+}
 
 // salvar
 $('salvar').onclick = async () => {

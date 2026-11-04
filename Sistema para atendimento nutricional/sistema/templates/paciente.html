@@ -217,6 +217,23 @@
   </div>
 </div>
 
+<div class="card" id="reds">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2>Rastreio de RED-S</h2>
+    <a class="btn" href="{{ url_for('reds_paciente', pid=p.id) }}">{{ 'Abrir rastreio' if reds_leafq or reds_ed else 'Fazer rastreio' }}</a>
+  </div>
+  {% if reds_leafq or reds_ed %}
+  <div class="reds-resumo">
+    {% if reds_leafq %}<div><span class="k">LEAF-Q ({{ reds_leafq.data|br }})</span><span class="v">{{ reds_leafq.total }}<small> pontos</small></span>
+      <span class="chip {{ 'bad' if reds_leafq.risco else 'good' }}">{{ 'Risco de baixa disponibilidade energética' if reds_leafq.risco else 'Sem risco' }}</span></div>{% endif %}
+    {% if reds_ed %}<div><span class="k">Energia disponível ({{ reds_ed.data|br }})</span><span class="v">{{ reds_ed.ed|round(1)|num }}<small> kcal/kg MLG</small></span>
+      <span class="chip {{ {'Adequada': 'good', 'Subclínica': 'warn', 'Baixa': 'bad'}[reds_ed.classe] }}">{{ reds_ed.classe }}</span></div>{% endif %}
+  </div>
+  {% else %}
+  <p class="note" style="margin:0">Questionário LEAF-Q e energia disponível (ingestão − gasto no exercício, por kg de massa livre de gordura).</p>
+  {% endif %}
+</div>
+
 <div class="card" id="checkin" style="padding:6px 8px">
   <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding:10px 10px 0">
     <h2>Check-in semanal</h2>

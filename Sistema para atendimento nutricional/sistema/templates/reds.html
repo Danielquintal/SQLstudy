@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% from "_macros.html" import mensagem_zap %}
+{% block titulo %}RED-S · {{ p.nome }}{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('inicio') }}">Pacientes</a> / <a href="{{ url_for('paciente', pid=p.id) }}">{{ p.nome }}</a></p>
+  <h1>Rastreio de RED-S</h1>
+  <p class="sub">Deficiência energética relativa no esporte · LEAF-Q e energia disponível
+    {% if p.idade is not none %} · {{ p.idade }} anos{% endif %}</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if erros %}<div class="msg erro" role="alert">Nada foi salvo. Confira:<ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+<div class="card" id="energia">
+  <h2>Energia disponível</h2>
+  <p class="note" style="margin:0">ED = (ingestão − gasto no exercício) ÷ massa livre de gordura. Adequada ≥ 45, subclínica 30–45,
+    baixa &lt; 30 kcal/kg MLG/dia. Lance uma linha por fase da periodização (como na planilha).</p>
+  <form method="post" action="{{ url_for('reds_energia', pid=p.id) }}" class="ficha" style="gap:10px">
+    <div class="cadastro reds-ed">
+      <div class="campo"><label for="ed-data">Data</label><input id="ed-data" type="date" name="data" value="{{ hoje }}" required></div>
+      <div class="campo"><label for="ed-ing">Ingestão energética (kcal)</label><input id="ed-ing" name="ingestao" inputmode="decimal" required>
+        {% if kcal_plano %}<button type="button" class="link-btn" id="usar-plano">usar o plano atual ({{ kcal_plano }} kcal)</button>{% endif %}</div>
+      <div class="campo"><label for="ed-gee">Gasto no exercício (kcal)</label><input id="ed-gee" name="gasto" inputmode="decimal" required></div>
+      <div class="campo"><label for="ed-mlg">Massa livre de gordura (kg)</label><input id="ed-mlg" name="mlg" inputmode="decimal" value="{{ mlg.valor|num if mlg }}" required>
+        {% if mlg %}<span class="note">{{ mlg.origem }} de {{ mlg.data|br }}</span>{% else %}<span class="note">Sem MLG nas avaliações: digite.</span>{% endif %}</div>
+      <div class="campo" style="grid-column:1/-1"><label for="ed-obs">Fase / campeonato (opcional)</label>
+        <input class="texto" id="ed-obs" name="observacao" placeholder="Ex.: pré-temporada, semana do campeonato"></div>
+    </div>
+    <div class="acoes"><button class="btn pri">Lançar</button><span class="note" id="ed-previa" role="status"></span></div>
+  </form>
+  {% if energias %}
+  <div class="tablebox"><table>
+    <thead><tr><th class="t">Data</th><th>Ingestão</th><th>Gasto exerc.</th><th>MLG</th><th>ED (kcal/kg MLG)</th><th class="t">Classificação</th><th class="t">Fase</th><th></th></tr></thead>
+    <tbody>{% for e in energias %}
+      <tr><td class="t n">{{ e.data|br }}</td><td class="n">{{ e.ingestao_kcal|num }}</td><td class="n">{{ e.gasto_exercicio_kcal|num }}</td>
+        <td class="n">{{ e.mlg_kg|num }}</td><td class="n"><b>{{ e.ed|round(1)|num }}</b></td>
+        <td class="t"><span class="chip {{ {'Adequada': 'good', 'Subclínica': 'warn', 'Baixa': 'bad'}[e.classe] }}">{{ e.classe }}</span></td>
+        <td class="t note">{{ e.observacao or '' }}</td>
+        <td><form method="post" action="{{ url_for('reds_energia_excluir', eid=e.id) }}"><button class="btn perigo mini" title="Excluir"
+          onclick="if(this.dataset.ok){return true} this.dataset.ok=1; this.textContent='Excluir?'; return false">×</button></form></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</div>
+
+<div class="card" id="leafq">
+  <h2>LEAF-Q</h2>
+  <p class="note" style="margin:0">Low Energy Availability in Females Questionnaire (Melin et al., 2014): total de 8 ou mais indica risco de
+    baixa disponibilidade energética. Validado para mulheres.{% if p.genero == 'M' %} <b>Este paciente está cadastrado como masculino.</b>{% endif %}</p>
+  <div class="lq-envio">
+    <h2 style="font-size:14px">Mandar o questionário para a paciente responder</h2>
+    {% if not envio.ligado %}
+      <p class="note" style="margin:0">Usa o mesmo script do Google do check-in: ligue o check-in em <a href="{{ url_for('configuracao') }}#checkin">Configuração</a> primeiro.</p>
+    {% elif not envio.versao_ok %}
+      <p class="note" style="margin:0">Atualize o código do script do Google (versão 5) pelo passo a passo em
+        <a href="{{ url_for('configuracao') }}#agenda">Configuração</a> e volte aqui.</p>
+    {% elif not envio.link %}
+      <form method="post" action="{{ url_for('reds_criar_formulario') }}" class="acoes">
+        <input type="hidden" name="voltar" value="{{ url_for('reds_paciente', pid=p.id) }}#leafq">
+        <button class="btn pri">Criar o formulário do LEAF-Q no meu Google</button>
+        <span class="note">Uma vez só: as perguntas são as desta tela.</span>
+      </form>
+    {% else %}
+      <p class="note" style="margin:0">A paciente responde pelo celular, num link que já abre com o nome dela; a resposta entra aqui sozinha,
+        já pontuada.{% if envio.enviado %} Último envio em {{ envio.enviado.strftime('%d/%m/%Y') }}.{% endif %}</p>
+      {{ mensagem_zap(p.id, 'leafq', 'WhatsApp', envio.texto, envio.tem_whatsapp, voltar=url_for('reds_paciente', pid=p.id) + '#leafq') }}
+      <div class="acoes">
+        <form method="post" action="{{ url_for('reds_buscar') }}"><input type="hidden" name="voltar" value="{{ url_for('reds_paciente', pid=p.id) }}#leafq">
+          <button class="btn">Buscar respostas agora</button></form>
+        <a class="btn" href="{{ envio.link }}" target="_blank" rel="noopener">Ver o formulário</a>
+        {% if envio.n_sem %}<a class="btn" href="{{ url_for('reds_respostas') }}">{{ envio.n_sem }} resposta(s) sem paciente</a>{% endif %}
+      </div>
+    {% endif %}
+    <p class="note" style="margin:0"><a href="{{ url_for('reds_respostas') }}">Importar respostas da planilha antiga</a></p>
+  </div>
+
+  {% if leafqs %}
+  <div class="tablebox"><table>
+    <thead><tr><th class="t">Data</th><th>Lesões</th><th>Gastrointestinal</th><th>Menstrual</th><th>Total</th><th class="t">Classificação</th><th></th></tr></thead>
+    <tbody>{% for q in leafqs %}
+      <tr><td class="t n">{{ q.data|br }}<br><span class="note">{{ 'pelo formulário' if (q.origem or '').startswith('form:') else 'da planilha' if (q.origem or '').startswith('planilha:') else 'no sistema' }}</span></td>
+        <td class="n">{{ q.lesoes }}</td><td class="n">{{ q.gastro }}</td><td class="n">{{ q.menstrual }}</td>
+        <td class="n"><b>{{ q.total }}</b></td>
+        <td class="t"><span class="chip {{ 'bad' if q.total >= risco else 'good' }}">{{ q.classe }}</span></td>
+        <td><form method="post" action="{{ url_for('reds_leafq_excluir', qid=q.id) }}"><button class="btn perigo mini" title="Excluir"
+          onclick="if(this.dataset.ok){return true} this.dataset.ok=1; this.textContent='Excluir?'; return false">×</button></form></td></tr>
+      <tr class="ck-texto"><td colspan="7"><details><summary>Ver respostas</summary><dl class="respostas">
+        {% for chave, secao, pergunta, tipo, opcoes in perguntas if q.respostas.get(chave) %}
+          <dt>{{ pergunta }}</dt><dd>{{ q.respostas[chave]|join(', ') if q.respostas[chave] is not string else q.respostas[chave] }}</dd>
+        {% endfor %}</dl></details></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+
+  <details class="nova-leafq" {{ 'open' if not leafqs }}>
+    <summary class="btn pri">+ Nova aplicação do LEAF-Q</summary>
+    <form method="post" action="{{ url_for('reds_leafq', pid=p.id) }}" class="ficha" id="form-leafq" style="gap:14px;margin-top:12px">
+      <div class="acoes">
+        <div class="campo" style="max-width:200px"><label for="lq-data">Data</label><input id="lq-data" type="date" name="data" value="{{ hoje }}" required></div>
+        {% if leafqs %}<button type="button" class="btn" id="repetir">Começar com as respostas da última aplicação</button>{% endif %}
+      </div>
+      {% for secao, titulo in secoes.items() %}
+      <fieldset class="lq-secao"><legend>{{ titulo }} <span class="note lq-sub" data-secao="{{ secao }}"></span></legend>
+        {% for chave, sec, pergunta, tipo, opcoes in perguntas if sec == secao %}
+        <div class="lq-perg">
+          <p>{{ pergunta }}</p>
+          {% if tipo == 'texto' %}<input class="texto" name="{{ chave }}" aria-label="{{ pergunta }}">
+          {% else %}<div class="lq-ops">{% for texto, pontos in opcoes %}
+            <label><input type="{{ 'checkbox' if tipo == 'multipla' else 'radio' }}" name="{{ chave }}" value="{{ texto }}" data-pontos="{{ pontos }}" data-secao="{{ secao }}">
+              {{ texto }}{% if pontos %} <span class="pts">+{{ pontos }}</span>{% endif %}</label>{% endfor %}
+            {% if tipo == 'unica' %}<button type="button" class="link-btn limpar" data-nome="{{ chave }}">limpar</button>{% endif %}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </fieldset>
+      {% endfor %}
+      <div class="barra"><div class="acoes">
+        <button class="btn pri">Salvar LEAF-Q</button>
+        <span class="lq-total" id="lq-total" role="status"></span>
+      </div></div>
+    </form>
+  </details>
+</div>
+<script>
+const num = v => { const x = parseFloat(String(v ?? '').replace(',', '.')); return isFinite(x) ? x : null; };
+// prévia da energia disponível
+const previa = () => {
+  const ing = num(document.getElementById('ed-ing').value), gee = num(document.getElementById('ed-gee').value), mlg = num(document.getElementById('ed-mlg').value);
+  const el = document.getElementById('ed-previa');
+  if (ing == null || gee == null || !mlg) { el.textContent = ''; return; }
+  const ed = (ing - gee) / mlg;
+  el.textContent = `ED: ${ed.toFixed(1).replace('.', ',')} kcal/kg MLG/dia · ${ed >= 45 ? 'Adequada' : ed < 30 ? 'Baixa' : 'Subclínica'}`;
+};
+['ed-ing', 'ed-gee', 'ed-mlg'].forEach(id => document.getElementById(id).addEventListener('input', previa));
+const usar = document.getElementById('usar-plano');
+if (usar) usar.onclick = () => { document.getElementById('ed-ing').value = {{ kcal_plano|tojson }}; previa(); };
+// pontuação do LEAF-Q enquanto marca (o servidor confere ao salvar)
+const form = document.getElementById('form-leafq');
+function somar() {
+  const soma = { lesoes: 0, gastro: 0, menstrual: 0 };
+  const natural = form.querySelector('input[name=men_natural]:checked');
+  form.querySelectorAll('input[data-pontos]:checked').forEach(i => {
+    if (i.name === 'men_tratamento') return;
+    soma[i.dataset.secao] += Number(i.dataset.pontos);
+  });
+  if (form.querySelector('input[name=men_tratamento]:checked') && natural && natural.value !== 'Sim') soma.menstrual += 1;
+  const total = soma.lesoes + soma.gastro + soma.menstrual;
+  form.querySelectorAll('.lq-sub').forEach(s => { s.textContent = `${soma[s.dataset.secao]} ponto(s)`; });
+  const el = document.getElementById('lq-total');
+  el.textContent = `Total: ${total} · ${total >= {{ risco }} ? 'Risco de baixa disponibilidade energética' : 'Sem risco pelo LEAF-Q'}`;
+  el.className = 'lq-total ' + (total >= {{ risco }} ? 'risco' : 'ok');
+}
+form.addEventListener('change', somar);
+form.querySelectorAll('.limpar').forEach(b => b.addEventListener('click', () => {
+  form.querySelectorAll(`input[name="${b.dataset.nome}"]`).forEach(i => { i.checked = false; }); somar();
+}));
+const ULTIMA = {{ (leafqs[0].respostas if leafqs else {})|tojson }};
+const repetir = document.getElementById('repetir');
+if (repetir) repetir.onclick = () => {
+  form.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(i => {
+    const v = ULTIMA[i.name]; i.checked = Array.isArray(v) ? v.includes(i.value) : v === i.value;
+  });
+  form.querySelectorAll('input.texto').forEach(i => { i.value = ULTIMA[i.name] || ''; });
+  somar();
+};
+somar();
+</script>
+{% endblock %}

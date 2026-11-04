@@ -158,6 +158,13 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 .grupo-itens div{display:flex;flex-direction:column;gap:1px;border-bottom:1px solid var(--line);padding:7px 0}
 .grupo-itens span{font-weight:500}
 .grupo-itens b{font-weight:400;font-size:12px;color:var(--muted)}
+/* Suplementação prescrita no plano */
+.supl-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.supl{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.supl b{font-size:15px}
+.supl .dose{font:500 13px var(--mono);color:var(--ink)}
+.supl .hor{font-size:13px;color:var(--c2);font-weight:500}
+.supl p{margin:2px 0 0;font-size:13px;color:var(--muted)}
 /* Meta de água: copos que o paciente marca ao longo do dia */
 .agua-card{gap:10px}
 .agua-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px}
@@ -540,6 +547,9 @@ function planoHTML(P, k) {
         ${r.receitas && nomesReceitas ? `<p class="rec-link">Veja as receitas (${esc(nomesReceitas)}) abaixo.</p>` : ''}
       </article>`).join('')}
     </div>
+    ${(P.suplementos || []).length ? `<div class="card w12"><h2>Suplementação</h2>
+      <div class="supl-lista">${P.suplementos.map(s => `<div class="supl"><b>${esc(s.nome)}</b>${s.dose ? `<span class="dose">${esc(s.dose)}</span>` : ''}
+        ${s.horario ? `<span class="hor">${esc(s.horario)}</span>` : ''}${s.obs ? `<p>${esc(s.obs)}</p>` : ''}</div>`).join('')}</div></div>` : ''}
     ${P.receitas && P.receitas.length ? `<div class="receitas">${P.receitas.map(r => `
       <div class="card"><h3>${esc(r.nome)}</h3>
         <p class="lbl">Ingredientes</p><ul>${r.ingredientes.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
@@ -839,6 +849,11 @@ async function relatorioPlano() {
       } else if (!ref.obs) texto(doc, 'Sem alimentos definidos: refeição livre.', { tam: 9, cor: COR.muted });
       if (ref.obs) texto(doc, `Observação: ${ref.obs}`, { tam: 9, cor: COR.muted });
       doc.y += 4;
+    }
+    if ((P.suplementos || []).length) {
+      secao(doc, 'Suplementação');
+      tabela(doc, ['Suplemento', 'Dose', 'Quando tomar', 'Observação'], P.suplementos.map(s => [s.nome, s.dose, s.horario, s.obs]),
+        { columnStyles: { 0: { fontStyle: 'bold', cellWidth: 38 }, 1: { cellWidth: 52 } } });
     }
     for (const rec of P.receitas || []) {
       secao(doc, `Receita: ${rec.nome}`);

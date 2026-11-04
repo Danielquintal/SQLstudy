@@ -1,0 +1,1039 @@
+{
+ "fonte": "Planilha_Suplementacao_Atletas_Final.xlsx",
+ "importado_em": "2026-11-04T12:36",
+ "suplementos": [
+  {
+   "chave": "beta_alanina",
+   "nome": "Beta alanina",
+   "unidade": "mg/kg",
+   "por_kg": true,
+   "doses": [
+    40.0,
+    55.0,
+    60.0,
+    65.0
+   ],
+   "texto_dose": "",
+   "categoria": "Tamponante",
+   "impacto": "Pequenos, mas potencialmente significativos benefícios de desempenho (~0,2%–3%) durante exercícios contínuos e intermitentes com duração de 30 segundos a 10 minutos",
+   "mecanismo": "Precursor limitante da taxa para o tamponamento intracelular (muscular) endógeno, a carnosina; primeira linha de defesa contra o acúmulo de prótons na musculatura em contração durante o exercício. A suplementação crônica e diária com beta-alanina aumenta o conteúdo de carnosina no músculo esquelético",
+   "efeitos": "Ainda não foi estabelecida uma correlação positiva entre a magnitude do aumento de carnosina muscular e os benefícios de desempenho.\nRelatou-se uma grande variação interindividual na síntese de carnosina muscular.\nA eficácia do suplemento parece ser mais difícil de alcançar em atletas bem treinados.\nHá necessidade de mais estudos para estabelecer sua aplicabilidade prática em diferentes contextos esportivos específicos.\nPossíveis efeitos colaterais: erupções cutâneas e/ou parestesia transitória (formigamento)."
+  },
+  {
+   "chave": "bicarbonato_de_sodio",
+   "nome": "Bicarbonato de Sódio",
+   "unidade": "g/kg",
+   "por_kg": true,
+   "doses": [
+    0.1,
+    0.2,
+    0.3,
+    0.4
+   ],
+   "texto_dose": "",
+   "categoria": "Tamponante",
+   "impacto": "Desempenho aprimorado (~2%) em sprints de alta intensidade e curta duração (~60 s), com eficácia reduzida conforme a duração do esforço ultrapassa 10 minutos",
+   "mecanismo": "Age como tampão extracelular (sanguíneo), auxiliando na regulação do pH intracelular ao elevar o pH extracelular e as concentrações de HCO3−. O gradiente de pH resultante entre os ambientes intra e extracelular leva à saída de H+ e La− do músculo em exercício",
+   "efeitos": "Desconforto gastrointestinal (GI) é um efeito bem documentado associado a esse suplemento.\nEstratégias para minimizar o desconforto GI incluem:\n- Ingestão junto a uma pequena refeição rica em carboidratos (~1,5 g/kg de peso corporal);\n- Uso de citrato de sódio como alternativa;\n- Estratégias de dose fracionada ou escalonada.\nDevido ao alto potencial para desconforto gastrointestinal, recomenda-se investigação prévia detalhada para definir a melhor estratégia individualizada antes do uso em competições"
+  },
+  {
+   "chave": "cafeina",
+   "nome": "Cafeína",
+   "unidade": "mg/kg",
+   "por_kg": true,
+   "doses": [
+    3.0,
+    4.0,
+    5.0,
+    6.0
+   ],
+   "texto_dose": "",
+   "categoria": "Estimulante",
+   "impacto": "Melhora da capacidade de resistência, como tempo até a exaustão e desempenho em testes contrarrelógio (TT) de 5 a 150 minutos em diversas modalidades (ciclismo, corrida, remo etc.). Doses baixas (100–300 mg) durante o exercício de resistência (após 15–80 min) podem melhorar o desempenho em TT de ciclismo em 3%–7%.\nEm atividades anaeróbicas de 1–2 minutos, doses de 3–6 mg/kg de cafeína 50–60 minutos antes do exercício promovem ganhos >3% no tempo de execução, potência média e potência máxima. Durante jogos intermitentes em equipe, há melhora de 1%–8% na produção total de trabalho e desempenho em sprints repetido",
+   "mecanismo": "Antagonismo dos receptores de adenosina; aumento na liberação de endorfinas; melhora da função neuromuscular, da vigilância e do estado de alerta; redução da percepção de esforço durante o exercício.",
+   "efeitos": "Doses mais altas de cafeína (≥9 mg/kg de peso corporal) não parecem aumentar o benefício de desempenho e são mais propensas a causar efeitos colaterais negativos, como:\n- Náusea\n- Ansiedade\n- Insônia\n- Agitação\nÉ recomendável testar previamente diferentes doses menores, variações no tempo de ingestão antes ou durante o exercício e a necessidade (ou não) de um período de abstinência de cafeína antes da competição.\nA ingestão de cafeína durante a atividade deve ser combinada com consumo de carboidratos (CHO) para maior eficácia.\nA cafeína é diurética e promove maior fluxo urinário, mas esse efeito é pequeno nas doses que melhoram o desempenho."
+  },
+  {
+   "chave": "creatina",
+   "nome": "Creatina",
+   "unidade": "g/dia",
+   "por_kg": false,
+   "doses": [
+    3.0,
+    5.0,
+    7.0,
+    10.0
+   ],
+   "texto_dose": "",
+   "categoria": "Ergogênico",
+   "impacto": "Melhora da força isométrica máxima e do desempenho agudo em esforços de alta intensidade únicos e repetidos (<150 s), com efeitos mais pronunciados em tarefas <30 s.\nA suplementação crônica promove ganhos de massa magra, força muscular e potência. Efeitos menos comuns incluem melhora da performance de resistência devido ao aumento/síntese proteica, armazenamento de glicogênio e termorregulação. Também há potenciais efeitos antioxidantes e anti-inflamatórios.",
+   "mecanismo": "A suplementação aumenta os estoques musculares de creatina, acelerando a ressíntese de fosfocreatina (PCr), o que melhora a capacidade de exercícios curtos e intensos e de esforços repetidos",
+   "efeitos": "Não há efeitos adversos à saúde relatados com o uso a longo prazo (até 4 anos), desde que sejam seguidos protocolos de carga adequados.\nEfeitos colaterais potenciais: Aumento de 1–2 kg no peso corporal após a fase de carga, principalmente por retenção de água. Esse aumento pode ser prejudicial para o desempenho em esportes de resistência, ou em provas onde o peso corporal deve ser movido contra a gravidade (ex: salto em altura, salto com vara), ou ainda em esportes com categorias de peso"
+  },
+  {
+   "chave": "nitrato",
+   "nome": "Nitrato",
+   "unidade": "mg",
+   "por_kg": false,
+   "doses": [
+    310.0,
+    400.0,
+    480.0,
+    510.0
+   ],
+   "texto_dose": "",
+   "categoria": "Ergogênico (óxido nítrico)",
+   "impacto": "A suplementação foi associada a melhorias de 4%–25% no tempo até a exaustão e de 1%–3% em testes contrarrelógio com duração <40 min. Há ganhos de 3%–5% em esportes intermitentes de alta intensidade (12–40 min), especialmente pela melhora da função das fibras do tipo II. Não há evidência clara de benefícios para esforços <12 min",
+   "mecanismo": "Aumenta a biodisponibilidade de óxido nítrico (NO) pela via nitrato-nitrito-NO, modulando a função muscular. Melhora a função das fibras tipo II; reduz o custo energético da contração muscular; aumenta a eficiência mitocondrial; aumenta o fluxo sanguíneo muscular e reduz a heterogeneidade do VO2",
+   "efeitos": "As evidências disponíveis indicam poucos efeitos colaterais ou limitações com a suplementação de nitrato.\nPotenciais efeitos negativos:\n- Desconforto gastrointestinal em atletas suscetíveis — recomenda-se testagem prévia em treinos.\n- Parece haver um limite máximo de benefício com a suplementação (ou seja, não há ganho adicional com o consumo de 16,8 mmol [1041 mg] comparado a 8,4 mmol [521 mg]).\n- Os ganhos de desempenho parecem mais difíceis de alcançar em atletas altamente treinados"
+  },
+  {
+   "chave": "repositor_de_eletrolitos",
+   "nome": "Repositor de eletrólitos",
+   "unidade": "",
+   "por_kg": false,
+   "doses": [],
+   "texto_dose": "50–60 mmol/L sódio\n10–20 mmol/L potássio\nbaixo CHO (2–4 g/100 mL)",
+   "categoria": "Eletrólitos",
+   "impacto": "Rápida reidratação após desidratação (ex. perda de peso para categorias); reposição de grandes perdas de sódio durante atividades de ultra resistência; reidratação pós-exercício após déficits moderados a grandes de sódio e fluidos.",
+   "mecanismo": "",
+   "efeitos": ""
+  },
+  {
+   "chave": "omega_3",
+   "nome": "Omega-3",
+   "unidade": "g/dia",
+   "por_kg": false,
+   "doses": [
+    2.0
+   ],
+   "texto_dose": "",
+   "categoria": "Ácido graxo (ômega-3)",
+   "impacto": "Encontrado em óleos de peixe, atua na membrana celular e na formação de eicosanoides, como as prostaglandinas (com função imunossupressora). Alega-se que exerce efeitos anti-inflamatórios pós-exercício e que pode influenciar a função imune ao servir de combustível",
+   "mecanismo": "Há suporte limitado para redução da inflamação e de alterações funcionais após exercício excêntrico com dano muscular, e nenhuma evidência de que reduza infecções do trato respiratório superior (URS) em atletas",
+   "efeitos": ""
+  },
+  {
+   "chave": "agua",
+   "nome": "Água",
+   "unidade": "",
+   "por_kg": false,
+   "doses": [],
+   "texto_dose": "250 a 500 ml antes do treino",
+   "categoria": "Hidratação",
+   "impacto": "Treinos/exercícios acima de 3 horas: 300 a 500ml antes do treino e 500 a 1000ml por hora de prova + 6-8% CHO + 20 - 30 mEq/L Sódio + 3 a 5 mEq/L Potássio",
+   "mecanismo": "",
+   "efeitos": ""
+  },
+  {
+   "chave": "fibras",
+   "nome": "Fibras",
+   "unidade": "g/dia",
+   "por_kg": false,
+   "doses": [
+    20.0,
+    30.0,
+    40.0,
+    50.0
+   ],
+   "texto_dose": "",
+   "categoria": "Fibras alimentares",
+   "impacto": "",
+   "mecanismo": "",
+   "efeitos": ""
+  },
+  {
+   "chave": "ferro",
+   "nome": "Ferro",
+   "unidade": "",
+   "por_kg": false,
+   "doses": [],
+   "texto_dose": "Definir pelos exames (ferritina)",
+   "categoria": "Mineral",
+   "impacto": "",
+   "mecanismo": "",
+   "efeitos": ""
+  },
+  {
+   "chave": "vitamina_d",
+   "nome": "Vitamina D",
+   "unidade": "ui/dia",
+   "por_kg": false,
+   "doses": [
+    2000.0
+   ],
+   "texto_dose": "",
+   "categoria": "Vitaminas",
+   "impacto": "Resposta adaptativa aprimorada ao exercício\nRedução de fraturas por estresse",
+   "mecanismo": "Os dados sobre os efeitos da suplementação de vitamina D na função muscular e recuperação são inconclusivos, com discrepâncias provavelmente explicadas por diferenças nas concentrações basais de vitamina D antes da suplementação",
+   "efeitos": "Baixos níveis de vitamina D estão associados a um risco 3,6 vezes maior de fraturas por estresse em recrutas militares finlandeses. Recrutas navais dos EUA que suplementaram com 800 UI/dia de vitamina D3 e 2000 mg de cálcio reduziram a incidência de fraturas por estresse em 20%. Mais dados são necessários, mas parece que o status de vitamina D está relacionado ao risco de fraturas por estresse, e a suplementação, quando indicada, pode reduzir esse risco"
+  },
+  {
+   "chave": "vitamina_c",
+   "nome": "Vitamina C",
+   "unidade": "g/dia",
+   "por_kg": false,
+   "doses": [
+    0.25,
+    0.35,
+    0.5,
+    1.0
+   ],
+   "texto_dose": "",
+   "categoria": "Vitaminas",
+   "impacto": "Há suporte moderado para a prevenção de infecções do trato respiratório superior (TRS).\nUma revisão Cochrane com 5 estudos em indivíduos sob esforço físico intenso (n = 598) mostrou uma redução de ~50% na incidência no TRS com suplementação de vitamina C entre 0,25 a 1,0 g/dia.\nNenhum benefício foi observado no tratamento de TRS já estabelecidas (após o início dos sintomas), mesmo com doses superiores a 200 mg/dia.\nAinda não está claro se o uso de antioxidantes como a vitamina C pode atenuar adaptações ao treinamento em atletas bem treinados.",
+   "mecanismo": "A suplementação reduz as respostas de interleucina-6 e cortisol ao exercício, mas os efeitos sobre o cortisol são relativamente pequenos quando comparados à ingestão de carboidratos",
+   "efeitos": ""
+  },
+  {
+   "chave": "glutamina",
+   "nome": "Glutamina",
+   "unidade": "g/dia",
+   "por_kg": false,
+   "doses": [
+    10.0
+   ],
+   "texto_dose": "",
+   "categoria": "Aminoácido",
+   "impacto": "Após exercícios prolongados ou treinamentos muito intensos, os níveis circulantes de glutamina diminuem. No entanto, a suplementação antes e depois do exercício não altera as alterações imunológicas provocadas pelo exercício.",
+   "mecanismo": "Há algumas evidências de redução de sintomas de infecções do trato respiratório superior (TRS) após eventos de endurance em competidores que receberam suplementação de glutamina (2 doses de 5 g).\n\nO mecanismo responsável por esse possível efeito terapêutico ainda precisa ser investigado.",
+   "efeitos": ""
+  },
+  {
+   "chave": "vitamina_e",
+   "nome": "Vitamina E",
+   "unidade": "",
+   "por_kg": false,
+   "doses": [],
+   "texto_dose": "Não recomendada para desempenho",
+   "categoria": "Vitaminas",
+   "impacto": "Embora apresente efeitos positivos sobre o sistema imunológico em idosos frágeis, não há evidências de benefício em adultos jovens e saudáveis",
+   "mecanismo": "Um estudo inclusive demonstrou que a suplementação com vitamina E aumentou a incidência de infecções do trato respiratório superior (URS) em indivíduos submetidos a esforço físico intenso",
+   "efeitos": "Doses elevadas podem ter efeito pró-oxidante, o que representa um risco potencial"
+  },
+  {
+   "chave": "zinco",
+   "nome": "Zinco",
+   "unidade": "mg/dia",
+   "por_kg": false,
+   "doses": [
+    75.0
+   ],
+   "texto_dose": "",
+   "categoria": "Mineral",
+   "impacto": "A deficiência de zinco prejudica a imunidade (por exemplo, causa atrofia do tecido linfoide) e não é incomum em atletas.\n- Não há evidências que apoiem o uso de zinco para prevenir infecções do trato respiratório superior (TRS). \n- Há suporte moderado para o uso no tratamento de TRS, desde que administrado adequadamente.",
+   "mecanismo": "",
+   "efeitos": "Efeitos colaterais incluem gosto desagradável e náusea.\nDoses elevadas devem ser evitadas, pois podem prejudicar a função imunológica"
+  },
+  {
+   "chave": "probioticos",
+   "nome": "Probióticos",
+   "unidade": "",
+   "por_kg": false,
+   "doses": [],
+   "texto_dose": "Conforme a cepa escolhida",
+   "categoria": "Probiótico",
+   "impacto": "Esses micro-organismos estão associados a potenciais benefícios para a saúde intestinal e à modulação da função imunológica.\n- Há suporte moderado para seu uso em atletas, com doses diárias de aproximadamente 10¹⁰ UFC.\n- Uma revisão Cochrane com 12 estudos (n=3.720) mostrou cerca de 50% de redução na incidência de infecções do trato respiratório superior (TRS) e uma redução média de 2 dias na duração dos sintomas.",
+   "mecanismo": "",
+   "efeitos": ""
+  },
+  {
+   "chave": "hmb",
+   "nome": "HMB",
+   "unidade": "g/dia",
+   "por_kg": false,
+   "doses": [
+    3.0
+   ],
+   "texto_dose": "",
+   "categoria": "Metabólito da leucina",
+   "impacto": "Os efeitos benéficos do HMB sobre força e massa livre de gordura são pequenos, enquanto os efeitos sobre o dano muscular ainda são incertos. Relatos recentes de ganhos “semelhantes aos de esteroides” em força, potência e massa magra, além de redução de danos musculares com suplementação de HMB livre de ácido, não foram reproduzidos e parecem improváveis",
+   "mecanismo": "Seus possíveis mecanismos incluem: redução da degradação proteica, aumento da síntese proteica, aumento da síntese de colesterol, elevação de mRNA do hormônio do crescimento e IGF-I, aumento da proliferação e diferenciação de células satélite e inibição da apoptose",
+   "efeitos": ""
+  }
+ ],
+ "modalidades": {
+  "100 e 200m rasos": {
+   "grupo": "Corrida",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "Revezamento 4x100": {
+   "grupo": "Corrida",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "400m": {
+   "grupo": "Corrida",
+   "indicados": [
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "Revezamento 4x400": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "800m": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "1500m": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "3000m": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d",
+    "vitamina_c"
+   ]
+  },
+  "5000m": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d",
+    "vitamina_c"
+   ]
+  },
+  "10km": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "omega_3",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d",
+    "vitamina_c",
+    "probioticos"
+   ]
+  },
+  "15km": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "omega_3",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d",
+    "vitamina_c",
+    "probioticos"
+   ]
+  },
+  "21km": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "omega_3",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d",
+    "vitamina_c",
+    "glutamina",
+    "probioticos"
+   ]
+  },
+  "42km": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "omega_3",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d",
+    "vitamina_c",
+    "glutamina",
+    "probioticos"
+   ]
+  },
+  "Cross-Country": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "nitrato",
+    "repositor_de_eletrolitos",
+    "omega_3",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d",
+    "vitamina_c",
+    "probioticos"
+   ]
+  },
+  "Ultramaratona": {
+   "grupo": "Corrida",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d",
+    "vitamina_c",
+    "glutamina",
+    "probioticos"
+   ]
+  },
+  "Salto triplo": {
+   "grupo": "Saltos",
+   "indicados": [
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Sato em distância": {
+   "grupo": "Saltos",
+   "indicados": [
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Salto em altura": {
+   "grupo": "Saltos",
+   "indicados": [
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Salto com Vara": {
+   "grupo": "Saltos",
+   "indicados": [
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Arremesso de peso": {
+   "grupo": "Arremessos",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d",
+    "hmb"
+   ]
+  },
+  "Arremesso de dardo": {
+   "grupo": "Arremessos",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d",
+    "hmb"
+   ]
+  },
+  "Lançamento de martelo": {
+   "grupo": "Arremessos",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d",
+    "hmb"
+   ]
+  },
+  "Lançamento de disco": {
+   "grupo": "Arremessos",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d",
+    "hmb"
+   ]
+  },
+  "Heptatlo": {
+   "grupo": "Mix de provas",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Decatlo": {
+   "grupo": "Mix de provas",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Powerlifting": {
+   "grupo": "Levantamento de peso",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d",
+    "hmb"
+   ]
+  },
+  "Weightlifting": {
+   "grupo": "Levantamento de peso",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d",
+    "hmb"
+   ]
+  },
+  "Strongman": {
+   "grupo": "Levantamento de peso",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d",
+    "hmb"
+   ]
+  },
+  "Futebol americano": {
+   "grupo": "Esporte coletivo",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d",
+    "hmb"
+   ]
+  },
+  "Rugby": {
+   "grupo": "Esporte coletivo",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "agua",
+    "fibras",
+    "vitamina_d",
+    "hmb"
+   ]
+  },
+  "Futebol": {
+   "grupo": "Esporte coletivo",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "Handebol": {
+   "grupo": "Esporte coletivo",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "Basquete": {
+   "grupo": "Esporte coletivo",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "Futsal": {
+   "grupo": "Esporte coletivo",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "repositor_de_eletrolitos",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "Fut 7": {
+   "grupo": "Esporte coletivo",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Futevôlei": {
+   "grupo": "Esportes de areia",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Vôlei de areia": {
+   "grupo": "Esportes de areia",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Vôlei de quadra": {
+   "grupo": "Esportes de quadra",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "repositor_de_eletrolitos",
+    "omega_3",
+    "agua",
+    "fibras",
+    "ferro",
+    "vitamina_d"
+   ]
+  },
+  "Tênis": {
+   "grupo": "Esportes de quadra",
+   "indicados": [
+    "beta_alanina",
+    "bicarbonato_de_sodio",
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Tênis de mesa": {
+   "grupo": "Esportes de quadra",
+   "indicados": [
+    "cafeina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Jiu-jitsu": {
+   "grupo": "Artes Marciais",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Judô": {
+   "grupo": "Artes Marciais",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "MMA": {
+   "grupo": "Artes Marciais",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Karatê": {
+   "grupo": "Artes Marciais",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "omega_3",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Wrestling": {
+   "grupo": "Artes Marciais",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Boxe": {
+   "grupo": "Artes Marciais",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  },
+  "Muay-thai": {
+   "grupo": "Artes Marciais",
+   "indicados": [
+    "cafeina",
+    "creatina",
+    "agua",
+    "fibras",
+    "vitamina_d"
+   ]
+  }
+ },
+ "cepas": [
+  {
+   "cepa": "B. coagulans GBI-30, 6086 (BC30)",
+   "dose": "1 × 10⁹ UFC",
+   "uso": "efeitos benéficos na recuperação após o exercício quando combinado com proteína;",
+   "obs": ""
+  },
+  {
+   "cepa": "B . breve BR03 encapsulado, em combinação com S. thermophilus FP4",
+   "dose": "ambos na dose de 5 × 10⁹ UFC",
+   "uso": "efeitos positivos na recuperação e desempenho após exercícios que causam dano muscular",
+   "obs": ""
+  },
+  {
+   "cepa": "L. delbrueckii ssp. bulgaricus",
+   "dose": "1 × 10⁵ UFC",
+   "uso": "pode aumentar o VO₂max e a potência aeróbica",
+   "obs": ""
+  },
+  {
+   "cepa": "L. acidophilus SPP, L. delbrueckii bulgaricus, B. bifidum e S. salivarius thermophilus",
+   "dose": "4 × 10¹⁰ UFC",
+   "uso": "podem aumentar o VO₂max",
+   "obs": "administrados na forma de bebida láctea (iogurte),"
+  },
+  {
+   "cepa": "L. plantarum TWK10",
+   "dose": "1 × 10¹⁰ UFC",
+   "uso": "aumento no desempenho de enduranc",
+   "obs": ""
+  },
+  {
+   "cepa": "Combinação de: L. acidophilus, L. rhamnosus, L. casei, L. plantarum, L. fermentum, B. lactis, B. breve, B. bifidum e S. thermophilu",
+   "dose": "4,5 × 10¹⁰ UFC",
+   "uso": "aumentar o tempo até a exaustão durante corrida em ambiente quente",
+   "obs": ""
+  },
+  {
+   "cepa": "Lactobacillus rhamnosus GG",
+   "dose": "4 × 10¹⁰ UFC,",
+   "uso": "Melhora da função e saúde TGI",
+   "obs": "forma de bebida láctea"
+  },
+  {
+   "cepa": "Bifidobacterium bifidum W23, Bifidobacterium lactis W51, Enterococcus faecium W54, Lactobacillus acidophilus W22, Lactobacillus brevis W63 e Lactococcus lactis W58",
+   "dose": "todos na dose de 1 × 10¹⁰ UFC",
+   "uso": "",
+   "obs": ""
+  },
+  {
+   "cepa": "Lactobacillus salivarius (UCC118)",
+   "dose": "dose não especificada",
+   "uso": "",
+   "obs": ""
+  },
+  {
+   "cepa": "Lactobacillus fermentum VRI-003 (PCC)",
+   "dose": "1,2 × 10¹⁰ UFC \n1 × 10⁹ UFC (em homens)",
+   "uso": "Melhora da saúde imunológica em atletas, reduzindo a frequência, gravidade ou duração de infecções induzidas por exercício",
+   "obs": ""
+  },
+  {
+   "cepa": "Lactobacillus casei Shirota (LcS)",
+   "dose": "2x ao dia de 6,5 × 10⁹ UFC",
+   "uso": "",
+   "obs": ""
+  },
+  {
+   "cepa": "L. delbrueckii bulgaricus, Bifidobacterium bifidum e Streptococcus salivarius thermophilus",
+   "dose": "4 × 10¹⁰ UFC",
+   "uso": "",
+   "obs": "Administrados em forma de bebida láctea (iogurte)"
+  },
+  {
+   "cepa": "Bifidobacterium animalis subsp. lactis BI-04",
+   "dose": "2 × 10¹⁰ UFC",
+   "uso": "",
+   "obs": ""
+  },
+  {
+   "cepa": "B. bifidum W23, B. lactis W51, E. faecium W54, L. acidophilus W22, L. brevis W63 e L. lactis W58",
+   "dose": "1 × 10¹⁰ UFC",
+   "uso": "",
+   "obs": ""
+  },
+  {
+   "cepa": "Lactobacillus helveticus Lafti L10",
+   "dose": "2 × 10¹⁰ UFC",
+   "uso": "",
+   "obs": ""
+  },
+  {
+   "cepa": "Lactobacillus gasseri",
+   "dose": "2,6 × 10⁹ UFC",
+   "uso": "",
+   "obs": ""
+  },
+  {
+   "cepa": "Bifidobacterium bifidum",
+   "dose": "0,2 × 10⁹ UFC",
+   "uso": "",
+   "obs": ""
+  },
+  {
+   "cepa": "Bifidobacterium longum",
+   "dose": "0,2 × 10⁹ UFC",
+   "uso": "",
+   "obs": ""
+  }
+ ],
+ "saturacao_creatina": {
+  "g_kg_dia": 0.3,
+  "dias": 5
+ },
+ "carboidratos": {
+  "diario": [
+   {
+    "nivel": "Leve",
+    "descricao": "Atividades de baixa intensidade ou técnicas",
+    "g_kg": [
+     3.0,
+     5.0
+    ],
+    "obs": "Alimentos baixos em fibra e gordura"
+   },
+   {
+    "nivel": "Moderado",
+    "descricao": "Exercício moderado (~1h/dia)",
+    "g_kg": [
+     5.0,
+     7.0
+    ],
+    "obs": "Alimentos de fácil digestão"
+   },
+   {
+    "nivel": "Alto",
+    "descricao": "Endurance (1–3h/dia, intensidade moderada a alta)",
+    "g_kg": [
+     6.0,
+     10.0
+    ],
+    "obs": "Gel, bebida esportiva, bala"
+   },
+   {
+    "nivel": "Muito Alto",
+    "descricao": "Comprometimento extremo (4–5h/dia, intensidade alta)",
+    "g_kg": [
+     8.0,
+     12.0
+    ],
+    "obs": "Mistura glicose + frutose"
+   }
+  ],
+  "prova": [
+   {
+    "fase": "Carregamento (36–48h antes)",
+    "objetivo": "Aumentar glicogênio muscular e hepático",
+    "recomendacao": "10–12 g/kg/dia",
+    "g_kg": [
+     10.0,
+     12.0
+    ],
+    "por_hora": false,
+    "obs": "Alimentos baixos em fibra e gordura"
+   },
+   {
+    "fase": "Pré-evento (1–4h antes)",
+    "objetivo": "Maximizar energia disponível",
+    "recomendacao": "1–4 g/kg",
+    "g_kg": [
+     1.0,
+     4.0
+    ],
+    "por_hora": false,
+    "obs": "Alimentos de fácil digestão"
+   },
+   {
+    "fase": "Durante a prova (1–2h)",
+    "objetivo": "Evitar depleção de glicogênio",
+    "recomendacao": "30–60 g/h",
+    "g_kg": null,
+    "por_hora": true,
+    "obs": "Gel, bebida esportiva, bala"
+   },
+   {
+    "fase": "Durante a prova (>2,5h)",
+    "objetivo": "Evitar fadiga severa",
+    "recomendacao": "Até 90 g/h",
+    "g_kg": null,
+    "por_hora": true,
+    "obs": "Mistura glicose + frutose"
+   },
+   {
+    "fase": "Recuperação (até 8h após)",
+    "objetivo": "Repor glicogênio rapidamente",
+    "recomendacao": "1–1,2 g/kg/h por 4h",
+    "g_kg": [
+     1.0,
+     1.2
+    ],
+    "por_hora": true,
+    "obs": "Dividir em snacks/refeições"
+   }
+  ]
+ }
+}

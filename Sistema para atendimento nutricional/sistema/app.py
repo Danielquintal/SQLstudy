@@ -21,6 +21,7 @@ from montar_pagina import gerar_html, montar
 from planilha_paciente import SECTIONS, build, safe_name
 import agenda
 import checkin
+import reds
 import contatos
 import links
 import plano as planos
@@ -196,6 +197,11 @@ def paciente(pid):
         p = buscar_paciente(cur, pid)
         checkins = checkin.com_alertas(checkin.lista(cur, "k.paciente_id = %s", (pid,), 26))
         consultas = agenda.lista(cur, "c.paciente_id = %s", (pid,))
+        cur.execute("SELECT data, total FROM reds_leafq WHERE paciente_id = %s ORDER BY data DESC, id DESC LIMIT 1", (pid,))
+        ult_leafq = cur.fetchone()
+        cur.execute("SELECT data, ingestao_kcal, gasto_exercicio_kcal, mlg_kg FROM reds_energia WHERE paciente_id = %s "
+                    "ORDER BY data DESC, id DESC LIMIT 1", (pid,))
+        ult_ed = cur.fetchone()
         avs = avaliacoes_do_banco(cur, pid)
         cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s ORDER BY feito_em DESC LIMIT 6", (pid,))
         historico = cur.fetchall()
@@ -222,6 +228,9 @@ def paciente(pid):
                            planos=planos_paciente, checkins=checkins, grafico=checkin.grafico_peso(checkins),
                            checkin_ligado=checkin.configurado(cfg), checkin_email=checkin.usa_email(cfg), tem_pagina=tem_pagina,
                            proximas=[c for c in consultas if c["fim"] >= datetime.now()],
+                           reds_leafq=ult_leafq and {"data": ult_leafq[0], "total": ult_leafq[1], "risco": ult_leafq[1] >= reds.RISCO_LEAFQ},
+                           reds_ed=ult_ed and (lambda ed: {"data": ult_ed[0], "ed": ed, "classe": reds.classe_ed(ed)})(
+                               reds.energia_disponivel(*ult_ed[1:])),
                            passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,
                            email_ok=checkin.email_valido(p["email"]),
                            tem_whatsapp=bool(contatos.telefone_whatsapp(p["telefone"])), titulos=contatos.ROTULOS)
@@ -475,7 +484,12 @@ def editor_plano(pid=None, plid=None):
                                              ("16:00", "Lanche da tarde"), ("20:00", "Jantar"))]}
     base = {"imc": round(imc, 1) if imc else None,
             "data_avaliacao": ultima["data_avaliacao"].strftime("%d/%m/%Y") if ultima else None}
+    try:
+        suplementos = json.loads((Path(__file__).resolve().parent / "suplementos.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        suplementos = None   # rode scripts/importar_suplementos.py
     return render_template("editor_plano.html", p=p, plid=plid, editor=editor, alimentos=alimentos, base=base,
+                           suplementos=suplementos,
                            formulas=nutricao.FORMULAS, grupos=grupos, diretrizes_agua=nutricao.DIRETRIZES_AGUA)
 
 
@@ -980,8 +994,10 @@ def configuracao():
         try:
             info = checkin.info(cfg["checkin"]["url"], cfg["checkin"]["chave"])
             estado = info.get("emails")
-            if info.get("versao", 1) != cfg["checkin"].get("versao"):
+            if info.get("versao", 1) != cfg["checkin"].get("versao") or \
+                    (info.get("leafq_link") or "") != (cfg["checkin"].get("leafq_formulario") or ""):
                 cfg["checkin"]["versao"] = info.get("versao", 1)
+                cfg["checkin"]["leafq_formulario"] = info.get("leafq_link") or ""
                 contatos.salvar(cfg)
         except checkin.ErroGoogle as e:
             estado = {"erro": str(e)}
@@ -997,6 +1013,233 @@ def configuracao():
                            versao_atual=checkin.VERSAO_SCRIPT, versao_email=agenda.VERSAO_EMAIL,
                            versao_google=agenda.VERSAO_GOOGLE, n_ativos=len(ativos),
                            n_com_email=sum(checkin.email_valido(e) for e in ativos))
+
+
+# ---------- rastreio de RED-S ----------
+
+def _numero_form(v):
+    try:
+        return float(str(v).replace(",", ".")) if str(v).strip() else None
+    except ValueError:
+        return None
+
+
+@app.route("/paciente/<int:pid>/reds")
+def reds_paciente(pid, erros=()):
+    cfg = contatos.carregar()
+    with conectar() as con:
+        reds.sincronizar_se_preciso(con, cfg)
+        cur = con.cursor()
+        p = buscar_paciente(cur, pid)
+        cur.execute("SELECT count(*) FROM reds_leafq WHERE paciente_id IS NULL")
+        n_sem = cur.fetchone()[0]
+        cur.execute("SELECT max(feito_em) FROM contato WHERE paciente_id = %s AND tipo = 'leafq'", (pid,))
+        enviado = cur.fetchone()[0]
+        cur.execute("SELECT id, data, respostas, lesoes, gastro, menstrual, total, origem FROM reds_leafq WHERE paciente_id = %s "
+                    "ORDER BY data DESC, id DESC", (pid,))
+        leafqs = [dict(zip(["id", "data", "respostas", "lesoes", "gastro", "menstrual", "total", "origem"], r)) for r in cur.fetchall()]
+        for q in leafqs:
+            q["classe"] = reds.classe_leafq(q["total"])
+        cur.execute("SELECT id, data, ingestao_kcal, gasto_exercicio_kcal, mlg_kg, observacao FROM reds_energia "
+                    "WHERE paciente_id = %s ORDER BY data DESC, id DESC", (pid,))
+        energias = [dict(zip(["id", "data", "ingestao_kcal", "gasto_exercicio_kcal", "mlg_kg", "observacao"], r)) for r in cur.fetchall()]
+        for e in energias:
+            e["ed"] = reds.energia_disponivel(e["ingestao_kcal"], e["gasto_exercicio_kcal"], e["mlg_kg"])
+            e["classe"] = reds.classe_ed(e["ed"])
+        # MLG da última avaliação (dobras; se não houver, bioimpedância)
+        cur.execute("""SELECT data_avaliacao, mlg_kg, bia_mlg_kg FROM avaliacao WHERE paciente_id = %s
+                       AND (mlg_kg IS NOT NULL OR bia_mlg_kg IS NOT NULL) ORDER BY data_avaliacao DESC LIMIT 1""", (pid,))
+        r = cur.fetchone()
+        mlg = r and {"data": r[0], "valor": r[1] if r[1] is not None else r[2],
+                     "origem": "Dobras cutâneas" if r[1] is not None else "Bioimpedância"}
+        cur.execute("SELECT (plano->'totais'->>'kcal')::int FROM plano_alimentar WHERE paciente_id = %s "
+                    "AND plano->'totais'->>'kcal' IS NOT NULL ORDER BY enviado_em DESC NULLS LAST, id DESC LIMIT 1", (pid,))
+        r = cur.fetchone()
+        kcal_plano = r[0] if r and r[0] else None
+    p["idade"] = idade(p["data_nascimento"])
+    ck = cfg["checkin"]
+    envio = {"ligado": bool(ck.get("url") and ck.get("chave")), "versao_ok": int(ck.get("versao") or 0) >= 5,
+             "link": reds.link_leafq(cfg, p["nome"]), "enviado": enviado, "n_sem": n_sem,
+             "texto": contatos.mensagem(cfg, "leafq", p), "tem_whatsapp": bool(contatos.telefone_whatsapp(p["telefone"]))}
+    return render_template("reds.html", p=p, leafqs=leafqs, energias=energias, mlg=mlg, kcal_plano=kcal_plano, envio=envio,
+                           perguntas=reds.PERGUNTAS, secoes=reds.SECOES, risco=reds.RISCO_LEAFQ,
+                           hoje=date.today().isoformat(), erros=erros)
+
+
+@app.route("/paciente/<int:pid>/reds/leafq", methods=["POST"])
+def reds_leafq(pid):
+    try:
+        data = date.fromisoformat(request.form.get("data", ""))
+    except ValueError:
+        return reds_paciente(pid, ["Informe a data da aplicação do LEAF-Q."])
+    respostas = reds.ler_formulario(request.form)
+    if not respostas:
+        return reds_paciente(pid, ["Nenhuma pergunta do LEAF-Q foi respondida."])
+    les, gi, men, total = reds.pontuar(respostas)
+    with conectar() as con:
+        buscar_paciente(con.cursor(), pid)
+        con.execute("INSERT INTO reds_leafq (paciente_id, data, respostas, lesoes, gastro, menstrual, total) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s)", (pid, data, json.dumps(respostas, ensure_ascii=False), les, gi, men, total))
+    flash(f"LEAF-Q salvo: {total} ponto(s), {reds.classe_leafq(total).lower()}.")
+    return redirect(url_for("reds_paciente", pid=pid) + "#leafq")
+
+
+@app.route("/paciente/<int:pid>/reds/energia", methods=["POST"])
+def reds_energia(pid):
+    f = request.form
+    ing, gee, mlg = _numero_form(f.get("ingestao", "")), _numero_form(f.get("gasto", "")), _numero_form(f.get("mlg", ""))
+    erros = []
+    try:
+        data = date.fromisoformat(f.get("data", ""))
+    except ValueError:
+        erros.append("Informe a data.")
+    if ing is None or not 300 <= ing <= 10000:
+        erros.append("Ingestão energética: informe as kcal do dia (entre 300 e 10.000).")
+    if gee is None or not 0 <= gee <= 8000:
+        erros.append("Gasto no exercício: informe as kcal (entre 0 e 8.000).")
+    if mlg is None or not 20 <= mlg <= 150:
+        erros.append("Massa livre de gordura: informe em kg (entre 20 e 150).")
+    if erros:
+        return reds_paciente(pid, erros)
+    with conectar() as con:
+        buscar_paciente(con.cursor(), pid)
+        con.execute("INSERT INTO reds_energia (paciente_id, data, ingestao_kcal, gasto_exercicio_kcal, mlg_kg, observacao) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)", (pid, data, ing, gee, mlg, f.get("observacao", "").strip() or None))
+    ed = reds.energia_disponivel(ing, gee, mlg)
+    flash(f"Energia disponível: {ed:.1f} kcal/kg MLG/dia ({reds.classe_ed(ed).lower()}).".replace(".", ",", 1))
+    return redirect(url_for("reds_paciente", pid=pid) + "#energia")
+
+
+@app.route("/reds/leafq/<int:qid>/excluir", methods=["POST"])
+def reds_leafq_excluir(qid):
+    with conectar() as con:
+        r = con.execute("DELETE FROM reds_leafq WHERE id = %s RETURNING paciente_id", (qid,)).fetchone() or abort(404)
+    flash("Aplicação do LEAF-Q excluída.")
+    if r[0] is None:
+        return redirect(url_for("reds_respostas"))
+    return redirect(url_for("reds_paciente", pid=r[0]) + "#leafq")
+
+
+@app.route("/reds/formulario/criar", methods=["POST"])
+def reds_criar_formulario():
+    cfg = contatos.carregar()
+    try:
+        r = reds.criar_formulario(cfg)
+        cfg["checkin"]["leafq_formulario"] = r.get("link") or ""
+        cfg["checkin"]["versao"] = r.get("versao", cfg["checkin"].get("versao"))
+        contatos.salvar(cfg)
+        flash("Formulário do LEAF-Q criado no seu Google. Agora é só mandar o link para as pacientes.")
+    except checkin.ErroGoogle as e:
+        flash(str(e), "aviso")
+    return redirect(request.form.get("voltar") or url_for("reds_respostas"))
+
+
+@app.route("/reds/respostas")
+def reds_respostas():
+    """respostas do LEAF-Q que chegaram sem paciente identificada, e a importação da planilha antiga"""
+    cfg = contatos.carregar()
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute("SELECT id, data, nome_informado, lesoes, gastro, menstrual, total, origem FROM reds_leafq "
+                    "WHERE paciente_id IS NULL ORDER BY data DESC, id DESC")
+        sem = [dict(zip(["id", "data", "nome", "lesoes", "gastro", "menstrual", "total", "origem"], r)) for r in cur.fetchall()]
+        cur.execute("SELECT nome FROM paciente ORDER BY nome")
+        nomes = [r[0] for r in cur.fetchall()]
+    return render_template("reds_respostas.html", sem=sem, nomes=nomes, risco=reds.RISCO_LEAFQ,
+                           formulario=bool(cfg["checkin"].get("leafq_formulario")))
+
+
+@app.route("/reds/respostas/buscar", methods=["POST"])
+def reds_buscar():
+    try:
+        with conectar() as con:
+            novas, sem = reds.sincronizar(con.cursor(), contatos.carregar())
+        flash(f"{novas} resposta(s) nova(s) do LEAF-Q." + (f" {sem} sem paciente identificada: escolha abaixo." if sem else "")
+              if novas else "Nenhuma resposta nova do LEAF-Q.")
+    except checkin.ErroGoogle as e:
+        flash(str(e), "aviso")
+    return redirect(request.form.get("voltar") or url_for("reds_respostas"))
+
+
+@app.route("/reds/leafq/<int:qid>/paciente", methods=["POST"])
+def reds_leafq_paciente(qid):
+    nome = request.form.get("paciente", "")
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute("SELECT id, nome FROM paciente")
+        achados = [i for i, n in cur.fetchall() if norm(n) == norm(nome)]
+        if len(achados) != 1:
+            flash(f"Não achei uma paciente só com o nome “{nome}”. Escolha um nome da lista.", "aviso")
+        else:
+            cur.execute("UPDATE reds_leafq SET paciente_id = %s WHERE id = %s", (achados[0], qid))
+            flash("Resposta do LEAF-Q ligada à paciente.")
+    return redirect(url_for("reds_respostas"))
+
+
+@app.route("/reds/importar", methods=["POST"])
+def reds_importar():
+    """lê a planilha antiga (aba de respostas do formulário) e mostra as respostas para escolher a paciente de cada uma"""
+    arq = request.files.get("arquivo")
+    if not arq or not arq.filename:
+        flash("Escolha a planilha de RED-S (.xlsx).", "aviso")
+        return redirect(url_for("reds_respostas"))
+    try:
+        linhas = reds.ler_planilha(arq.read())
+    except Exception as e:   # arquivo que não é planilha, aba diferente...
+        flash(f"Não consegui ler a planilha ({e.__class__.__name__}).", "aviso")
+        return redirect(url_for("reds_respostas"))
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute("SELECT origem FROM reds_leafq WHERE origem LIKE 'planilha:%%'")
+        ja = {r[0] for r in cur.fetchall()}
+        cur.execute("SELECT nome FROM paciente ORDER BY nome")
+        nomes = [r[0] for r in cur.fetchall()]
+    for l in linhas:
+        l["origem"] = f"planilha:{arq.filename}:{l['linha']}"
+        l["ja"] = l["origem"] in ja
+        l["json"] = json.dumps(l["respostas"], ensure_ascii=False)
+    return render_template("reds_importar.html", linhas=linhas, nomes=nomes, arquivo=arq.filename,
+                           risco=reds.RISCO_LEAFQ, hoje=date.today().isoformat())
+
+
+@app.route("/reds/importar/salvar", methods=["POST"])
+def reds_importar_salvar():
+    f = request.form
+    feitas, avisos = 0, []
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute("SELECT id, nome FROM paciente")
+        pacientes = cur.fetchall()
+        for i in f.getlist("linha"):
+            nome = f.get(f"paciente_{i}", "").strip()
+            if not nome:
+                continue
+            achados = [pid for pid, n in pacientes if norm(n) == norm(nome)]
+            if len(achados) != 1:
+                avisos.append(f"Resposta {i}: não achei a paciente “{nome}”.")
+                continue
+            try:
+                data = date.fromisoformat(f.get(f"data_{i}", ""))
+            except ValueError:
+                data = date.today()
+            respostas = reds.respostas_de(json.loads(f.get(f"respostas_{i}", "{}")))
+            les, gi, men, total = reds.pontuar(respostas)
+            cur.execute("""INSERT INTO reds_leafq (paciente_id, data, respostas, lesoes, gastro, menstrual, total, origem)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (origem) DO NOTHING""",
+                        (achados[0], data, json.dumps(respostas, ensure_ascii=False), les, gi, men, total, f.get(f"origem_{i}")))
+            feitas += cur.rowcount
+    for a in avisos:
+        flash(a, "aviso")
+    flash(f"{feitas} resposta(s) da planilha importada(s) para o rastreio das pacientes.")
+    return redirect(url_for("reds_respostas"))
+
+
+@app.route("/reds/energia/<int:eid>/excluir", methods=["POST"])
+def reds_energia_excluir(eid):
+    with conectar() as con:
+        r = con.execute("DELETE FROM reds_energia WHERE id = %s RETURNING paciente_id", (eid,)).fetchone() or abort(404)
+    flash("Lançamento de energia disponível excluído.")
+    return redirect(url_for("reds_paciente", pid=r[0]) + "#energia")
 
 
 # ---------- agenda ----------

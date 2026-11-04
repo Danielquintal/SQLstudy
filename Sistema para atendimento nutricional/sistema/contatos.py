@@ -32,6 +32,8 @@ PADRAO = {
         "confirmacao": "Olá, {primeiro_nome}! Sua consulta está marcada para {dia_semana}, {data_consulta}, às "
                        "{hora_consulta}. {local_consulta} Se precisar remarcar, é só me avisar por aqui. "
                        "Daniel Quintal, nutricionista",
+        "leafq": "Olá, {primeiro_nome}! Para acompanhar sua saúde e sua disponibilidade de energia no esporte, "
+                 "responda este questionário (uns 5 minutos, as respostas ficam só comigo): {link_leafq}",
         "retorno": "Olá, {primeiro_nome}! Passando para lembrar da sua consulta {quando} ({data_retorno}). "
                    "Se precisar remarcar, é só me avisar por aqui. Daniel Quintal, nutricionista",
         "evolucao": "Olá, {primeiro_nome}! Sua avaliação de {data_avaliacao} já está na sua página de evolução, "
@@ -44,7 +46,8 @@ PADRAO = {
     },
 }
 TITULOS = {"confirmacao": "Confirmação de consulta", "retorno": "Lembrete de retorno", "checkin": "Pedido de check-in",
-           "evolucao": "Link da evolução", "aniversario": "Aniversário", "livre": "Mensagem livre"}
+           "evolucao": "Link da evolução", "aniversario": "Aniversário", "leafq": "Questionário LEAF-Q (RED-S)",
+           "livre": "Mensagem livre"}
 ROTULOS = dict(TITULOS, checkin_email="Check-in por e-mail", confirmacao_email="Confirmação por e-mail")   # histórico
 VARIAVEIS = {
     "{primeiro_nome}": "primeiro nome do paciente",
@@ -54,6 +57,7 @@ VARIAVEIS = {
     "{data_avaliacao}": "data da última avaliação",
     "{link_evolucao}": "link publicado da página de evolução",
     "{link_checkin}": "link do formulário de check-in, já com o nome do paciente",
+    "{link_leafq}": "link do questionário LEAF-Q, já com o nome da paciente",
     "{data_consulta}": "data da consulta agendada",
     "{hora_consulta}": "horário da consulta",
     "{dia_semana}": "dia da semana da consulta",
@@ -99,7 +103,7 @@ def quando(d, hoje=None):
 def mensagem(cfg, tipo, p, extra=None):
     """texto da mensagem com as variáveis trocadas pelos dados do paciente"""
     v = {"{primeiro_nome}": p["nome"].split()[0].title(), "{nome}": p["nome"],
-         "{link_checkin}": checkin.link_formulario(cfg, p["nome"])}
+         "{link_checkin}": checkin.link_formulario(cfg, p["nome"]), "{link_leafq}": _link_leafq(cfg, p["nome"])}
     if p.get("retorno_em"):
         v["{data_retorno}"] = p["retorno_em"].strftime("%d/%m")
         v["{quando}"] = quando(p["retorno_em"])
@@ -108,6 +112,11 @@ def mensagem(cfg, tipo, p, extra=None):
     for k, val in v.items():
         texto = texto.replace(k, val or "")
     return texto
+
+
+def _link_leafq(cfg, nome):
+    import reds
+    return reds.link_leafq(cfg, nome)
 
 
 def link_whatsapp(tel, texto):

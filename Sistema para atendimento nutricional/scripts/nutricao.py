@@ -159,9 +159,16 @@ def plano_para_paciente(editor, alimentos, profissional):
     dia = somar(partes_dia)
     prescrito = date.fromisoformat(editor["prescrito"]) if editor.get("prescrito") else date.today()
     meta_agua = agua(editor)
+    suplementos = [{"nome": (s.get("nome") or "").strip(), "dose": (s.get("dose") or "").strip(),
+                    "horario": (s.get("horario") or "").strip(), "obs": (s.get("obs") or "").strip()}
+                   for s in (editor.get("suplementacao") or {}).get("itens", []) if (s.get("nome") or "").strip()]
+    if suplementos:
+        extra_supl = {"suplementos": suplementos}
+    else:
+        extra_supl = {}
     extra = {"agua": f"{meta_agua[0]} ml durante o dia (aproximadamente {meta_agua[1]} copos de {COPO_ML}ml)"} if meta_agua else {}
     return {"titulo": (editor.get("titulo") or "Plano alimentar").strip(), "prescrito": prescrito.strftime("%d/%m/%Y"),
-            "profissional": profissional, "refeicoes": refeicoes, **extra,
+            "profissional": profissional, "refeicoes": refeicoes, **extra, **extra_supl,
             "totais": {"kcal": round(dia.get("kcal", 0)), "p": round(dia.get("proteina_g", 0), 1),
                        "l": round(dia.get("lipidios_g", 0), 1), "c": round(dia.get("carboidrato_g", 0), 1)},
             "micros": [[rot, f"{fmt(round(dia[c], 1))}{un}"] for c, rot, un in MICROS if c in dia],

@@ -1,7 +1,8 @@
 /**
  * Check-in semanal dos pacientes: cria o Formulário Google e entrega as respostas ao sistema local.
  * Também envia, pela sua conta Google, os e-mails do check-in automático e as confirmações de consulta da Agenda,
- * e coloca as consultas da Agenda no seu Google Agenda (agenda principal).
+ * coloca as consultas da Agenda no seu Google Agenda (agenda principal) e mantém o formulário do LEAF-Q
+ * (rastreio de RED-S), criado pelo sistema com as mesmas perguntas da tela de rastreio.
  *
  * Como instalar (uma vez só; o passo a passo também está na tela Configuração do sistema):
  *  1. Em script.google.com, clique em "Novo projeto", apague o que vier escrito e cole este código. Salve.
@@ -44,7 +45,7 @@ const PERGUNTAS = [
   ['comentario', 'paragrafo', 'Quer me contar mais alguma coisa? (opcional)', '', false],
 ];
 const MARCA_NOME = 'NOME_DO_PACIENTE';   // o sistema troca pelo nome de cada paciente no link
-const VERSAO = 4;                        // o sistema confere para saber se o código está atualizado
+const VERSAO = 5;                        // o sistema confere para saber se o código está atualizado
 const TAG = 'sistemaConsulta';           // marca os eventos criados pelo sistema (não voltam como "outros compromissos")
 
 function criar() {
@@ -96,9 +97,21 @@ function doGet(e) {
   const campos = JSON.parse(props.getProperty('CAMPOS'));
   if (p.acao === 'info') {
     return json({ titulo: f.getTitle(), link: linkPreenchido(f, campos), marca: MARCA_NOME, versao: VERSAO,
-                  respostas: f.getResponses().length, emails: estadoEmails() });
+                  respostas: f.getResponses().length, emails: estadoEmails(), leafq_link: linkLeafq() });
   }
   if (p.acao === 'emails') return json({ versao: VERSAO, emails: estadoEmails() });
+  if (p.acao === 'leafq') {
+    // respostas do formulário do LEAF-Q, com a chave de cada pergunta do sistema
+    const id = props.getProperty('LEAFQ_ID');
+    if (!id) return json({ versao: VERSAO, respostas: [] });
+    const fq = FormApp.openById(id), cq = JSON.parse(props.getProperty('LEAFQ_CAMPOS'));
+    const lista = fq.getResponses().map(r => {
+      const itens = {};
+      for (const i of r.getItemResponses()) itens[cq[i.getItem().getId()] || i.getItem().getTitle()] = i.getResponse();
+      return { id: r.getId(), quando: r.getTimestamp().toISOString(), itens: itens };
+    });
+    return json({ versao: VERSAO, respostas: lista });
+  }
   if (p.acao === 'eventos') {
     // seus outros compromissos no Google Agenda, para a agenda do sistema mostrar (os criados pelo sistema ficam de fora)
     const de = new Date(p.de), ate = new Date(p.ate);
@@ -119,6 +132,13 @@ function doGet(e) {
     return { id: r.getId(), quando: r.getTimestamp().toISOString(), itens: itens };
   });
   return json({ respostas: lista });
+}
+
+function linkLeafq() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('LEAFQ_ID');
+  if (!id) return '';
+  return linkPreenchido(FormApp.openById(id), JSON.parse(props.getProperty('LEAFQ_CAMPOS')));
 }
 
 function linkPreenchido(f, campos) {
@@ -147,6 +167,32 @@ function doPost(e) {
       return json({ erro: 'envio', detalhe: String(err).slice(0, 200) });
     }
     return json({ ok: true, versao: VERSAO, cota: MailApp.getRemainingDailyQuota() });
+  }
+  if (d.acao === 'criar_leafq') {
+    // cria (uma vez) o formulário do LEAF-Q com as perguntas que o sistema mandou
+    if (!props.getProperty('LEAFQ_ID')) {
+      const fq = FormApp.create('LEAF-Q – questionário de saúde da atleta');
+      fq.setDescription('Questionário sobre lesões, função intestinal e ciclo menstrual (LEAF-Q). Leva uns 5 minutos. '
+                        + 'Responda com sinceridade: as respostas ficam só com o seu nutricionista.');
+      fq.setCollectEmail(false);
+      fq.setAllowResponseEdits(false);
+      fq.setConfirmationMessage('Recebi suas respostas. Obrigado!');
+      const cq = {};
+      const nome = fq.addTextItem().setTitle('Seu nome completo').setHelpText('Já vem preenchido pelo link que você recebeu.').setRequired(true);
+      cq[nome.getId()] = 'nome';
+      let secao = '';
+      for (const q of d.perguntas || []) {
+        if (q.secao !== secao) { fq.addSectionHeaderItem().setTitle(q.secao); secao = q.secao; }
+        let item;
+        if (q.tipo === 'texto') item = fq.addTextItem();
+        else if (q.tipo === 'multipla') item = fq.addCheckboxItem().setChoiceValues(q.opcoes);
+        else item = fq.addMultipleChoiceItem().setChoiceValues(q.opcoes);
+        item.setTitle(q.titulo);
+        cq[item.getId()] = q.chave;
+      }
+      props.setProperties({ LEAFQ_ID: fq.getId(), LEAFQ_CAMPOS: JSON.stringify(cq) });
+    }
+    return json({ ok: true, versao: VERSAO, link: linkLeafq(), marca: MARCA_NOME });
   }
   if (d.acao === 'evento') {
     // cria, atualiza ou apaga o evento da consulta no Google Agenda

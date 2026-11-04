@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Respostas do LEAF-Q{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">Rastreio de RED-S</p>
+  <h1>Respostas do LEAF-Q</h1>
+  <p class="sub">Respostas do formulário sem paciente identificada e importação da planilha antiga</p>
+</div>
+{% if formulario %}
+<form method="post" action="{{ url_for('reds_buscar') }}" class="acoes"><button class="btn pri">Buscar respostas agora</button></form>
+{% endif %}
+{% endblock %}
+{% block corpo %}
+<div class="card">
+  <h2>Sem paciente identificada ({{ sem|length }})</h2>
+  {% if sem %}
+  <p class="note" style="margin:0">O nome escrito no formulário (ou na planilha) não bateu com nenhuma paciente. Escolha de quem é cada resposta.</p>
+  <datalist id="nomes">{% for n in nomes %}<option value="{{ n }}">{% endfor %}</datalist>
+  <div class="lista">
+    {% for q in sem %}
+    <form method="post" action="{{ url_for('reds_leafq_paciente', qid=q.id) }}" class="item">
+      <div class="quem"><span><b>{{ q.nome or 'Nome não informado' }}</b></span>
+        <span class="note">{{ q.data|br }} · LEAF-Q {{ q.total }} pontos
+          (<span class="{{ 'lq-risco' if q.total >= risco else '' }}">{{ 'risco' if q.total >= risco else 'sem risco' }}</span>)</span></div>
+      <div class="acoes">
+        <input class="texto campo-pac" name="paciente" list="nomes" placeholder="Nome da paciente" required aria-label="Paciente">
+        <button class="btn">Ligar à paciente</button>
+        <button class="btn perigo" formnovalidate formaction="{{ url_for('reds_leafq_excluir', qid=q.id) }}"
+          onclick="if(this.dataset.ok){return true} this.dataset.ok=1; this.textContent='Excluir mesmo?'; return false">Excluir</button>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+  {% else %}<p class="note" style="margin:0">Nenhuma resposta esperando.</p>{% endif %}
+</div>
+
+<form method="post" action="{{ url_for('reds_importar') }}" enctype="multipart/form-data" class="card">
+  <h2>Importar a planilha antiga</h2>
+  <p class="note" style="margin:0">Escolha a planilha do rastreio (“Rastreio dinâmico de RED-S”). O sistema lê a aba de respostas do formulário,
+    pontua cada uma e você escolhe de qual paciente é. Respostas já importadas não entram de novo.</p>
+  <div class="acoes"><input type="file" name="arquivo" accept=".xlsx" required><button class="btn pri">Ler a planilha</button></div>
+</form>
+{% endblock %}

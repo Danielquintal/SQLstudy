@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Importar LEAF-Q{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('reds_respostas') }}">Respostas do LEAF-Q</a></p>
+  <h1>Importar respostas da planilha</h1>
+  <p class="sub">{{ arquivo }} · {{ linhas|length }} resposta(s) encontrada(s)</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if linhas %}
+<form method="post" action="{{ url_for('reds_importar_salvar') }}" class="card" style="padding:6px 8px">
+  <p class="note" style="padding:8px 10px 0;margin:0">Escreva o nome da paciente de cada resposta (a lista sugere). Deixe em branco a que não quiser importar.
+    A data é a do questionário (a planilha não tem a data de todas).</p>
+  <datalist id="nomes">{% for n in nomes %}<option value="{{ n }}">{% endfor %}</datalist>
+  <div class="tablebox"><table>
+    <thead><tr><th class="t">Resposta</th><th>Lesões</th><th>Gastro</th><th>Menstrual</th><th>Total</th><th class="t">Paciente</th><th class="t">Data</th></tr></thead>
+    <tbody>
+    {% for l in linhas %}
+      <tr>
+        <td class="t">Linha {{ l.linha }}{% if l.nome %}<br><span class="note">{{ l.nome }}</span>{% endif %}</td>
+        <td class="n">{{ l.pontos[0] }}</td><td class="n">{{ l.pontos[1] }}</td><td class="n">{{ l.pontos[2] }}</td>
+        <td class="n"><b class="{{ 'lq-risco' if l.pontos[3] >= risco }}">{{ l.pontos[3] }}</b></td>
+        <td class="t">{% if l.ja %}<span class="note">já importada</span>{% else %}
+          <input type="hidden" name="linha" value="{{ l.linha }}">
+          <input type="hidden" name="origem_{{ l.linha }}" value="{{ l.origem }}">
+          <input type="hidden" name="respostas_{{ l.linha }}" value="{{ l.json }}">
+          <input class="texto campo-pac" name="paciente_{{ l.linha }}" list="nomes" value="{{ l.nome }}" aria-label="Paciente da linha {{ l.linha }}">{% endif %}</td>
+        <td class="t">{% if not l.ja %}<input type="date" name="data_{{ l.linha }}" value="{{ l.data or hoje }}" aria-label="Data da linha {{ l.linha }}">{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <div class="acoes" style="padding:8px 10px"><button class="btn pri">Importar</button>
+    <a class="btn" href="{{ url_for('reds_respostas') }}">Cancelar</a></div>
+</form>
+{% else %}
+<div class="card"><p style="margin:0">Não achei respostas do LEAF-Q nessa planilha.</p></div>
+{% endif %}
+{% endblock %}
