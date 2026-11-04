@@ -152,7 +152,7 @@ def _ler_cartoes(paginas):
             elif s == "Observações:":
                 modo = "obs"
             elif modo == "obs" and t["tam"] >= 10.5 and not t["negrito"]:
-                ref["obs"] = (ref["obs"] + " " + s).strip()
+                ref["obs"] = _obs(ref["obs"], s)
             elif t["x"] < COLUNA_SUBS and t["tam"] >= 9.5:
                 # coluna da opção principal: nome (escuro) e quantidade (cinza), podendo quebrar linha
                 if t["cinza"]:
@@ -269,7 +269,7 @@ def _ler_tabela(paginas):
                     else:
                         rec["preparo"][-1] += " " + _limpa(s)
                 else:
-                    ref["obs"] = (ref["obs"] + " " + s).strip()
+                    ref["obs"] = _obs(ref["obs"], s)
             elif t["x"] < 300:
                 # opção principal: nome (escuro) e quantidade (cinza), que pode quebrar linha
                 fechar_escolha()
@@ -342,7 +342,7 @@ def _ler_compacta(paginas):
     """modelo em lista compacta: título da refeição e uma linha por alimento, com as trocas na mesma linha"""
     titulo, prescrito, refeicoes, nutrientes, micros, compras, receitas = None, None, [], [], [], [], []
     agua, rotulos_pend = [], None
-    ref, partes, lendo_agua = None, None, False
+    ref, partes, lendo_agua, lendo_obs = None, None, False, False
 
     def fechar_item():
         nonlocal partes
@@ -378,7 +378,7 @@ def _ler_compacta(paginas):
                 continue
             if t["negrito"] and t["tam"] >= 13:
                 fechar_item()
-                lendo_agua = False
+                lendo_agua = lendo_obs = False
                 if titulo is None and prox and prox["tam"] == 10.5 and not prox["negrito"]:
                     titulo = s          # título do documento (o subtítulo logo abaixo fica de fora)
                     continue
@@ -394,6 +394,11 @@ def _ler_compacta(paginas):
                 agua.append(s)
             elif ref is None:
                 continue
+            elif t["negrito"] and re.fullmatch(r"Observa[çc][õo]es\s*:?", s):
+                fechar_item()
+                lendo_obs = True
+            elif lendo_obs:
+                ref["obs"] = _obs(ref["obs"], s)
             elif _marca_item(trechos, i) and partes and re.search(r"-\s*ou$", partes[-1][1]):
                 partes.append((False, "-"))   # "- ou" no fim da linha + "-" na outra: a troca continua (não é outro alimento)
             elif _marca_item(trechos, i):
@@ -429,6 +434,15 @@ def _grupos_linha(trechos, grupos):
             grupos[-1]["itens"].append({"nome": _limpa(s), "qtd": _limpa(qtd)})
 
 
+def _obs(obs, s):
+    """acrescenta uma linha às observações da refeição: cada linha do PDF fica numa linha; só a linha que
+    apenas quebrou (anterior sem pontuação no fim e esta começando com minúscula) continua a anterior"""
+    s = _limpa(s)
+    ant = obs.rsplit("\n", 1)[-1]
+    junta = ant and not re.search(r"[.:!?;)]$", ant) and s[:1].islower()
+    return (obs + (" " if junta else "\n") + s).strip()
+
+
 def _limpa(s):
     s = re.sub(r"\s+", " ", s.replace("\ufffe", "-")).strip()
     return "À vontade" if re.fullmatch(r"1 A vontade \(0g\)", s) else s
@@ -449,6 +463,7 @@ def _ler_lista(paginas):
     ultimo = None             # último "• alimento", para juntar as trocas "Ou ..." e as linhas quebradas
     tabela = []               # linhas da tabela "Opção principal / Opção de substituição" da refeição atual
     agua, grupos, em_grupos, lendo_agua = [], [], False, False
+    lendo_obs = False         # depois de "Observações:" o texto vai para a observação da refeição
 
     def fechar_tabela():
         nonlocal tabela
@@ -515,6 +530,14 @@ def _ler_lista(paginas):
                 agua.append(s)
                 continue
             lendo_agua = False
+            if ref is not None and t["negrito"] and re.fullmatch(r"Observa[çc][õo]es\s*:?", s):
+                fechar_bloco()
+                lendo_obs = True
+                continue
+            if lendo_obs and not (t["negrito"] and t["tam"] >= 13):
+                ref["obs"] = _obs(ref["obs"], s)
+                continue
+            lendo_obs = False
             if t["negrito"] and t["tam"] >= 13:
                 fechar_bloco()
                 if prox and prox["tam"] == 10.5 and not prox["negrito"]:   # título do documento + subtítulo

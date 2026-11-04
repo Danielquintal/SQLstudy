@@ -352,7 +352,7 @@ function desenhar() {
           </div>`).join('')}
         <div class="busca-box"><input class="busca principal" data-alvo="item" data-k="${ri}" placeholder="+ alimento (ex.: arroz cozido)" autocomplete="off"><div class="sugestoes" hidden></div></div>
       </div>
-      <textarea class="r-obs" data-ri="${ri}" rows="1" placeholder="Observação da refeição (opcional)">${esc(r.obs || '')}</textarea>
+      <textarea class="r-obs" data-ri="${ri}" rows="${Math.min(12, Math.max(2, (r.obs || '').split('\n').length))}" placeholder="Observação da refeição (opcional). Para listas, escreva um item por linha: aparece igual no plano do paciente.">${esc(r.obs || '')}</textarea>
     </div>`).join('');
   totais();
 }
@@ -405,7 +405,10 @@ document.addEventListener('input', e => {
   sujo = true;
   if (t.classList.contains('r-nome')) E.refeicoes[t.dataset.ri].nome = t.value;
   else if (t.classList.contains('r-hora')) E.refeicoes[t.dataset.ri].hora = t.value;
-  else if (t.classList.contains('r-obs')) E.refeicoes[t.dataset.ri].obs = t.value;
+  else if (t.classList.contains('r-obs')) {
+    E.refeicoes[t.dataset.ri].obs = t.value;
+    t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px';   // o campo cresce com o texto
+  }
   else if (t.classList.contains('i-nome') || t.classList.contains('s-nome')) pegar(t.dataset.k).nome = t.value;
   else if (t.classList.contains('q')) {
     const it = pegar(t.dataset.k), u = t.parentElement.querySelector('.u').value;
