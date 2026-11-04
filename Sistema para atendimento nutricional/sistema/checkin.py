@@ -284,3 +284,15 @@ def grafico_peso(checkins, largura=600, altura=140):
     ys = [altura - 24 - (p - lo) / (hi - lo) * (altura - 52) for _, p in pts]
     return {"largura": largura, "altura": altura, "linha": " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys)),
             "pontos": [{"x": x, "y": y, "peso": p, "data": d} for x, y, (d, p) in zip(xs, ys, pts)]}
+
+
+def para_pagina(cur, pid, limite=26):
+    """check-ins do paciente para a página dele (do mais antigo ao mais novo)"""
+    num = lambda x: float(x) if x is not None else None
+    saida = []
+    for k in reversed(lista(cur, "k.paciente_id = %s", (pid,), limite)):
+        saida.append({"data": k["respondido_em"].strftime("%d/%m/%Y"), "peso": num(k["peso_kg"]), "cintura": num(k["cintura_cm"]),
+                      "adesao": k["adesao"], "fome": k["fome"], "sono": k["sono"], "energia": k["energia"],
+                      "intestino": (k["intestino"] or "").split(" (")[0], "agua": k["agua"] or "", "treinos": k["treinos"],
+                      "dificuldades": k["dificuldades"] or "", "comentario": k["comentario"] or ""})
+    return saida

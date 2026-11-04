@@ -18,7 +18,7 @@
     <p class="note">Campos com borda tracejada são calculados enquanto você digita, com as mesmas fórmulas do App Naive:
       o % de gordura sai das dobras do protocolo escolhido (Pollock 7, Pollock 3 ou Guedes) com a equação de Siri ou Brozek;
       a massa óssea precisa dos diâmetros do punho e do fêmur; a CMB usa o braço relaxado esquerdo e a dobra tricipital.
-      Se corrigir um deles à mão, o valor digitado é mantido.</p>
+      Se corrigir um deles à mão, o valor digitado é mantido. As dobras que entram no protocolo escolhido ficam destacadas em verde.</p>
     {% if not p.genero or not p.data_nascimento %}
     <div class="msg aviso">O cadastro deste paciente está sem {{ 'sexo' if not p.genero }}{{ ' e ' if not p.genero and not p.data_nascimento }}{{ 'data de nascimento' if not p.data_nascimento }}: o % de gordura, as classificações por idade, o risco da RCQ e a CMB não podem ser calculados.</div>
     {% endif %}
@@ -51,6 +51,12 @@
   </details>
   {% endfor %}
 
+  <div class="card" id="memoria">
+    <h2>Como foi calculado</h2>
+    <p class="note" style="margin:0">Cada conta com a fórmula, os números desta avaliação e o resultado. Atualiza enquanto você digita.</p>
+    <div id="passos" class="passos-calc"><p class="vazio" style="margin:0">Preencha peso, altura, dobras e circunferências para ver as contas.</p></div>
+  </div>
+
   <div class="barra">
     <div class="acoes">
       <button class="btn pri">Gravar avaliação</button>
@@ -75,7 +81,28 @@ const $ = id => document.getElementById(id);
 const calc = [...document.querySelectorAll('.campo.calc input, .campo.calc select')];
 let espera, pedido = 0;
 calc.forEach(i => i.addEventListener('input', () => { i.dataset.manual = i.value.trim() ? '1' : ''; }));
-async function calcular() {
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// quadro "Como foi calculado": fórmula, conta com os números e resultado de cada campo calculado
+function desenharPassos(passos, res) {
+  if (!passos || !passos.length) {
+    $('passos').innerHTML = '<p class="vazio" style="margin:0">Preencha peso, altura, dobras e circunferências para ver as contas.</p>';
+    return;
+  }
+  $('passos').innerHTML = passos.map(p => {
+    const criterio = /^(classificacao|risco|bia_classificacao)/.test(p.campo);
+    const campo = $(p.campo), naFicha = campo && campo.value.trim();
+    const difere = naFicha && res && p.campo in res && String(res[p.campo]).replace('.', ',') !== naFicha.replace('.', ',');
+    return `<div class="passo">
+      <b>${esc(p.titulo)}</b>
+      <span class="f">${criterio ? 'Critério: ' : ''}${esc(p.formula)}</span>
+      <span class="c${p.resultado === '–' ? ' falta' : ''}">${criterio || p.resultado === '–' ? esc(p.conta) : '= ' + esc(p.conta)}</span>
+      <span class="r">→ ${esc(p.resultado)}</span>
+      ${p.digitado ? '<span class="note">Valor digitado à mão na ficha; a conta fica como referência.</span>'
+        : difere ? `<span class="note">Na ficha está ${esc(naFicha)} (valor gravado antes).</span>` : ''}
+    </div>`;
+  }).join('');
+}
+async function calcular(soPassos) {
   const dados = new FormData($('ficha'));
   calc.forEach(i => { if (!i.dataset.manual) dados.set(i.name, ''); });
   const n = ++pedido;
@@ -83,6 +110,11 @@ async function calcular() {
     const r = await fetch('{{ url_for("calcular_formulario", pid=p.id) }}', { method: 'POST', body: dados });
     if (!r.ok || n !== pedido) return;
     const res = await r.json();
+    // dobras usadas pelo protocolo escolhido (e pelo sexo do paciente) ficam destacadas
+    document.querySelectorAll('.campo.usada').forEach(c => c.classList.remove('usada'));
+    (res._dobras || []).forEach(k => { const i = $(k); if (i) i.closest('.campo').classList.add('usada'); });
+    if (soPassos === true) { desenharPassos(res._passos, res); return; }   // ao abrir: só mostra as contas
+    desenharPassos(res._passos);
     calc.forEach(i => {
       if (i.dataset.manual) return;
       if (i.name in res) { i.value = res[i.name]; i.dataset.auto = '1'; }
@@ -108,6 +140,7 @@ function contar() {
 }
 $('ficha').addEventListener('input', contar);
 contar();
+calcular(true);   // mostra as contas da avaliação aberta, sem mexer nos campos
 
 // avisa antes de sair com alterações não gravadas
 let mudou = false, gravando = false;

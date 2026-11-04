@@ -101,6 +101,8 @@
         <div><span>GET</span><b id="r-get">–</b></div>
         <div class="destaque"><span>Meta</span><b id="r-meta">–</b></div>
       </div>
+      <details class="formulas" open><summary class="note">Como foi calculado</summary>
+        <div class="formulas-e" id="e-formulas"></div></details>
     </div>
 
     <div class="card" id="agua">
@@ -170,6 +172,31 @@ function tmb(f, sexo, peso, alt, idade) {
   if (f === 'mifflin') return 10 * peso + 6.25 * alt - 5 * idade + (h ? 5 : -161);
   return h ? 66.47 + 13.75 * peso + 5.003 * alt - 6.755 * idade : 655.1 + 9.563 * peso + 1.850 * alt - 4.676 * idade;
 }
+// fórmulas escritas, com os números do paciente
+function formulasEnergia(e, peso, alt, idade, t, get, meta) {
+  const h = e.sexo === 'M', n = (v, c = 0) => v == null ? '?' : br(v, c), d = v => fmt(v);
+  const sexo = h ? 'homem' : 'mulher';
+  if (!['M', 'F'].includes(e.sexo) || peso == null || idade == null) return '<span class="note">Informe sexo, idade, peso e altura para ver as contas.</span>';
+  let f, c;
+  if (e.formula === 'fao') {
+    const i = FAO.findIndex(x => idade < x[0]), [a, b] = FAO[i][h ? 1 : 2];
+    const faixa = i === 0 ? 'até 17 anos' : i === FAO.length - 1 ? `${FAO[i - 1][0]} anos ou mais` : `${FAO[i - 1][0]} a ${FAO[i][0] - 1} anos`;
+    f = `TMB (FAO/OMS 1985, ${sexo}, ${faixa}) = ${d(a)} × peso + ${d(b)}`;
+    c = `${d(a)} × ${d(peso)} + ${d(b)}`;
+  } else if (e.formula === 'mifflin') {
+    f = `TMB (Mifflin-St Jeor, ${sexo}) = 10 × peso + 6,25 × altura − 5 × idade ${h ? '+ 5' : '− 161'}`;
+    c = `10 × ${d(peso)} + 6,25 × ${d(alt)} − 5 × ${idade} ${h ? '+ 5' : '− 161'}`;
+  } else {
+    f = h ? 'TMB (Harris-Benedict 1919, homem) = 66,47 + 13,75 × peso + 5,003 × altura − 6,755 × idade'
+          : 'TMB (Harris-Benedict 1919, mulher) = 655,1 + 9,563 × peso + 1,850 × altura − 4,676 × idade';
+    c = h ? `66,47 + 13,75 × ${d(peso)} + 5,003 × ${d(alt)} − 6,755 × ${idade}` : `655,1 + 9,563 × ${d(peso)} + 1,850 × ${d(alt)} − 4,676 × ${idade}`;
+  }
+  const fa = num(e.fa) || 1, aj = num(e.ajuste) || 0;
+  return `<div><span class="f">${f}</span><br><span class="c">= ${c} = ${n(t)} kcal</span></div>
+    <div><span class="f">GET = TMB × fator atividade</span><br><span class="c">= ${n(t)} × ${d(fa)} = ${n(get)} kcal</span></div>
+    <div><span class="f">Meta = GET + ajuste</span><br><span class="c">= ${n(get)} ${aj < 0 ? '− ' + d(-aj) : '+ ' + d(aj)} = ${n(meta)} kcal</span></div>
+    <span class="note">Peso em kg, altura em cm, idade em anos.</span>`;
+}
 const sugerida = (imc, acamado) => acamado ? 'fao' : (imc && imc >= 30 ? 'mifflin' : 'harris');
 let formulaManual = !!PLID;   // num plano já salvo, mantém a fórmula escolhida
 function energia() {
@@ -184,6 +211,7 @@ function energia() {
   $('r-tmb').textContent = t != null ? `${br(t)} kcal` : '–';
   $('r-get').textContent = get != null ? `${br(get)} kcal` : '–';
   $('r-meta').textContent = meta != null ? `${br(meta)} kcal` : '–';
+  $('e-formulas').innerHTML = formulasEnergia(e, peso, alt, idade, t, get, meta);
   return meta;
 }
 

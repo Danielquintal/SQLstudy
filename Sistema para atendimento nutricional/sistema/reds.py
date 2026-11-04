@@ -236,3 +236,18 @@ def sincronizar_se_preciso(con, cfg, minutos=10):
     except checkin.ErroGoogle:
         globals()["_ultima_busca"] = time.time()
         return None
+
+
+def para_pagina(cur, pid):
+    """resultados do rastreio de RED-S para a página do paciente (do mais antigo ao mais novo)"""
+    cur.execute("SELECT data, lesoes, gastro, menstrual, total FROM reds_leafq WHERE paciente_id = %s ORDER BY data, id", (pid,))
+    leafq = [{"data": d.strftime("%d/%m/%Y"), "lesoes": l, "gastro": g, "menstrual": m, "total": t, "risco": t >= RISCO_LEAFQ,
+              "classe": classe_leafq(t)} for d, l, g, m, t in cur.fetchall()]
+    cur.execute("SELECT data, ingestao_kcal, gasto_exercicio_kcal, mlg_kg, observacao FROM reds_energia WHERE paciente_id = %s "
+                "ORDER BY data, id", (pid,))
+    energia = []
+    for d, ing, gee, mlg, obs in cur.fetchall():
+        ed = energia_disponivel(ing, gee, mlg)
+        energia.append({"data": d.strftime("%d/%m/%Y"), "ingestao": float(ing), "gasto": float(gee), "mlg": float(mlg),
+                        "ed": round(ed, 1) if ed is not None else None, "classe": classe_ed(ed), "obs": obs or ""})
+    return {"leafq": leafq, "energia": energia}

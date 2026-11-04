@@ -134,8 +134,13 @@ def gerar_arquivos(cur, pid, nome):
                       "\"Gerar planilha e página\".")
     PAGINAS.mkdir(parents=True, exist_ok=True)
     montar(str(TEMPLATE), nome, avs, planos.plano_do_banco(cur, pid), str(PAGINAS / f"{safe_name(nome)}.html"),
-           checkin.link_paciente(cur, contatos.carregar(), pid, nome))
+           checkin.link_paciente(cur, contatos.carregar(), pid, nome), extras_pagina(cur, pid))
     return avisos
+
+
+def extras_pagina(cur, pid):
+    """check-ins e rastreio de RED-S para a aba "Check-in e rastreios" da página do paciente"""
+    return {"checkins": checkin.para_pagina(cur, pid), "reds": reds.para_pagina(cur, pid)}
 
 
 def opcoes_texto(cur):
@@ -244,10 +249,11 @@ def evolucao(pid):
         avs = [para_app_naive(r) for r in avaliacoes_do_banco(cur, pid)]
         plano = planos.plano_do_banco(cur, pid)
         link_ck = checkin.link_paciente(cur, contatos.carregar(), pid, p["nome"])
+        extras = extras_pagina(cur, pid)
     if not (avs or plano or link_ck):
         flash("A página deste paciente ainda não tem conteúdo: lance uma avaliação ou um plano alimentar.")
         return redirect(url_for("paciente", pid=pid))
-    return gerar_html(str(TEMPLATE), p["nome"], avs, plano, link_ck)
+    return gerar_html(str(TEMPLATE), p["nome"], avs, plano, link_ck, extras)
 
 
 @app.route("/paciente/<int:pid>/gerar", methods=["POST"])
@@ -341,8 +347,13 @@ def calcular_formulario(pid):
         p = buscar_paciente(con.cursor(), pid)
     d, valores, _ = ler_formulario(request.form)
     valores = {k: v for k, v in valores.items() if v is not None}
-    calc = calcular(valores, p["genero"], p["data_nascimento"], d or date.today())
-    return {k: v if isinstance(v, str) else numero(v) for k, v in calc.items()}
+    passos = []
+    calc = calcular(valores, p["genero"], p["data_nascimento"], d or date.today(), passos)
+    saida = {k: v if isinstance(v, str) else numero(v) for k, v in calc.items()}
+    saida["_passos"] = passos   # fórmulas com os números, para o quadro "Como foi calculado"
+    import calculos
+    saida["_dobras"] = calculos.dobras_do_protocolo(valores.get("protocolo_dobras"), p["genero"])   # destacadas na tela
+    return saida
 
 
 @app.route("/paciente/<int:pid>/avaliacao/<int:aid>/excluir", methods=["POST"])
@@ -827,8 +838,9 @@ def comparar_recalculo(cur, pid):
         dif = {}
         for k, val in novo.items():
             antes = a.get(k)
+            tol = {"densidade_corporal": 0.0005, "rcq": 0.005}.get(k, 0.05)   # pela quantidade de casas do campo
             igual = (str(antes) == str(val)) if isinstance(val, str) or antes is None or isinstance(antes, str) \
-                else abs(float(antes) - float(val)) < 0.05
+                else abs(float(antes) - float(val)) < tol
             if not igual:
                 dif[k] = (antes, val)
         saida.append((a, dif))

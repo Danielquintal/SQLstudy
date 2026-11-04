@@ -189,6 +189,13 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 .aviso-novo div{display:flex;flex-direction:column;gap:4px}
 .aviso-novo b{font-size:16px}
 .aviso-novo p{margin:0;color:var(--muted);font-size:14px}
+.ck-dados{display:flex;flex-direction:column;gap:12px}
+.ck-tab{width:100%;border-collapse:collapse;font-size:13px}
+.nota-baixa{color:var(--bad);font-weight:600}
+.chip.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
+.ck-coment{font-size:13px;color:var(--muted);margin:0}
+.ck-coment b{color:var(--ink);font-weight:600}
+.reds-txt{margin:0;font-size:13px;color:var(--muted)}
 .ck-card{max-width:640px;gap:12px}
 .ck-card h2{font-size:20px}
 .ck-card p{margin:0}
@@ -223,6 +230,8 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
       <div class="bts">
         <button type="button" id="rel-av">Avaliação física</button>
         <button type="button" id="rel-plano" hidden>Plano alimentar</button>
+        <button type="button" id="rel-ck" hidden>Check-in</button>
+        <button type="button" id="rel-reds" hidden>Rastreio RED-S</button>
       </div>
       <span class="msg" id="rel-msg" role="status" aria-live="polite"></span>
     </div>
@@ -234,7 +243,7 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
       <button class="tab" role="tab" id="t-circunferencias" aria-selected="false" data-view="circunferencias">Circunferências</button>
       <button class="tab" role="tab" id="t-dobras" aria-selected="false" data-view="dobras">Dobras cutâneas</button>
       <button class="tab" role="tab" id="t-plano" aria-selected="false" data-view="plano" hidden>Plano alimentar</button>
-      <button class="tab" role="tab" id="t-checkin" aria-selected="false" data-view="checkin" hidden>Check-in semanal</button>
+      <button class="tab" role="tab" id="t-checkin" aria-selected="false" data-view="checkin" hidden>Check-in e rastreios</button>
     </nav>
   </div>
 </header>
@@ -275,7 +284,7 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
     <section class="plano view" data-view="plano" id="plano" hidden></section>
 
     <section class="view" data-view="checkin" hidden>
-      <div class="card ck-card">
+      <div class="card ck-card" id="ck-card" hidden>
         <h2>Check-in da semana</h2>
         <p>Uma vez por semana, me conte como foram os seus dias. Leva uns 2 minutos e me ajuda a acompanhar você até a próxima consulta.</p>
         <ul><li>Peso em jejum e, se medir, a cintura</li><li>Quanto conseguiu seguir o plano</li>
@@ -283,6 +292,7 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
         <a class="ck-btn" id="ck-link" href="#" target="_blank" rel="noopener">Fazer o check-in</a>
         <p class="note">O formulário abre numa nova aba, já com o seu nome preenchido.</p>
       </div>
+      <div class="ck-dados" id="ck-dados"></div>
     </section>
 
     <footer id="foot"></footer>
@@ -294,6 +304,8 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 const DADOS = __DATA__;
 const PLANO = __PLANO__;
 const CHECKIN = __CHECKIN__;
+const CHECKINS = __CHECKINS__;
+const REDS = __REDS__;
 
 const n = v => { if (v == null) return null; const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? null : x; };
 const fmt = (v, d = 1) => v == null ? '–' : v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -621,13 +633,78 @@ function drawPlano() {
   });
 }
 
+// ---------- aba Check-in e rastreios: respostas dos check-ins e rastreio de RED-S, em faixas que abrem ao tocar ----------
+let graficoCk = null;
+function desenharCheckins() {
+  const nota = v => v == null ? '–' : `<span class="${v <= 2 ? 'nota-baixa' : ''}">${v}</span>`;
+  const partes = [];
+  if (CHECKINS.length) {
+    const ult = CHECKINS[CHECKINS.length - 1], comPeso = CHECKINS.filter(c => c.peso != null);
+    const coment = CHECKINS.filter(c => c.dificuldades || c.comentario).slice().reverse();
+    partes.push(`<details class="plano-item" id="ck-respostas">
+      <summary><span class="pl-tit">Seus check-ins</span>
+        <span class="pl-info">${CHECKINS.length} resposta${CHECKINS.length > 1 ? 's' : ''} · último em ${esc(ult.data)}${ult.peso != null ? ` · ${fmt(ult.peso)} kg` : ''}</span></summary>
+      <div class="plano-corpo ck-dados">
+        ${comPeso.length > 1 ? '<div class="card"><h2>Peso informado em casa (kg)</h2><div class="chart"><canvas id="ch-ck"></canvas></div></div>' : ''}
+        <div class="card"><div class="tablebox"><table class="ck-tab">
+          <thead><tr><th>Data</th><th>Peso</th><th>Cintura</th><th title="Quanto seguiu o plano (1 a 5)">Plano</th><th title="1 = muita fome, 5 = controlada">Fome</th><th>Sono</th><th>Energia</th><th style="text-align:left">Intestino</th><th style="text-align:left">Água</th><th>Treinos</th></tr></thead>
+          <tbody>${CHECKINS.slice().reverse().map(c => `<tr><td>${esc(c.data)}</td><td>${fmt(c.peso)}</td><td>${fmt(c.cintura, 0)}</td>
+            <td>${nota(c.adesao)}</td><td>${nota(c.fome)}</td><td>${nota(c.sono)}</td><td>${nota(c.energia)}</td>
+            <td style="text-align:left">${esc(c.intestino)}</td><td style="text-align:left">${esc(c.agua)}</td><td>${c.treinos ?? '–'}</td></tr>`).join('')}</tbody>
+        </table></div>
+        <p class="note" style="margin:6px 0 0">Notas de 1 a 5, em que 5 é o melhor; 1 e 2 ficam em vermelho.</p></div>
+        ${coment.length ? `<div class="card">${coment.map(c => `<p class="ck-coment"><b>${esc(c.data)}:</b> ${c.dificuldades ? 'O que dificultou: ' + esc(c.dificuldades) + '. ' : ''}${esc(c.comentario)}</p>`).join('')}</div>` : ''}
+      </div></details>`);
+  }
+  if (TEM_REDS) {
+    const lq = REDS.leafq || [], ed = REDS.energia || [];
+    const uLq = lq[lq.length - 1], uEd = ed[ed.length - 1];
+    const chipEd = c => `<span class="chip ${{ Adequada: 'good', 'Subclínica': 'warn', Baixa: 'bad' }[c] || 'flat'}">${esc(c)}</span>`;
+    partes.push(`<details class="plano-item" id="ck-reds">
+      <summary><span class="pl-tit">Rastreio de RED-S</span>
+        <span class="pl-info">${uLq ? `LEAF-Q: ${uLq.total} pontos` : ''}${uLq && uEd ? ' · ' : ''}${uEd ? `Energia disponível: ${fmt(uEd.ed)} kcal/kg MLG` : ''}</span></summary>
+      <div class="plano-corpo ck-dados">
+        <p class="reds-txt">RED-S é a deficiência energética relativa no esporte: quando a energia que você come não cobre o treino e o funcionamento do corpo.</p>
+        ${lq.length ? `<div class="card"><h2>Questionário LEAF-Q</h2>
+          <p class="reds-txt">Lesões, função intestinal e ciclo menstrual. 8 pontos ou mais indicam risco de baixa disponibilidade de energia.</p>
+          <div class="tablebox"><table class="ck-tab"><thead><tr><th>Data</th><th>Lesões</th><th>Intestino</th><th>Menstrual</th><th>Total</th><th style="text-align:left">Resultado</th></tr></thead>
+          <tbody>${lq.slice().reverse().map(q => `<tr><td>${esc(q.data)}</td><td>${q.lesoes}</td><td>${q.gastro}</td><td>${q.menstrual}</td><td><b>${q.total}</b></td>
+            <td style="text-align:left"><span class="chip ${q.risco ? 'bad' : 'good'}">${esc(q.classe)}</span></td></tr>`).join('')}</tbody></table></div></div>` : ''}
+        ${ed.length ? `<div class="card"><h2>Energia disponível</h2>
+          <p class="reds-txt">(Energia que você comeu − gasto no exercício) ÷ massa livre de gordura. Adequada a partir de 45; entre 30 e 45, subclínica; abaixo de 30, baixa (kcal/kg MLG/dia).</p>
+          <div class="tablebox"><table class="ck-tab"><thead><tr><th>Data</th><th>Ingestão</th><th>Gasto no treino</th><th>MLG (kg)</th><th>Energia disponível</th><th style="text-align:left">Classificação</th><th style="text-align:left">Fase</th></tr></thead>
+          <tbody>${ed.slice().reverse().map(e => `<tr><td>${esc(e.data)}</td><td>${fmt(e.ingestao, 0)}</td><td>${fmt(e.gasto, 0)}</td><td>${fmt(e.mlg)}</td><td><b>${fmt(e.ed)}</b></td>
+            <td style="text-align:left">${chipEd(e.classe)}</td><td style="text-align:left">${esc(e.obs)}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+      </div></details>`);
+  }
+  document.getElementById('ck-dados').innerHTML = partes.join('');
+  // o gráfico só é desenhado quando a faixa abre (fechada, não tem tamanho)
+  const faixa = document.getElementById('ck-respostas');
+  if (faixa) faixa.addEventListener('toggle', () => { if (faixa.open) desenharGraficoCk(); });
+}
+function desenharGraficoCk() {
+  const cv = document.getElementById('ch-ck');
+  if (!cv) return;
+  const pts = CHECKINS.filter(c => c.peso != null);
+  if (graficoCk) graficoCk.destroy();
+  const ink = css('--muted');
+  graficoCk = new Chart(cv, {
+    type: 'line',
+    data: { labels: pts.map(c => curta(c.data)), datasets: [{ label: 'Peso', data: pts.map(c => c.peso), borderColor: css('--c2'), backgroundColor: css('--c2'),
+      pointBackgroundColor: css('--surface'), pointBorderWidth: 2, pointRadius: 3.5, borderWidth: 2.5, tension: 0.25 }] },
+    options: { maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${fmt(c.parsed.y)} kg` } } },
+      scales: { x: { ticks: { color: ink, font: { family: 'IBM Plex Mono', size: 11 } }, grid: { display: false } },
+                y: { ticks: { color: ink, font: { family: 'IBM Plex Mono', size: 11 }, callback: v => fmt(v) }, grid: { color: css('--line') } } } },
+  });
+}
+
 function render() {
   const rows = recorte();
   const plano = view === 'plano', ck = view === 'checkin';
   document.getElementById('kpis').hidden = plano || ck || !DADOS.length;
   document.querySelector('.range').hidden = plano || ck || !DADOS.length;
   if (!DADOS.length && !plano && !ck) return;   // paciente ainda sem avaliação
-  document.getElementById('sub').textContent = ck ? 'Check-in semanal'
+  document.getElementById('sub').textContent = ck ? 'Check-in e rastreios'
     : plano ? (PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Plano alimentar prescrito em ${PLANOS[0].prescrito}`)
     : `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${rows[0].dataAvaliacao} a ${rows[rows.length - 1].dataAvaliacao} · Altura ${fmt(n(rows[rows.length - 1].estatura), 0)} cm`;
   if (plano || ck) return;
@@ -807,6 +884,50 @@ function relatorioAvaliacao() {
 const alimTxt = a => typeof a === 'string' ? a : `${a.nome}${a.qtd ? ' - ' + a.qtd : ''}`;
 const imagem = src => new Promise((ok, erro) => { const i = new Image(); i.onload = () => ok(i); i.onerror = erro; i.src = src; });
 
+function relatorioCheckin() {
+  const a = CHECKINS[0], b = CHECKINS[CHECKINS.length - 1];
+  const doc = novoPDF('Relatório de check-in semanal', `${CHECKINS.length} resposta${CHECKINS.length > 1 ? 's' : ''} · ${a.data}${CHECKINS.length > 1 ? ' a ' + b.data : ''}`);
+  const comPeso = CHECKINS.filter(c => c.peso != null);
+  if (comPeso.length > 1) {
+    secao(doc, 'Peso informado em casa');
+    figura(doc, 'Peso (kg)', comPeso.map(c => ({ dataAvaliacao: c.data, peso: c.peso })), [['peso', 'Peso', LINHA.c2]], 1, true);
+  }
+  secao(doc, 'Respostas');
+  tabela(doc, ['Data', 'Peso', 'Cintura', 'Plano', 'Fome', 'Sono', 'Energia', 'Intestino', 'Água', 'Treinos'],
+    CHECKINS.slice().reverse().map(c => [c.data, fmt(c.peso), fmt(c.cintura, 0), c.adesao ?? '-', c.fome ?? '-', c.sono ?? '-', c.energia ?? '-', c.intestino, c.agua, c.treinos ?? '-']),
+    { styles: { fontSize: 8, textColor: COR.ink, cellPadding: 1.6, lineColor: COR.line, lineWidth: { bottom: 0.2 } } }, [1, 2, 3, 4, 5, 6, 9]);
+  texto(doc, 'Notas de 1 a 5, em que 5 é sempre o melhor: plano (quanto seguiu), fome (5 = controlada), sono e energia.', { tam: 8, cor: COR.muted });
+  const coment = CHECKINS.filter(c => c.dificuldades || c.comentario).slice().reverse();
+  if (coment.length) {
+    secao(doc, 'Comentários');
+    coment.forEach(c => texto(doc, `${c.data}: ${c.dificuldades ? 'O que dificultou: ' + c.dificuldades + '. ' : ''}${c.comentario}`, { tam: 9 }));
+  }
+  rodapes(doc);
+  return doc;
+}
+
+function relatorioReds() {
+  const lq = REDS.leafq || [], ed = REDS.energia || [];
+  const doc = novoPDF('Rastreio de RED-S', 'Deficiência energética relativa no esporte');
+  texto(doc, 'RED-S é a deficiência energética relativa no esporte: quando a energia ingerida não cobre o gasto do treino e o funcionamento do corpo.', { tam: 9, cor: COR.muted });
+  if (lq.length) {
+    secao(doc, 'Questionário LEAF-Q');
+    texto(doc, 'Low Energy Availability in Females Questionnaire (Melin et al., 2014): lesões, função intestinal e função menstrual. Total de 8 pontos ou mais indica risco de baixa disponibilidade energética.', { tam: 9, cor: COR.muted });
+    tabela(doc, ['Data', 'Lesões', 'Intestino', 'Menstrual', 'Total', 'Resultado'],
+      lq.slice().reverse().map(q => [q.data, q.lesoes, q.gastro, q.menstrual, q.total, q.classe]),
+      { columnStyles: { 4: { fontStyle: 'bold' } } }, [1, 2, 3, 4]);
+  }
+  if (ed.length) {
+    secao(doc, 'Energia disponível');
+    texto(doc, 'ED = (ingestão de energia − gasto energético no exercício) ÷ massa livre de gordura, em kcal/kg MLG/dia. Adequada a partir de 45; subclínica entre 30 e 45; baixa abaixo de 30 (Loucks).', { tam: 9, cor: COR.muted });
+    tabela(doc, ['Data', 'Ingestão (kcal)', 'Gasto no treino (kcal)', 'MLG (kg)', 'ED', 'Classificação', 'Fase'],
+      ed.slice().reverse().map(e => [e.data, fmt(e.ingestao, 0), fmt(e.gasto, 0), fmt(e.mlg), fmt(e.ed), e.classe, e.obs]),
+      { columnStyles: { 4: { fontStyle: 'bold' } } }, [1, 2, 3, 4]);
+  }
+  rodapes(doc);
+  return doc;
+}
+
 async function relatorioPlano() {
   const doc = novoPDF('Plano alimentar', PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Prescrito em ${PLANOS[0].prescrito}`);
   for (const [k, P] of PLANOS.entries()) {
@@ -907,8 +1028,9 @@ async function gerarRelatorio(tipo) {
   relMsg.textContent = 'Gerando o relatório…';
   try {
     await pdfLibs();
-    const doc = tipo === 'plano' ? await relatorioPlano() : relatorioAvaliacao();
-    const nome = `${tipo === 'plano' ? 'Plano alimentar' : 'Avaliação física'} - ${NOME} - ${hoje().replace(/\//g, '-')}.pdf`;
+    const doc = tipo === 'plano' ? await relatorioPlano() : tipo === 'checkin' ? relatorioCheckin() : tipo === 'reds' ? relatorioReds() : relatorioAvaliacao();
+    const titulo = { plano: 'Plano alimentar', checkin: 'Check-in semanal', reds: 'Rastreio RED-S' }[tipo] || 'Avaliação física';
+    const nome = `${titulo} - ${NOME} - ${hoje().replace(/\//g, '-')}.pdf`;
     relMsg.textContent = 'Confirme o download.';
     await salvar(nome, doc.output('blob'));
     relMsg.textContent = 'Relatório pronto.';
@@ -924,10 +1046,16 @@ async function gerarRelatorio(tipo) {
 document.getElementById('rel-av').addEventListener('click', () => gerarRelatorio('avaliacao'));
 document.getElementById('rel-plano').addEventListener('click', () => gerarRelatorio('plano'));
 if (PLANOS.length) document.getElementById('rel-plano').hidden = false;
+document.getElementById('rel-ck').addEventListener('click', () => gerarRelatorio('checkin'));
+document.getElementById('rel-reds').addEventListener('click', () => gerarRelatorio('reds'));
+if (CHECKINS.length) document.getElementById('rel-ck').hidden = false;
+if ((REDS.leafq || []).length || (REDS.energia || []).length) document.getElementById('rel-reds').hidden = false;
 
 document.getElementById('foot').textContent ='Fonte: App Naive · evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
 if (PLANOS.length) { document.getElementById('t-plano').hidden = false; drawPlano(); }
-if (CHECKIN) { document.getElementById('t-checkin').hidden = false; document.getElementById('ck-link').href = CHECKIN; }
+if (CHECKIN) { document.getElementById('ck-card').hidden = false; document.getElementById('ck-link').href = CHECKIN; }
+const TEM_REDS = (REDS.leafq || []).length || (REDS.energia || []).length;
+if (CHECKIN || CHECKINS.length || TEM_REDS) { document.getElementById('t-checkin').hidden = false; desenharCheckins(); }
 // paciente novo, ainda sem avaliação: a página mostra só o plano e o check-in
 if (!DADOS.length) {
   ['composicao', 'classificacoes', 'circunferencias', 'dobras'].forEach(v => { document.getElementById('t-' + v).hidden = true; });

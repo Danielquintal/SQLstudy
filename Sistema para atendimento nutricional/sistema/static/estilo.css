@@ -312,3 +312,19 @@ dl.respostas dt{color:var(--muted)} dl.respostas dd{margin:0;color:var(--ink)}
 .lq-envio{border:1px dashed var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .lq-risco{color:var(--bad);font-weight:600}
 input.campo-pac{font:14px var(--sans);padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--ink);width:260px;max-width:100%}
+
+/* fórmulas escritas ("Como foi calculado") */
+.passos-calc{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+.passo{display:flex;flex-direction:column;gap:3px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);min-width:0}
+.passo b{font-size:14px}
+.passo .f{font-size:13px;color:var(--muted)}
+.passo .c{font:13px var(--mono);overflow-wrap:anywhere}
+.passo .r{font:600 15px var(--mono);color:var(--ink)}
+.formulas-e{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.formulas-e div{border-left:3px solid var(--line);padding:2px 0 2px 8px}
+.formulas-e .f{color:var(--muted)}
+.formulas-e .c{font-family:var(--mono);overflow-wrap:anywhere}
+.formulas summary{cursor:pointer;margin:4px 0}
+.campo.usada input{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.campo.usada label::after{content:" · entra no protocolo";color:var(--accent);font-size:11px}
+.passo .c.falta{font-family:var(--sans);color:var(--warn)}

@@ -17,7 +17,7 @@ from atualizar_paciente import CONEXAO, PAGINAS, TEMPLATE, avaliacoes_do_banco, 
 from montar_pagina import montar
 from plano import plano_do_banco
 from planilha_paciente import safe_name
-import checkin, contatos, links
+import checkin, contatos, links, reds
 
 
 def preparar():
@@ -45,7 +45,8 @@ def preparar():
             homonimo = cur.fetchone()[0] > 0
             sufixo = f" ({p['id']})" if homonimo else ""
             arq = PAGINAS / f"{safe_name(nome)}{sufixo}.html"
-            montar(str(TEMPLATE), nome, avs, plano, str(arq), link_ck)
+            montar(str(TEMPLATE), nome, avs, plano, str(arq), link_ck,
+                   {"checkins": checkin.para_pagina(cur, p["id"]), "reds": reds.para_pagina(cur, p["id"])})
             atual = links.artefato(p["id"], nome)
             print(json.dumps({"id": p["id"], "nome": nome, "arquivo": str(arq), "url_atual": atual and atual.get("url"),
                               "motivo": p["motivo"]}, ensure_ascii=False))
