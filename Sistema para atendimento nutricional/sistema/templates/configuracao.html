@@ -8,6 +8,101 @@
 {% endblock %}
 {% block corpo %}
 <form method="post" class="ficha">
+  <div class="card" id="checkin">
+    <h2>Check-in semanal (Formulário Google)</h2>
+    {% if cfg.checkin.formulario %}
+    <p class="msg" style="margin:0">Ligado. Cada paciente recebe um link que já abre com o nome dele, por exemplo:
+      <a href="{{ exemplo }}" target="_blank" rel="noopener">link de teste com o nome “Maria da Silva”</a>.
+      Uma resposta de teste com esse nome vai aparecer em Check-ins como “sem paciente”; é só excluir.</p>
+    {% else %}
+    <p class="note" style="margin:0">Instalação feita uma vez só, uns 5 minutos, na sua conta Google:</p>
+    {% endif %}
+    <details {{ '' if cfg.checkin.formulario else 'open' }}>
+      <summary>Passo a passo da instalação</summary>
+      <ol class="passos" style="margin-top:10px">
+        <li>Abra <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com › Novo projeto</a>
+          (entre com a sua conta Google). Apague o que vier escrito.</li>
+        <li>Clique em <b>Copiar o código</b> abaixo, cole no projeto e salve (ícone de disquete). Dê o nome “Check-in” ao projeto.
+          <textarea class="script-gs" id="script-gs" readonly rows="6" aria-label="Código do script">{{ script }}</textarea>
+          <button type="button" class="btn" id="copiar-gs" style="align-self:flex-start">Copiar o código</button></li>
+        <li>Na barra de cima, escolha a função <b>criar</b> e clique em <b>Executar</b>. O Google pede autorização:
+          clique em Revisar permissões, escolha sua conta, depois em “Avançado” › “Acessar Check-in” › Permitir.
+          No registro de execução aparecem o link do formulário e a <b>CHAVE</b>.</li>
+        <li>Clique em <b>Implantar › Nova implantação</b>, na engrenagem escolha <b>App da Web</b>.
+          Executar como: <b>Eu</b>. Quem pode acessar: <b>Qualquer pessoa</b>. Clique em Implantar e copie a <b>URL do app da Web</b>.</li>
+        <li>Cole a URL e a chave aqui embaixo e clique em Salvar configuração. O sistema testa na hora.</li>
+      </ol>
+    </details>
+    <div class="cadastro">
+      <div class="campo" style="grid-column:1/-1"><label for="ck-url">URL do app da Web</label>
+        <input class="texto" id="ck-url" name="checkin_url" value="{{ cfg.checkin.url }}" placeholder="https://script.google.com/macros/s/.../exec"></div>
+      <div class="campo"><label for="ck-chave">Chave</label>
+        <input class="texto" id="ck-chave" name="checkin_chave" value="{{ cfg.checkin.chave }}" autocomplete="off"></div>
+      <div class="campo"><label for="ck-dias">Pedir check-in a cada</label>
+        <select id="ck-dias" name="checkin_dias">
+          {% for d in [7, 10, 14] %}<option value="{{ d }}" {{ 'selected' if cfg.checkin.dias == d }}>{{ d }} dias</option>{% endfor %}
+        </select></div>
+      <div class="campo"><label for="ck-ativo">Pedir a quem teve consulta nos últimos</label>
+        <select id="ck-ativo" name="checkin_ativo_dias">
+          {% for d in [30, 60, 90, 120, 180] %}<option value="{{ d }}" {{ 'selected' if cfg.checkin.ativo_dias == d }}>{{ d }} dias</option>{% endfor %}
+        </select></div>
+    </div>
+    <p class="note" style="margin:0">Também recebe o pedido quem tem a próxima consulta marcada. Para tirar um paciente,
+      marque “Não pedir check-in semanal” no Acompanhamento da ficha dele. Apagar a URL e a chave desliga o check-in.</p>
+  </div>
+
+  {% if cfg.checkin.formulario %}
+  <div class="card" id="email">
+    <h2>Check-in por e-mail automático</h2>
+    <p class="note" style="margin:0">O script do Google manda o pedido por e-mail, todo dia por volta das 9h, a quem está na vez,
+      mesmo com este computador desligado. Sai da sua conta Google. Quem não responder em alguns dias aparece em Contatos
+      para você lembrar pelo WhatsApp. Quem não tem e-mail continua só no WhatsApp, como hoje.</p>
+    <p style="margin:0"><b>{{ n_com_email }} de {{ n_ativos }}</b> pacientes ativos têm e-mail cadastrado.
+      {% if n_com_email < n_ativos %}<span class="note">Cadastre o e-mail no Acompanhamento da ficha de cada paciente.</span>{% endif %}</p>
+    {% if estado and estado.erro %}
+      <p class="msg aviso" style="margin:0">{{ estado.erro }}</p>
+    {% elif (cfg.checkin.versao or 0) < versao_atual %}
+      <div class="msg aviso" style="margin:0">
+        <b>Primeiro, atualize o código do script do Google</b> (a versão instalada ainda não tem o e-mail):
+        <ol class="passos" style="margin-top:8px">
+          <li>Abra o seu projeto “Check-in” em <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a>.</li>
+          <li>Clique em <b>Copiar o código</b> (no passo a passo acima), apague o código antigo do projeto, cole o novo e salve.</li>
+          <li><b>Implantar › Gerenciar implantações</b> › lápis (editar) › em Versão escolha <b>Nova versão</b> › Implantar.
+            A URL e a chave continuam as mesmas.</li>
+          <li>Na barra de cima, escolha a função <b>ativarEmails</b> e clique em <b>Executar</b>. Autorize o envio de e-mail.</li>
+          <li>Volte aqui, marque “Enviar o pedido por e-mail” e salve.</li>
+        </ol>
+      </div>
+    {% elif estado %}
+      <p class="note" style="margin:0">
+        {% if estado.gatilho %}Envio diário <b>ativo</b> no Google.{% else %}<b>O envio diário ainda não foi ativado:</b> no script do Google,
+          escolha a função <b>ativarEmails</b> e clique em Executar.{% endif %}
+        {% if estado.ultima %} Última rodada em {{ estado.ultima[8:10] }}/{{ estado.ultima[5:7] }}.{% endif %}
+        {% set ok = estado.envios|rejectattr('erro')|list %}{% if ok %} {{ ok|length }} e-mail(s) enviados recentemente.{% endif %}</p>
+    {% endif %}
+    <label style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" name="email_ativo" value="1" {{ 'checked' if cfg.checkin.email_ativo }}>
+      Enviar o pedido de check-in por e-mail a quem tem e-mail cadastrado
+    </label>
+    <div class="cadastro">
+      <div class="campo"><label for="em-rem">Nome do remetente</label>
+        <input class="texto" id="em-rem" name="email_remetente" value="{{ cfg.checkin.email_remetente }}"></div>
+      <div class="campo" style="grid-column:span 2"><label for="em-ass">Assunto</label>
+        <input class="texto" id="em-ass" name="email_assunto" value="{{ cfg.checkin.email_assunto }}"></div>
+      <div class="campo"><label for="em-esp">Lembrar no WhatsApp quem não responder em</label>
+        <select id="em-esp" name="checkin_email_espera">
+          {% for d in [1, 2, 3, 4, 5] %}<option value="{{ d }}" {{ 'selected' if cfg.checkin.email_espera == d }}>{{ d }} dia{{ 's' if d > 1 }}</option>{% endfor %}
+        </select></div>
+    </div>
+    <div class="campo">
+      <label for="em-txt">Texto do e-mail</label>
+      <textarea id="em-txt" name="email_texto" rows="6">{{ cfg.checkin.email_texto }}</textarea>
+      <span class="note">Use <code>{primeiro_nome}</code> e <code>{nome}</code>. O botão “Responder o check-in”, com o link
+        pessoal do paciente, entra sozinho no fim do e-mail.</span>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="card">
     <h2>Mensagens de WhatsApp</h2>
     <p class="note">Estas palavras entre chaves são trocadas pelos dados do paciente:
@@ -30,4 +125,13 @@
   </div>
   <div class="barra"><div class="acoes"><button class="btn pri">Salvar configuração</button></div></div>
 </form>
+<script>
+document.getElementById('copiar-gs').addEventListener('click', async e => {
+  const area = document.getElementById('script-gs');
+  try { await navigator.clipboard.writeText(area.value); }
+  catch (err) { area.select(); document.execCommand('copy'); }
+  e.target.textContent = 'Código copiado';
+  setTimeout(() => { e.target.textContent = 'Copiar o código'; }, 2500);
+});
+</script>
 {% endblock %}

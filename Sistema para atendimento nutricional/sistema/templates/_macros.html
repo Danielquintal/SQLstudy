@@ -11,3 +11,45 @@
   <input type="hidden" name="voltar" value="{{ voltar }}">
 </form>
 {% endmacro %}
+
+{# tabela de respostas do check-in: escalas de 1 a 5, alertas e o texto que o paciente escreveu #}
+{% macro tabela_checkins(lista, com_nome=false, voltar='') %}
+<div class="tablebox">
+<table class="ck">
+  <thead><tr>
+    <th class="t">Respondido</th>{% if com_nome %}<th class="t">Paciente</th>{% endif %}
+    <th>Peso</th><th>Cintura</th><th title="Quanto seguiu o plano, de 1 a 5">Plano</th><th title="1 = muita fome, 5 = controlada">Fome</th>
+    <th title="1 a 5">Sono</th><th title="1 a 5">Energia</th><th class="t">Intestino</th><th class="t">Água</th><th>Treinos</th>
+    <th class="t">Atenção</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for k in lista %}
+    <tr>
+      <td class="t n">{{ k.respondido_em.strftime('%d/%m/%Y %H:%M') }}</td>
+      {% if com_nome %}<td class="t"><a class="linha" href="{{ url_for('paciente', pid=k.paciente_id) }}#checkin">{{ k.nome }}</a></td>{% endif %}
+      <td class="n">{{ k.peso_kg|num }}{% if k.var_peso is not none %}<br><span class="note">{{ '+' if k.var_peso > 0 }}{{ k.var_peso|round(1)|num }}</span>{% endif %}</td>
+      <td class="n">{{ k.cintura_cm|num }}</td>
+      {% for c in ['adesao', 'fome', 'sono', 'energia'] %}
+      <td class="n"><span class="nota{{ ' baixa' if k[c] is not none and k[c] <= 2 }}">{{ k[c] if k[c] is not none }}</span></td>
+      {% endfor %}
+      <td class="t">{{ (k.intestino or '').split(' (')[0] }}</td>
+      <td class="t">{{ k.agua or '' }}</td>
+      <td class="n">{{ k.treinos if k.treinos is not none }}{% if k.treino_sensacao %}<br><span class="note" title="Como se sentiu, 1 a 5">sentiu {{ k.treino_sensacao }}</span>{% endif %}</td>
+      <td class="t alertas">{% for a in k.alertas %}<span class="chip warn">{{ a }}</span> {% endfor %}</td>
+      <td><form method="post" action="{{ url_for('checkin_excluir', cid=k.id) }}">
+        <input type="hidden" name="voltar" value="{{ voltar }}">
+        <button class="btn perigo" style="padding:4px 9px" title="Excluir esta resposta"
+          onclick="if(this.dataset.ok){return true} this.dataset.ok=1; this.textContent='Excluir?'; return false">×</button>
+      </form></td>
+    </tr>
+    {% if k.dificuldades or k.comentario %}
+    <tr class="ck-texto"><td colspan="{{ 13 if com_nome else 12 }}">
+      {% if k.dificuldades %}<span><b>O que dificultou:</b> {{ k.dificuldades }}</span>{% endif %}
+      {% if k.comentario %}<span><b>Comentário:</b> {{ k.comentario }}</span>{% endif %}
+    </td></tr>
+    {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}

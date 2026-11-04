@@ -24,13 +24,14 @@ def separar_cmb(a):
     return dict(a, cmb_cm=m.group(1) if m else "", cmb_pct=m.group(2) if m else "")
 
 
-def montar(template, nome, avaliacoes, plano, out):
-    t = gerar_html(template, nome, avaliacoes, plano)
+def montar(template, nome, avaliacoes, plano, out, checkin=None):
+    t = gerar_html(template, nome, avaliacoes, plano, checkin)
     open(out, "w", encoding="utf-8").write(t)
     return len(avaliacoes), len(t)
 
 
-def gerar_html(template, nome, avaliacoes, plano):
+def gerar_html(template, nome, avaliacoes, plano, checkin=None):
+    """checkin: link do formulário de check-in com o nome do paciente (vira a aba Check-in), ou None"""
     avaliacoes = [separar_cmb(a) for a in avaliacoes]
     rows = sorted(({k: a.get(k) for k in KEEP} for a in avaliacoes), key=lambda r: r["dataOrdem"])
     formulas = {a.get("formula_escolhida") for a in avaliacoes if a.get("formula_escolhida")}
@@ -38,6 +39,7 @@ def gerar_html(template, nome, avaliacoes, plano):
     t = (open(template, encoding="utf-8").read()
          .replace("__DATA__", json.dumps(rows, ensure_ascii=False))
          .replace("__PLANO__", json.dumps(plano, ensure_ascii=False))
+         .replace("__CHECKIN__", json.dumps(checkin))
          .replace("__NOME__", nome.strip())
          .replace("__PROTOCOLO__", protocolo)
          .replace("__PROFISSIONAL__", PROFISSIONAL))

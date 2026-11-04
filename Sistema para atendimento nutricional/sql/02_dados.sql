@@ -1,4 +1,4 @@
--- Dados fictícios para demonstração, gerados por scripts/exportar_github.py em 03/11/2026
+-- Dados fictícios para demonstração, gerados por scripts/exportar_github.py em 04/11/2026
 SET client_encoding = 'UTF8';
 BEGIN;
 TRUNCATE avaliacao, paciente RESTART IDENTITY CASCADE;

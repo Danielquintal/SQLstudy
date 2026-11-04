@@ -158,6 +158,14 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 .grupo-itens div{display:flex;flex-direction:column;gap:1px;border-bottom:1px solid var(--line);padding:7px 0}
 .grupo-itens span{font-weight:500}
 .grupo-itens b{font-weight:400;font-size:12px;color:var(--muted)}
+/* Check-in: cartão com o botão que abre o formulário */
+.ck-card{max-width:640px;gap:12px}
+.ck-card h2{font-size:20px}
+.ck-card p{margin:0}
+.ck-card ul{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
+.ck-btn{align-self:flex-start;display:inline-block;background:var(--c2);color:#fff;font:600 16px var(--sans);padding:13px 24px;border-radius:10px;text-decoration:none}
+.ck-btn:hover{filter:brightness(1.08)}
+.ck-btn:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
 /* Relatórios em PDF: botões no cabeçalho */
 .relatorios{display:flex;flex-direction:column;gap:4px}
 .relatorios>span{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-soft)}
@@ -196,6 +204,7 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
       <button class="tab" role="tab" id="t-circunferencias" aria-selected="false" data-view="circunferencias">Circunferências</button>
       <button class="tab" role="tab" id="t-dobras" aria-selected="false" data-view="dobras">Dobras cutâneas</button>
       <button class="tab" role="tab" id="t-plano" aria-selected="false" data-view="plano" hidden>Plano alimentar</button>
+      <button class="tab" role="tab" id="t-checkin" aria-selected="false" data-view="checkin" hidden>Check-in semanal</button>
     </nav>
   </div>
 </header>
@@ -231,6 +240,17 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 
     <section class="plano view" data-view="plano" id="plano" hidden></section>
 
+    <section class="view" data-view="checkin" hidden>
+      <div class="card ck-card">
+        <h2>Check-in da semana</h2>
+        <p>Uma vez por semana, me conte como foram os seus dias. Leva uns 2 minutos e me ajuda a acompanhar você até a próxima consulta.</p>
+        <ul><li>Peso em jejum e, se medir, a cintura</li><li>Quanto conseguiu seguir o plano</li>
+          <li>Fome, sono, energia, intestino e água</li><li>Treinos da semana</li></ul>
+        <a class="ck-btn" id="ck-link" href="#" target="_blank" rel="noopener">Fazer o check-in</a>
+        <p class="note">O formulário abre numa nova aba, já com o seu nome preenchido.</p>
+      </div>
+    </section>
+
     <footer id="foot"></footer>
   </div>
 </main>
@@ -239,6 +259,7 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 <script>
 const DADOS = __DATA__;
 const PLANO = __PLANO__;
+const CHECKIN = __CHECKIN__;
 
 const n = v => { if (v == null) return null; const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? null : x; };
 const fmt = (v, d = 1) => v == null ? '–' : v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -520,13 +541,13 @@ function drawPlano() {
 
 function render() {
   const rows = recorte();
-  const plano = view === 'plano';
-  document.getElementById('kpis').hidden = plano;
-  document.querySelector('.range').hidden = plano;
-  document.getElementById('sub').textContent = plano
-    ? (PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Plano alimentar prescrito em ${PLANOS[0].prescrito}`)
+  const plano = view === 'plano', ck = view === 'checkin';
+  document.getElementById('kpis').hidden = plano || ck;
+  document.querySelector('.range').hidden = plano || ck;
+  document.getElementById('sub').textContent = ck ? 'Check-in semanal'
+    : plano ? (PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Plano alimentar prescrito em ${PLANOS[0].prescrito}`)
     : `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${rows[0].dataAvaliacao} a ${rows[rows.length - 1].dataAvaliacao} · Altura ${fmt(n(rows[rows.length - 1].estatura), 0)} cm`;
-  if (plano) return;
+  if (plano || ck) return;
   drawKpis(rows);
   drawCharts(rows);
   if (view === 'dobras') drawTable(rows);
@@ -818,6 +839,7 @@ if (PLANOS.length) document.getElementById('rel-plano').hidden = false;
 
 document.getElementById('foot').textContent ='Fonte: App Naive · evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
 if (PLANOS.length) { document.getElementById('t-plano').hidden = false; drawPlano(); }
+if (CHECKIN) { document.getElementById('t-checkin').hidden = false; document.getElementById('ck-link').href = CHECKIN; }
 const inicial = location.hash.slice(1);
 const alvo = document.querySelector(`.tab[data-view="${inicial}"]`);
 if (alvo) alvo.click(); else render();

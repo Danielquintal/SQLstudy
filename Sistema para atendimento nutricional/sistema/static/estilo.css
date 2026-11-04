@@ -178,3 +178,20 @@ code{font-family:var(--mono);font-size:13px;background:color-mix(in srgb,var(--a
 .nova-medida{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:4px 0}
 .r-obs{min-height:34px}
 @media (max-width:980px){.editor{grid-template-columns:1fr}.ed-lado{position:static;order:-1}}
+
+/* check-in semanal */
+.passos{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.passos li{padding-left:4px}
+.passos code{word-break:break-all}
+table.ck td{vertical-align:top}
+table.ck .chip{font-size:12px;padding:1px 8px;margin:1px 0}
+.nota{font-family:var(--mono)}
+.nota.baixa{color:var(--bad);font-weight:600}
+tr.ck-texto td{white-space:normal;text-align:left;color:var(--muted);font-size:13px;padding-top:0;display:table-cell}
+tr.ck-texto span{display:block;max-width:90ch}
+.graf-peso{width:100%;height:auto;max-height:170px}
+.graf-peso polyline{fill:none;stroke:var(--accent);stroke-width:2.5}
+.graf-peso circle{fill:var(--surface);stroke:var(--accent);stroke-width:2}
+.graf-peso text{font:11px var(--mono);fill:var(--muted)}
+.script-gs{width:100%;font:12px var(--mono);min-height:160px}
+table.ck td.alertas{white-space:normal;min-width:200px}

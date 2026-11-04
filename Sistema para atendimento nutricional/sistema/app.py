@@ -18,6 +18,7 @@ from calculos import calcular
 from campos import CAMPOS, TEXTO
 from montar_pagina import gerar_html, montar
 from planilha_paciente import SECTIONS, build, safe_name
+import checkin
 import contatos
 import links
 import plano as planos
@@ -70,7 +71,7 @@ def idade(nasc, ref=None):
 
 
 CAMPOS_PACIENTE = ["id", "nome", "genero", "data_nascimento", "telefone", "email", "retorno_em",
-                   "whatsapp_bloqueado"]
+                   "whatsapp_bloqueado", "checkin_pausado"]
 
 
 def buscar_paciente(cur, pid):
@@ -86,10 +87,13 @@ def contagem_contatos():
     # número de lembretes do dia, no botão Contatos do menu
     try:
         with conectar() as con:
-            n = len(contatos.pendencias(con.cursor(), contatos.carregar()))
+            cur = con.cursor()
+            n = len(contatos.pendencias(cur, contatos.carregar()))
+            cur.execute("SELECT count(*) FROM checkin WHERE paciente_id IS NULL AND NOT excluido")
+            sem = cur.fetchone()[0]
     except psycopg.Error:
-        n = 0
-    return {"n_contatos": n, "n_pedidos": len(links.pedidos())}
+        n = sem = 0
+    return {"n_contatos": n, "n_pedidos": len(links.pedidos()), "n_checkin_sem": sem}
 
 
 def ler_formulario(form):
@@ -124,7 +128,8 @@ def gerar_arquivos(cur, pid, nome):
         avisos.append("A planilha está aberta no Excel e não foi atualizada. Feche o Excel e clique em "
                       "\"Gerar planilha e página\".")
     PAGINAS.mkdir(parents=True, exist_ok=True)
-    montar(str(TEMPLATE), nome, avs, planos.plano_do_banco(cur, pid), str(PAGINAS / f"{safe_name(nome)}.html"))
+    montar(str(TEMPLATE), nome, avs, planos.plano_do_banco(cur, pid), str(PAGINAS / f"{safe_name(nome)}.html"),
+           checkin.link_paciente(cur, contatos.carregar(), pid, nome))
     return avisos
 
 
@@ -180,9 +185,12 @@ def novo_paciente():
 
 @app.route("/paciente/<int:pid>")
 def paciente(pid):
+    cfg = contatos.carregar()
     with conectar() as con:
+        checkin.sincronizar_se_preciso(con, cfg)
         cur = con.cursor()
         p = buscar_paciente(cur, pid)
+        checkins = checkin.com_alertas(checkin.lista(cur, "k.paciente_id = %s", (pid,), 26))
         avs = avaliacoes_do_banco(cur, pid)
         cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s ORDER BY feito_em DESC LIMIT 6", (pid,))
         historico = cur.fetchall()
@@ -195,17 +203,19 @@ def paciente(pid):
     art = links.artefato(pid, p["nome"])
     url = art and art.get("url")
     primeira, ultima = (avs[0], avs[-1]) if avs else (None, None)
-    cfg = contatos.carregar()
     extra = {"{link_evolucao}": url,
              "{data_avaliacao}": ultima["data_avaliacao"].strftime("%d/%m/%Y") if ultima else None}
     # mensagens que fazem sentido para este paciente agora
     tipos = (["livre"] + (["evolucao"] if url and ultima else [])
-             + (["retorno"] if p["retorno_em"] and p["retorno_em"] >= date.today() else []))
+             + (["retorno"] if p["retorno_em"] and p["retorno_em"] >= date.today() else [])
+             + (["checkin"] if checkin.configurado(cfg) and not p["checkin_pausado"] else []))
     mensagens = [(t, contatos.TITULOS[t], contatos.mensagem(cfg, t, p, extra)) for t in tipos]
     return render_template("paciente.html", p=p, avs=list(reversed(avs)), primeira=primeira, ultima=ultima,
                            url=url, art=art, pedido=links.pedido(pid), historico=historico, mensagens=mensagens,
-                           planos=planos_paciente,
-                           tem_whatsapp=bool(contatos.telefone_whatsapp(p["telefone"])), titulos=contatos.TITULOS)
+                           planos=planos_paciente, checkins=checkins, grafico=checkin.grafico_peso(checkins),
+                           checkin_ligado=checkin.configurado(cfg), checkin_email=checkin.usa_email(cfg),
+                           email_ok=checkin.email_valido(p["email"]),
+                           tem_whatsapp=bool(contatos.telefone_whatsapp(p["telefone"])), titulos=contatos.ROTULOS)
 
 
 @app.route("/paciente/<int:pid>/evolucao")
@@ -215,10 +225,11 @@ def evolucao(pid):
         p = buscar_paciente(cur, pid)
         avs = [para_app_naive(r) for r in avaliacoes_do_banco(cur, pid)]
         plano = planos.plano_do_banco(cur, pid)
+        link_ck = checkin.link_paciente(cur, contatos.carregar(), pid, p["nome"])
     if not avs:
         flash("Este paciente ainda não tem avaliações.")
         return redirect(url_for("paciente", pid=pid))
-    return gerar_html(str(TEMPLATE), p["nome"], avs, plano)
+    return gerar_html(str(TEMPLATE), p["nome"], avs, plano, link_ck)
 
 
 @app.route("/paciente/<int:pid>/gerar", methods=["POST"])
@@ -769,9 +780,14 @@ def acompanhamento(pid):
     with conectar() as con:
         cur = con.cursor()
         buscar_paciente(cur, pid)
-        cur.execute("UPDATE paciente SET retorno_em = %s, whatsapp_bloqueado = %s, telefone = %s WHERE id = %s",
-                    (retorno, bool(f.get("whatsapp_bloqueado")),
-                     " ".join(f.get("telefone", "").split()) or None, pid))
+        email = f.get("email", "").strip() or None
+        if email and not checkin.email_valido(email):
+            flash(f"O e-mail “{email}” não parece válido e não foi salvo.", "aviso")
+            email = buscar_paciente(cur, pid)["email"]
+        cur.execute("UPDATE paciente SET retorno_em = %s, whatsapp_bloqueado = %s, checkin_pausado = %s, telefone = %s, "
+                    "email = %s WHERE id = %s",
+                    (retorno, bool(f.get("whatsapp_bloqueado")), bool(f.get("checkin_pausado")),
+                     " ".join(f.get("telefone", "").split()) or None, email, pid))
     flash("Acompanhamento salvo.")
     return redirect(url_for("paciente", pid=pid) + "#acompanhamento")
 
@@ -800,6 +816,7 @@ def whatsapp(pid, tipo):
 def contatos_do_dia():
     cfg = contatos.carregar()
     with conectar() as con:
+        checkin.sincronizar_se_preciso(con, cfg)   # quem já respondeu sai da lista de pedidos de check-in
         cur = con.cursor()
         itens = []
         for tipo, p, detalhe in contatos.pendencias(cur, cfg):
@@ -812,7 +829,7 @@ def contatos_do_dia():
         cur.execute("""SELECT id, nome, retorno_em FROM paciente WHERE retorno_em >= %s
                        ORDER BY retorno_em, nome LIMIT 30""", (date.today(),))
         agenda = cur.fetchall()
-    return render_template("contatos.html", itens=itens, feitos=feitos, agenda=agenda, titulos=contatos.TITULOS,
+    return render_template("contatos.html", itens=itens, feitos=feitos, agenda=agenda, titulos=contatos.ROTULOS,
                            quando=contatos.quando)
 
 
@@ -827,11 +844,120 @@ def configuracao():
         for t in contatos.TITULOS:
             if request.form.get(f"msg_{t}", "").strip():
                 cfg["mensagens"][t] = request.form[f"msg_{t}"].strip()
+        ck = cfg["checkin"]
+        ck["email_ativo"] = bool(request.form.get("email_ativo"))
+        for k in ("email_remetente", "email_assunto", "email_texto"):
+            if request.form.get(k, "").strip():
+                ck[k] = request.form[k].strip().replace("\r\n", "\n")
+        for k, lo, hi in (("dias", 3, 31), ("ativo_dias", 15, 365), ("email_espera", 1, 6)):
+            try:
+                ck[k] = max(lo, min(hi, int(request.form.get(f"checkin_{k}", ck[k]))))
+            except ValueError:
+                pass
+        url, chave = request.form.get("checkin_url", "").strip(), checkin.limpar_chave(request.form.get("checkin_chave", ""))
+        if (url, chave) != (ck["url"], ck["chave"]):
+            if not (url or chave):
+                ck.update(url="", chave="", formulario="")
+                flash("Check-in desligado do Google.")
+            else:
+                try:
+                    info = checkin.testar(url, chave)
+                    ck.update(url=url, chave=chave, formulario=info["link"], marca=info.get("marca", "NOME_DO_PACIENTE"),
+                              versao=info.get("versao", 1))
+                    flash(f"Check-in ligado ao formulário “{info.get('titulo', '')}”, que tem "
+                          f"{info.get('respostas', 0)} resposta(s).")
+                except checkin.ErroGoogle as e:
+                    flash(f"A configuração foi salva, menos o check-in: {e}", "aviso")
+        estado = None
+        if checkin.configurado(cfg):
+            try:
+                info = checkin.info(ck["url"], ck["chave"])   # confere a versão do script (pode ter sido atualizado)
+                ck["versao"] = info.get("versao", 1)
+                if ck["versao"] >= checkin.VERSAO_SCRIPT:
+                    with conectar() as con:
+                        n, estado = checkin.enviar_lista(con.cursor(), cfg)
+                    if ck["email_ativo"]:
+                        flash(f"E-mail automático ligado: {n} paciente(s) com e-mail estão na lista de envio."
+                              + ("" if estado.get("gatilho") else " Falta rodar a função ativarEmails no script do Google."),
+                              "" if estado.get("gatilho") else "aviso")
+                elif ck["email_ativo"]:
+                    flash("Para o e-mail automático, atualize o código do script do Google (passo a passo abaixo).", "aviso")
+            except checkin.ErroGoogle as e:
+                flash(str(e), "aviso")
         contatos.salvar(cfg)
         flash("Configuração salva.")
         return redirect(url_for("configuracao"))
+    estado = None
+    if checkin.configurado(cfg):
+        try:
+            info = checkin.info(cfg["checkin"]["url"], cfg["checkin"]["chave"])
+            estado = info.get("emails")
+            if info.get("versao", 1) != cfg["checkin"].get("versao"):
+                cfg["checkin"]["versao"] = info.get("versao", 1)
+                contatos.salvar(cfg)
+        except checkin.ErroGoogle as e:
+            estado = {"erro": str(e)}
+    with conectar() as con:
+        cur = con.cursor()
+        hoje = date.today()
+        cur.execute(f"SELECT p.email FROM paciente p WHERE {checkin.ATIVOS}",
+                    {"hoje": hoje, "desde": hoje - timedelta(days=int(cfg["checkin"].get("ativo_dias", 90)))})
+        ativos = [e for e, in cur.fetchall()]
     return render_template("configuracao.html", cfg=cfg, titulos=contatos.TITULOS, variaveis=contatos.VARIAVEIS,
-                           padrao=contatos.PADRAO["mensagens"])
+                           padrao=contatos.PADRAO["mensagens"], script=checkin.SCRIPT.read_text(encoding="utf-8"),
+                           exemplo=checkin.link_formulario(cfg, "Maria da Silva"), estado=estado,
+                           versao_atual=checkin.VERSAO_SCRIPT, n_ativos=len(ativos),
+                           n_com_email=sum(checkin.email_valido(e) for e in ativos))
+
+
+# ---------- check-in semanal (Formulário Google) ----------
+
+@app.route("/checkins")
+def checkins():
+    cfg = contatos.carregar()
+    with conectar() as con:
+        cur = con.cursor()
+        sem = checkin.lista(cur, "k.paciente_id IS NULL", (), 100)
+        recentes = checkin.com_alertas(checkin.lista(cur, "k.paciente_id IS NOT NULL", (), 80))
+        cur.execute("SELECT nome FROM paciente ORDER BY nome")
+        nomes = [r[0] for r in cur.fetchall()]
+    return render_template("checkins.html", sem=sem, recentes=recentes, nomes=nomes, ligado=checkin.configurado(cfg),
+                           aviso_email=checkin.aviso_email if checkin.usa_email(cfg) else None)
+
+
+@app.route("/checkins/buscar", methods=["POST"])
+def buscar_checkins():
+    try:
+        with conectar() as con:
+            novas, sem = checkin.sincronizar(con.cursor(), contatos.carregar())
+        flash(f"{novas} resposta(s) nova(s)." + (f" {sem} sem paciente identificado: escolha abaixo." if sem else "")
+              if novas else "Nenhuma resposta nova.")
+    except checkin.ErroGoogle as e:
+        flash(str(e), "aviso")
+    return redirect(url_for("checkins"))
+
+
+@app.route("/checkin/<int:cid>/paciente", methods=["POST"])
+def checkin_paciente(cid):
+    nome = request.form.get("paciente", "")
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute("SELECT id, nome FROM paciente")
+        achados = [i for i, n in cur.fetchall() if norm(n) == norm(nome)]
+        if len(achados) != 1:
+            flash(f"Não achei um paciente só com o nome “{nome}”. Escolha um nome da lista.", "aviso")
+        else:
+            cur.execute("UPDATE checkin SET paciente_id = %s WHERE id = %s", (achados[0], cid))
+            flash("Check-in ligado ao paciente.")
+    return redirect(url_for("checkins"))
+
+
+@app.route("/checkin/<int:cid>/excluir", methods=["POST"])
+def checkin_excluir(cid):
+    with conectar() as con:
+        con.execute("UPDATE checkin SET excluido = true WHERE id = %s", (cid,))
+    flash("Resposta excluída do sistema. No Google ela continua, mas não volta para cá.")
+    return redirect(request.form.get("voltar") or url_for("checkins"))
 
 
 if __name__ == "__main__":

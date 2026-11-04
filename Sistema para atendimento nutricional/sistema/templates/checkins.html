@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_macros.html" import tabela_checkins %}
+{% block titulo %}Check-ins{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">Formulário Google</p>
+  <h1>Check-ins</h1>
+  <p class="sub">Respostas do check-in semanal dos pacientes</p>
+</div>
+{% if ligado %}
+<form method="post" action="{{ url_for('buscar_checkins') }}" class="acoes"><button class="btn pri">Buscar respostas agora</button></form>
+{% endif %}
+{% endblock %}
+{% block corpo %}
+{% if not ligado %}
+<div class="card">
+  <h2>O check-in ainda não está ligado ao Google</h2>
+  <p style="margin:0">Faça a instalação uma vez em <a href="{{ url_for('configuracao') }}#checkin">Configuração › Check-in</a>.
+    Depois disso, os pedidos de check-in aparecem em Contatos e as respostas chegam aqui sozinhas.</p>
+</div>
+{% else %}
+<p class="note">As respostas também são buscadas sozinhas ao abrir Contatos ou a ficha de um paciente (no máximo a cada 10 minutos).</p>
+{% endif %}
+
+{% if aviso_email %}<div class="msg aviso">E-mail automático: {{ aviso_email }}</div>{% endif %}
+
+{% if sem %}
+<div class="card">
+  <h2>Sem paciente identificado ({{ sem|length }})</h2>
+  <p class="note">O nome escrito no formulário não bateu com nenhum paciente (ou bateu com dois). Escolha de quem é cada resposta.</p>
+  <datalist id="nomes">{% for n in nomes %}<option value="{{ n }}">{% endfor %}</datalist>
+  <div class="lista">
+    {% for k in sem %}
+    <form method="post" action="{{ url_for('checkin_paciente', cid=k.id) }}" class="item">
+      <div class="quem">
+        <span><b>{{ k.nome_informado or 'Nome não informado' }}</b></span>
+        <span class="note">{{ k.respondido_em.strftime('%d/%m/%Y %H:%M') }}{% if k.peso_kg is not none %} · {{ k.peso_kg|num }} kg{% endif %}</span>
+      </div>
+      <div class="acoes">
+        <input class="texto" name="paciente" list="nomes" placeholder="Nome do paciente" required aria-label="Paciente"
+          style="font:14px var(--sans);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--ink);min-width:0;width:260px;max-width:100%">
+        <button class="btn">Ligar ao paciente</button>
+        <button class="btn perigo" formnovalidate formaction="{{ url_for('checkin_excluir', cid=k.id) }}"
+          onclick="if(this.dataset.ok){return true} this.dataset.ok=1; this.textContent='Excluir mesmo?'; return false">Excluir</button>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="padding:6px 8px">
+  <h2 style="padding:10px 10px 0">Últimos check-ins</h2>
+  {% if recentes %}
+    {{ tabela_checkins(recentes, com_nome=true, voltar=url_for('checkins')) }}
+    <p class="note" style="padding:4px 10px 10px">Notas de 1 a 5, em que 5 é sempre o melhor: plano (quanto seguiu),
+      fome (5 = controlada), sono e energia. Notas 1 e 2 ficam em vermelho.</p>
+  {% else %}
+    <p class="vazio" style="padding:4px 10px 12px">Nenhum check-in recebido ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}

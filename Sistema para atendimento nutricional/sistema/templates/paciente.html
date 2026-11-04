@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import mensagem_zap %}
+{% from "_macros.html" import mensagem_zap, tabela_checkins %}
 {% block titulo %}{{ p.nome }}{% endblock %}
 {% macro kpi(rotulo, col, un) %}
 <div class="kpi"><span class="k">{{ rotulo }}</span>
@@ -159,10 +159,16 @@
         <input id="retorno" type="date" name="retorno_em" value="{{ p.retorno_em.isoformat() if p.retorno_em }}"></div>
       <div class="campo"><label for="tel">Telefone (WhatsApp)</label>
         <input class="texto" id="tel" name="telefone" value="{{ p.telefone or '' }}" placeholder="DDD + número"></div>
+      <div class="campo"><label for="email">E-mail (check-in automático)</label>
+        <input class="texto" id="email" name="email" type="email" value="{{ p.email or '' }}"></div>
     </div>
     <label class="note" style="display:flex;gap:8px;align-items:center">
       <input type="checkbox" name="whatsapp_bloqueado" value="1" {{ 'checked' if p.whatsapp_bloqueado }}>
       Não quer receber mensagens (some dos lembretes)
+    </label>
+    <label class="note" style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" name="checkin_pausado" value="1" {{ 'checked' if p.checkin_pausado }}>
+      Não pedir check-in semanal a este paciente
     </label>
     <div class="acoes"><button class="btn pri">Salvar</button></div>
     {% if historico %}
@@ -180,6 +186,39 @@
       {% endfor %}
     </div>
   </div>
+</div>
+
+<div class="card" id="checkin" style="padding:6px 8px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding:10px 10px 0">
+    <h2>Check-in semanal</h2>
+    <span class="note">{% if checkins %}Último em {{ checkins[0].respondido_em.strftime('%d/%m/%Y') }} · {{ checkins|length }} resposta{{ 's' if checkins|length != 1 }}{% if checkins|length >= 26 %} (as mais recentes){% endif %}
+      {% elif not checkin_ligado %}<a href="{{ url_for('configuracao') }}#checkin">Ligar o check-in ao Google</a>
+      {% elif p.checkin_pausado %}Pausado para este paciente{% else %}Ainda não respondeu{% endif %}</span>
+  </div>
+  {% if checkin_ligado and not p.checkin_pausado and not p.whatsapp_bloqueado %}
+  <p class="note" style="padding:0 10px;margin:0">{% if checkin_email and email_ok %}Recebe o pedido por e-mail automático ({{ p.email }});
+    se não responder, aparece em Contatos para o WhatsApp.{% elif checkin_email %}Sem e-mail cadastrado: recebe o pedido só pelo WhatsApp.
+    Cadastre o e-mail no Acompanhamento para o envio automático.{% else %}Pedido pelo WhatsApp, em Contatos.{% endif %}</p>
+  {% endif %}
+  {% if grafico %}
+  <svg class="graf-peso" viewBox="0 0 {{ grafico.largura }} {{ grafico.altura }}" role="img" aria-label="Peso informado nos check-ins">
+    <polyline points="{{ grafico.linha }}"/>
+    {% for pt in grafico.pontos %}
+    <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="4"><title>{{ pt.data.strftime('%d/%m') }}: {{ pt.peso|num }} kg</title></circle>
+    {% if loop.first or loop.last or grafico.pontos|length <= 8 %}
+    <text x="{{ pt.x }}" y="{{ pt.y - 9 }}" text-anchor="middle">{{ pt.peso|num }}</text>
+    <text x="{{ pt.x }}" y="{{ grafico.altura - 6 }}" text-anchor="middle">{{ pt.data.strftime('%d/%m') }}</text>
+    {% endif %}
+    {% endfor %}
+  </svg>
+  <p class="note" style="padding:0 10px">Peso informado pelo paciente em casa (kg). As avaliações do consultório ficam na tabela acima.</p>
+  {% endif %}
+  {% if checkins %}
+    {{ tabela_checkins(checkins, voltar=url_for('paciente', pid=p.id) + '#checkin') }}
+  {% else %}
+    <p class="vazio" style="padding:4px 10px 12px">Nenhum check-in deste paciente.{% if checkin_ligado and not p.checkin_pausado %}
+      Mande o pedido pelo card WhatsApp acima, ou espere ele aparecer em Contatos.{% endif %}</p>
+  {% endif %}
 </div>
 </section>
 <script>

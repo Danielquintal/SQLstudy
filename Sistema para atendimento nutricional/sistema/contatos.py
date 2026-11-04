@@ -2,14 +2,24 @@
 
 As mensagens ficam em sistema/config.json, editáveis na tela Configuração.
 """
-import json, re
+import json, os, re
 from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import quote
 
-CONFIG = Path(__file__).resolve().parent / "config.json"
+import checkin
+
+CONFIG = Path(os.environ.get("SISTEMA_CONFIG") or Path(__file__).resolve().parent / "config.json")   # outro arquivo só nos testes
 PADRAO = {
     "retorno_dias_antes": 1,
+    # check-in pelo Formulário Google: url e chave do script; formulario = link com a marca no lugar do nome
+    "checkin": {"url": "", "chave": "", "formulario": "", "marca": "NOME_DO_PACIENTE", "dias": 7, "ativo_dias": 90,
+                "versao": 0,
+                # e-mail automático, enviado pelo script do Google; quem não responde em N dias vai para o WhatsApp
+                "email_ativo": False, "email_espera": 2, "email_remetente": "Daniel Quintal · Nutricionista",
+                "email_assunto": "Seu check-in da semana, {primeiro_nome}",
+                "email_texto": "Oi, {primeiro_nome}!\n\nChegou a hora do check-in da semana. São 2 minutinhos e me "
+                               "ajudam muito a acompanhar você até a próxima consulta.\n\nUm abraço,\nDaniel Quintal"},
     "mensagens": {
         "retorno": "Olá, {primeiro_nome}! Passando para lembrar da sua consulta {quando} ({data_retorno}). "
                    "Se precisar remarcar, é só me avisar por aqui. Daniel Quintal, nutricionista",
@@ -17,11 +27,14 @@ PADRAO = {
                     "com os gráficos atualizados: {link_evolucao}",
         "aniversario": "Feliz aniversário, {primeiro_nome}! Desejo um ano cheio de saúde e conquistas. "
                        "Um abraço, Daniel Quintal",
+        "checkin": "Oi, {primeiro_nome}! Hora do check-in da semana: são 2 minutinhos e me ajudam muito a "
+                   "acompanhar você até a próxima consulta. É só responder por este link: {link_checkin}",
         "livre": "Olá, {primeiro_nome}! ",
     },
 }
-TITULOS = {"retorno": "Lembrete de retorno", "evolucao": "Link da evolução", "aniversario": "Aniversário",
-           "livre": "Mensagem livre"}
+TITULOS = {"retorno": "Lembrete de retorno", "checkin": "Pedido de check-in", "evolucao": "Link da evolução",
+           "aniversario": "Aniversário", "livre": "Mensagem livre"}
+ROTULOS = dict(TITULOS, checkin_email="Check-in por e-mail")   # nomes no histórico de contatos
 VARIAVEIS = {
     "{primeiro_nome}": "primeiro nome do paciente",
     "{nome}": "nome completo",
@@ -29,6 +42,7 @@ VARIAVEIS = {
     "{quando}": "hoje, amanhã ou o dia da semana da consulta",
     "{data_avaliacao}": "data da última avaliação",
     "{link_evolucao}": "link publicado da página de evolução",
+    "{link_checkin}": "link do formulário de check-in, já com o nome do paciente",
 }
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
 
@@ -39,7 +53,8 @@ def carregar():
         salvo = json.loads(CONFIG.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         return cfg
-    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k != "mensagens"})
+    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k not in ("mensagens", "checkin")})
+    cfg["checkin"].update(salvo.get("checkin", {}))
     cfg["mensagens"].update({k: v for k, v in salvo.get("mensagens", {}).items() if k in TITULOS})
     return cfg
 
@@ -67,7 +82,8 @@ def quando(d, hoje=None):
 
 def mensagem(cfg, tipo, p, extra=None):
     """texto da mensagem com as variáveis trocadas pelos dados do paciente"""
-    v = {"{primeiro_nome}": p["nome"].split()[0].title(), "{nome}": p["nome"]}
+    v = {"{primeiro_nome}": p["nome"].split()[0].title(), "{nome}": p["nome"],
+         "{link_checkin}": checkin.link_formulario(cfg, p["nome"])}
     if p.get("retorno_em"):
         v["{data_retorno}"] = p["retorno_em"].strftime("%d/%m")
         v["{quando}"] = quando(p["retorno_em"])
@@ -110,6 +126,31 @@ def pendencias(cur, cfg, hoje=None):
     for r in cur.fetchall():
         p = dict(zip(nomes, r))
         lista.append(("aniversario", p, f"Faz {hoje.year - p['data_nascimento'].year} anos hoje"))
+
+    # check-in: pacientes ativos (consulta nos últimos N dias ou retorno marcado) sem resposta nem pedido há uma semana.
+    # Quem tem e-mail e o e-mail automático ligado recebe primeiro o e-mail; se não responder em N dias, vem para cá.
+    if checkin.configurado(cfg):
+        ck = cfg["checkin"]
+        dias, espera, por_email = int(ck.get("dias", 7)), int(ck.get("email_espera", 2)), checkin.usa_email(cfg)
+        cur.execute(f"""SELECT {campos}, p.email,
+                (SELECT max(respondido_em)::date FROM checkin k WHERE k.paciente_id = p.id AND NOT k.excluido),
+                (SELECT max(feito_em)::date FROM contato c WHERE c.paciente_id = p.id AND c.tipo = 'checkin'),
+                (SELECT max(feito_em)::date FROM contato c WHERE c.paciente_id = p.id AND c.tipo = 'checkin_email')
+            FROM paciente p WHERE {checkin.ATIVOS} ORDER BY p.nome""",
+                    {"hoje": hoje, "desde": hoje - timedelta(days=int(ck.get("ativo_dias", 90)))})
+        for r in cur.fetchall():
+            p = dict(zip(nomes, r[:len(nomes)]))
+            email, respondeu, pedido, enviado = r[len(nomes):]
+            ultimo = max([d for d in (respondeu, pedido) if d], default=None)
+            if ultimo is not None and (hoje - ultimo).days < dias:
+                continue   # respondeu ou recebeu o WhatsApp nesta semana
+            if por_email and checkin.email_valido(email):
+                # e-mail desta semana, depois da última resposta, há N dias ou mais: lembrar no WhatsApp
+                if enviado and (not respondeu or enviado > respondeu) and espera <= (hoje - enviado).days < dias:
+                    lista.append(("checkin", p, f"E-mail enviado em {enviado:%d/%m} e ainda sem resposta"))
+                continue   # senão o e-mail automático cuida
+            lista.append(("checkin", p, f"Último check-in em {respondeu:%d/%m}" if respondeu
+                          else "Ainda não fez check-in"))
     return lista
 
 

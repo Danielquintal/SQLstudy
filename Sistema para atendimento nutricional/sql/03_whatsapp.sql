@@ -16,6 +16,5 @@ CREATE TABLE IF NOT EXISTS contato (
 );
 CREATE INDEX IF NOT EXISTS contato_paciente_idx ON contato (paciente_id, tipo, feito_em);
 
--- o check-in foi testado e retirado em 03/11/2026: tira o que ele criou, se ainda existir
-DROP TABLE IF EXISTS checkin;
+-- colunas da primeira versão do check-in (com código), retirada em 03/11/2026; a atual está em 08_checkin.sql
 ALTER TABLE paciente DROP COLUMN IF EXISTS checkin_dias, DROP COLUMN IF EXISTS checkin_codigo;

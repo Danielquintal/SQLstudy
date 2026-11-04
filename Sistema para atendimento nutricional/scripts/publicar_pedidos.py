@@ -17,7 +17,7 @@ from atualizar_paciente import CONEXAO, PAGINAS, TEMPLATE, avaliacoes_do_banco, 
 from montar_pagina import montar
 from plano import plano_do_banco
 from planilha_paciente import safe_name
-import links
+import checkin, contatos, links
 
 
 def preparar():
@@ -26,6 +26,7 @@ def preparar():
         print("Nenhum link pedido.")
         return
     PAGINAS.mkdir(parents=True, exist_ok=True)
+    cfg = contatos.carregar()
     with psycopg.connect(CONEXAO) as con:
         cur = con.cursor()
         for p in fila:
@@ -43,7 +44,7 @@ def preparar():
             homonimo = cur.fetchone()[0] > 0
             sufixo = f" ({p['id']})" if homonimo else ""
             arq = PAGINAS / f"{safe_name(nome)}{sufixo}.html"
-            montar(str(TEMPLATE), nome, avs, plano_do_banco(cur, p["id"]), str(arq))
+            montar(str(TEMPLATE), nome, avs, plano_do_banco(cur, p["id"]), str(arq), checkin.link_paciente(cur, cfg, p["id"], nome))
             atual = links.artefato(p["id"], nome)
             print(json.dumps({"id": p["id"], "nome": nome, "arquivo": str(arq), "url_atual": atual and atual.get("url"),
                               "motivo": p["motivo"]}, ensure_ascii=False))
