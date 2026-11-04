@@ -26,7 +26,7 @@
 </div>
 {% endblock %}
 {% block corpo %}
-{% if avs %}
+{% if tem_pagina %}
 <nav class="abas" role="tablist" aria-label="Ficha do paciente">
   <a class="aba" role="tab" href="#ficha" data-aba="ficha" aria-selected="true">Ficha</a>
   <a class="aba" role="tab" href="#evolucao" data-aba="evolucao" aria-selected="false">Evolução (página do paciente)</a>
@@ -53,15 +53,18 @@
   {% if url %}
   <p style="margin:0">Link publicado: <a href="{{ url }}" target="_blank" rel="noopener">{{ url }}</a>
     {% if art.publicado_em %}<span class="note"> · atualizado em {{ art.publicado_em[8:10] }}/{{ art.publicado_em[5:7] }}/{{ art.publicado_em[:4] }}</span>{% endif %}</p>
-  {% elif avs %}
-  <p class="note">Ainda sem link publicado. Peça o link para poder enviar a página ao paciente.</p>
+  {% elif tem_pagina %}
+  <p class="note">Ainda sem link publicado. Peça o link para poder enviar a página ao paciente.
+    {% if not avs %}Enquanto não houver avaliação, a página mostra {{ 'o plano alimentar' if planos }}{{ ' e ' if planos and checkin_ligado }}{{ 'o check-in' if checkin_ligado }}; os gráficos entram depois da primeira avaliação.{% endif %}</p>
+  {% else %}
+  <p class="note">O link fica disponível quando o paciente tiver uma avaliação ou um plano alimentar.</p>
   {% endif %}
   {% if pedido %}
   <p class="msg aviso" style="margin:0">Na fila para {{ 'atualizar o link' if pedido.motivo == 'atualizar' else 'ganhar o link' }}.
     Peça ao Claude: “publique os links pedidos”.</p>
   {% endif %}
   <div class="acoes">
-    {% if avs %}
+    {% if tem_pagina %}
       <form method="post" action="{{ url_for('pedir_link', pid=p.id) }}">
         {% if pedido %}<button class="btn" name="cancelar" value="1">Cancelar pedido</button>
         {% else %}<button class="btn pri">{{ 'Pedir atualização do link' if url else 'Pedir link' }}</button>{% endif %}
@@ -100,7 +103,7 @@
     {% endfor %}
     </tbody>
   </table></div>
-  {% if avs %}<div class="acoes"><a class="btn" href="{{ url_for('evolucao', pid=p.id) }}#plano" target="_blank" rel="noopener">Ver como o paciente vê</a></div>{% endif %}
+  {% if tem_pagina %}<div class="acoes"><a class="btn" href="{{ url_for('evolucao', pid=p.id) }}#plano" target="_blank" rel="noopener">Ver como o paciente vê</a></div>{% endif %}
   {% else %}
   <p class="note">Nenhum plano na página deste paciente. Envie o PDF e ele aparece na aba “Plano alimentar” do link.</p>
   {% endif %}
@@ -151,11 +154,37 @@
   {% endif %}
 </div>
 
+<div class="card" id="consultas">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2>Consultas</h2>
+    <a class="btn pri" href="{{ url_for('consulta', paciente=p.id) }}">+ Agendar consulta</a>
+  </div>
+  {% if proximas or passadas %}
+  <div class="lista-consultas">
+    {% for c in proximas %}
+    <a class="cons" href="{{ url_for('consulta', cid=c.id) }}">
+      <span class="quando"><b>{{ c.inicio.strftime('%d/%m/%Y') }}</b> {{ c.inicio.strftime('%H:%M') }}</span>
+      <span class="chip st-{{ c.status }}">{{ status_consulta[c.status] }}</span>
+      <span class="note">{{ 'Online' if c.modalidade == 'online' else 'Presencial' }}{% if c.whatsapp_enviado_em or c.email_enviado_em %} · confirmação enviada{% elif c.status in ('agendada', 'confirmada') %} · <span class="falta">confirmação não enviada</span>{% endif %}</span>
+    </a>
+    {% endfor %}
+    {% for c in passadas %}
+    <a class="cons passada" href="{{ url_for('consulta', cid=c.id) }}">
+      <span class="quando">{{ c.inicio.strftime('%d/%m/%Y %H:%M') }}</span>
+      <span class="chip st-{{ c.status }}">{{ status_consulta[c.status] }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="note" style="margin:0">Nenhuma consulta agendada pelo sistema.</p>
+  {% endif %}
+</div>
+
 <div class="duas" id="acompanhamento">
   <form method="post" action="{{ url_for('acompanhamento', pid=p.id) }}" class="card">
     <h2>Acompanhamento</h2>
     <div class="cadastro">
-      <div class="campo"><label for="retorno">Próxima consulta</label>
+      <div class="campo"><label for="retorno">Próxima consulta <span class="note">(a Agenda preenche)</span></label>
         <input id="retorno" type="date" name="retorno_em" value="{{ p.retorno_em.isoformat() if p.retorno_em }}"></div>
       <div class="campo"><label for="tel">Telefone (WhatsApp)</label>
         <input class="texto" id="tel" name="telefone" value="{{ p.telefone or '' }}" placeholder="DDD + número"></div>

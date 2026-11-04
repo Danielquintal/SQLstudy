@@ -1,5 +1,7 @@
 /**
  * Check-in semanal dos pacientes: cria o Formulário Google e entrega as respostas ao sistema local.
+ * Também envia, pela sua conta Google, os e-mails do check-in automático e as confirmações de consulta da Agenda,
+ * e coloca as consultas da Agenda no seu Google Agenda (agenda principal).
  *
  * Como instalar (uma vez só; o passo a passo também está na tela Configuração do sistema):
  *  1. Em script.google.com, clique em "Novo projeto", apague o que vier escrito e cole este código. Salve.
@@ -42,7 +44,8 @@ const PERGUNTAS = [
   ['comentario', 'paragrafo', 'Quer me contar mais alguma coisa? (opcional)', '', false],
 ];
 const MARCA_NOME = 'NOME_DO_PACIENTE';   // o sistema troca pelo nome de cada paciente no link
-const VERSAO = 2;                        // o sistema confere para saber se o código está atualizado
+const VERSAO = 4;                        // o sistema confere para saber se o código está atualizado
+const TAG = 'sistemaConsulta';           // marca os eventos criados pelo sistema (não voltam como "outros compromissos")
 
 function criar() {
   const props = PropertiesService.getScriptProperties();
@@ -96,6 +99,16 @@ function doGet(e) {
                   respostas: f.getResponses().length, emails: estadoEmails() });
   }
   if (p.acao === 'emails') return json({ versao: VERSAO, emails: estadoEmails() });
+  if (p.acao === 'eventos') {
+    // seus outros compromissos no Google Agenda, para a agenda do sistema mostrar (os criados pelo sistema ficam de fora)
+    const de = new Date(p.de), ate = new Date(p.ate);
+    if (isNaN(de) || isNaN(ate)) return json({ erro: 'datas' });
+    const eventos = CalendarApp.getDefaultCalendar().getEvents(de, ate)
+      .filter(e => !e.getTag(TAG))
+      .map(e => ({ titulo: e.getTitle(), inicio: e.getStartTime().toISOString(), fim: e.getEndTime().toISOString(),
+                   dia_todo: e.isAllDayEvent() }));
+    return json({ versao: VERSAO, eventos: eventos });
+  }
   const desde = p.desde ? new Date(p.desde) : null;
   const lista = (desde && !isNaN(desde) ? f.getResponses(desde) : f.getResponses()).map(r => {
     const itens = {};
@@ -122,6 +135,48 @@ function doPost(e) {
   let d;
   try { d = JSON.parse(e.postData.contents); } catch (err) { return json({ erro: 'formato' }); }
   if (!props.getProperty('CHAVE') || d.chave !== props.getProperty('CHAVE')) return json({ erro: 'chave' });
+  if (d.acao === 'email') {
+    // e-mail avulso do sistema (ex.: confirmação de consulta), com convite de calendário (.ics) se vier
+    if (!d.para) return json({ erro: 'sem_email' });
+    const opcoes = { to: d.para, subject: d.assunto || '', name: d.remetente || '', body: d.texto || '',
+                     htmlBody: String(d.texto || '').split('\n').map(l => l ? l.replace(/&/g, '&amp;').replace(/</g, '&lt;') : '&nbsp;').join('<br>') };
+    if (d.ics) opcoes.attachments = [Utilities.newBlob(d.ics, 'text/calendar', 'consulta.ics')];
+    try {
+      MailApp.sendEmail(opcoes);
+    } catch (err) {
+      return json({ erro: 'envio', detalhe: String(err).slice(0, 200) });
+    }
+    return json({ ok: true, versao: VERSAO, cota: MailApp.getRemainingDailyQuota() });
+  }
+  if (d.acao === 'evento') {
+    // cria, atualiza ou apaga o evento da consulta no Google Agenda
+    const cal = CalendarApp.getDefaultCalendar();
+    let ev = null;
+    if (d.evento) { try { ev = cal.getEventById(d.evento); } catch (err) { ev = null; } }
+    if (d.excluir) {
+      if (ev) ev.deleteEvent();
+      return json({ ok: true, versao: VERSAO });
+    }
+    const ini = new Date(d.inicio), fim = new Date(d.fim);
+    if (isNaN(ini) || isNaN(fim)) return json({ erro: 'datas' });
+    try {
+      if (ev) {
+        ev.setTime(ini, fim);
+        ev.setTitle(d.titulo || 'Consulta');
+        ev.setLocation(d.local || '');
+        ev.setDescription(d.descricao || '');
+      } else {
+        ev = cal.createEvent(d.titulo || 'Consulta', ini, fim, { location: d.local || '', description: d.descricao || '' });
+        ev.setTag(TAG, String(d.consulta || ''));
+      }
+      if (d.convidado && !ev.getGuestByEmail(d.convidado)) {
+        ev.addGuest(d.convidado);   // o Google manda o convite ao paciente
+      }
+    } catch (err) {
+      return json({ erro: 'agenda', detalhe: String(err).slice(0, 200) });
+    }
+    return json({ ok: true, versao: VERSAO, evento: ev.getId() });
+  }
   if (d.acao === 'pacientes') {
     props.setProperty('EMAIL_CFG', JSON.stringify(d.config || {}));
     const novos = {};

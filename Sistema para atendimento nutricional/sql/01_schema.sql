@@ -2,7 +2,8 @@
 -- Rodar conectado ao banco "app_naive":  psql -U postgres -d app_naive -f 01_schema.sql
 SET client_encoding = 'UTF8';
 
-DROP TABLE IF EXISTS checkin;   -- tabelas de sql/03_whatsapp.sql, 04_plano.sql e 08_checkin.sql, que dependem de paciente
+DROP TABLE IF EXISTS consulta;  -- tabelas de sql/03_whatsapp.sql, 04_plano.sql, 08_checkin.sql e 09_agenda.sql, que dependem de paciente
+DROP TABLE IF EXISTS checkin;
 DROP TABLE IF EXISTS contato;
 DROP TABLE IF EXISTS plano_alimentar;
 DROP VIEW IF EXISTS vw_resumo_paciente;

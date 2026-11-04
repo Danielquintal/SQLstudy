@@ -37,14 +37,15 @@ def preparar():
                 continue
             nome = r[0]
             avs = [para_app_naive(a) for a in avaliacoes_do_banco(cur, p["id"])]
-            if not avs:
-                print(json.dumps({"id": p["id"], "nome": nome, "erro": "sem avaliações"}, ensure_ascii=False))
+            plano, link_ck = plano_do_banco(cur, p["id"]), checkin.link_paciente(cur, cfg, p["id"], nome)
+            if not (avs or plano or link_ck):
+                print(json.dumps({"id": p["id"], "nome": nome, "erro": "sem avaliação, plano ou check-in"}, ensure_ascii=False))
                 continue
             cur.execute("SELECT count(*) FROM paciente WHERE id <> %s AND lower(nome) = lower(%s)", (p["id"], nome))
             homonimo = cur.fetchone()[0] > 0
             sufixo = f" ({p['id']})" if homonimo else ""
             arq = PAGINAS / f"{safe_name(nome)}{sufixo}.html"
-            montar(str(TEMPLATE), nome, avs, plano_do_banco(cur, p["id"]), str(arq), checkin.link_paciente(cur, cfg, p["id"], nome))
+            montar(str(TEMPLATE), nome, avs, plano, str(arq), link_ck)
             atual = links.artefato(p["id"], nome)
             print(json.dumps({"id": p["id"], "nome": nome, "arquivo": str(arq), "url_atual": atual and atual.get("url"),
                               "motivo": p["motivo"]}, ensure_ascii=False))

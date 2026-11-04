@@ -48,6 +48,22 @@
       </div>
     </div>
 
+    <div class="card" id="agua">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <h2>Ingestão hídrica</h2>
+        <label class="chave" title="Exibir no planejamento alimentar"><input type="checkbox" id="a-exibir"><span></span></label>
+      </div>
+      <p class="note" id="a-base"></p>
+      <div class="agua-meta">
+        <div class="campo"><label for="a-ml">Meta (ml/dia)</label><input id="a-ml" inputmode="numeric"></div>
+        <button type="button" class="btn" id="a-recalc" title="Voltar para a meta calculada pelo peso">↻ Recalcular</button>
+      </div>
+      <p class="note" id="a-copos"></p>
+      <div class="campo"><label for="a-dir">Diretriz aplicada</label>
+        <select id="a-dir">{% for k, v in diretrizes_agua.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+      <p class="note" id="a-exibe"></p>
+    </div>
+
     <div class="card">
       <h2>Plano montado</h2>
       <div class="total-kcal"><b id="t-kcal">0</b><span>kcal</span><span class="note" id="t-diff"></span></div>
@@ -116,6 +132,24 @@ function energia() {
   return meta;
 }
 
+// ---------- água (a mesma conta de scripts/nutricao.py) ----------
+E.agua = E.agua || { ml_kg: 33, ml: null, exibir: true };
+const PESO_INICIAL = num(E.energia.peso);   // o peso que veio da avaliação (ou o do plano salvo)
+function agua() {
+  const a = E.agua, peso = num(E.energia.peso), mlkg = num(a.ml_kg) || 33;
+  const calculada = peso ? Math.round(peso * mlkg) : null;
+  const manual = num(a.ml);
+  const ml = manual || calculada;
+  $('a-base').textContent = peso
+    ? `Peso ${br(peso, 1)} kg${peso === PESO_INICIAL && !PLID ? '{% if base.data_avaliacao %} (última avaliação, {{ base.data_avaliacao }}){% endif %}' : ''} × ${br(mlkg)} ml/kg = ${calculada ? br(calculada) : '–'} ml.`
+    : 'Informe o peso em Meta energética para calcular.';
+  if (document.activeElement !== $('a-ml')) $('a-ml').value = ml ? Math.round(ml) : '';
+  $('a-copos').textContent = ml ? `Aproximadamente ${Math.ceil(ml / 300)} copos de 300 ml${manual ? ' · meta digitada por você' : ''}` : '';
+  $('a-recalc').hidden = !manual;
+  $('a-exibe').textContent = a.exibir === false ? 'Não aparece na página do paciente.' : 'Aparece no plano, na página do paciente.';
+  $('agua').classList.toggle('desligada', a.exibir === false);
+}
+
 // ---------- nutrientes ----------
 function nutr(aid, g) {
   const a = ALIM[aid], f = (g || 0) / 100, o = {};
@@ -147,6 +181,7 @@ function atualizarTrocas(k) {
 }
 
 function totais() {
+  agua();
   const meta = energia();
   const todos = [];
   E.refeicoes.forEach((r, ri) => {
@@ -378,6 +413,14 @@ $('e-acamado').checked = !!E.energia.acamado;
 $('e-acamado').onchange = ev => { E.energia.acamado = ev.target.checked; formulaManual = false; sujo = true; totais(); };
 $('e-formula').value = E.energia.formula || 'harris';
 $('e-formula').onchange = ev => { E.energia.formula = ev.target.value; formulaManual = true; sujo = true; totais(); };
+
+$('a-exibir').checked = E.agua.exibir !== false;
+$('a-exibir').onchange = ev => { E.agua.exibir = ev.target.checked; sujo = true; agua(); };
+$('a-dir').value = String(E.agua.ml_kg || 33);
+$('a-dir').onchange = ev => { E.agua.ml_kg = Number(ev.target.value); E.agua.ml = null; sujo = true; agua(); };
+$('a-ml').addEventListener('input', ev => { E.agua.ml = ev.target.value.trim() || null; sujo = true; agua(); });
+$('a-ml').addEventListener('blur', agua);
+$('a-recalc').onclick = () => { E.agua.ml = null; sujo = true; agua(); };
 
 // salvar
 $('salvar').onclick = async () => {

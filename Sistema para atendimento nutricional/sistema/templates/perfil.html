@@ -72,9 +72,37 @@
     <a class="btn" href="{{ url_for('paciente', pid=p.id) }}">Cancelar</a>
   </div></div>
 </form>
+<form method="post" action="{{ url_for('excluir_paciente', pid=p.id) }}" class="card zona-perigo" id="excluir">
+  <h2>Excluir paciente</h2>
+  <p style="margin:0">Apaga {{ p.nome }} do sistema, com {{ n_avs }} avaliação(ões), {{ n_planos }} plano(s) alimentar(es),
+    {{ n_checkins }} check-in(s) e o histórico de contatos. Antes de apagar, o sistema guarda uma cópia completa em
+    <code>_backup/pacientes_excluidos</code> e move a planilha para a pasta “Excluídos”.</p>
+  {% if art %}<p class="note" style="margin:0">O link publicado da página do paciente não é apagado sozinho: depois, peça ao Claude
+    para apagá-lo.</p>{% endif %}
+  <div class="acoes">
+    <button type="button" class="btn perigo" id="excluir-abrir">Excluir paciente…</button>
+    <span class="confirma" id="excluir-confirma" hidden>
+      <label for="confirma">Digite <b>EXCLUIR</b> para confirmar:</label>
+      <input class="texto" id="confirma" name="confirma" autocomplete="off" style="width:120px">
+      <button class="btn perigo cheio" id="excluir-ok" disabled>Excluir de vez</button>
+      <button type="button" class="btn" id="excluir-cancelar">Cancelar</button>
+    </span>
+  </div>
+</form>
 <script>
+document.getElementById('excluir-abrir').onclick = e => {
+  e.target.hidden = true; document.getElementById('excluir-confirma').hidden = false; document.getElementById('confirma').focus();
+};
+document.getElementById('excluir-cancelar').onclick = () => {
+  document.getElementById('excluir-confirma').hidden = true; document.getElementById('excluir-abrir').hidden = false;
+  document.getElementById('confirma').value = ''; document.getElementById('excluir-ok').disabled = true;
+};
+document.getElementById('confirma').oninput = e => {
+  document.getElementById('excluir-ok').disabled = e.target.value.trim().toUpperCase() !== 'EXCLUIR';
+};
+document.getElementById('excluir').addEventListener('submit', () => { salvando = true; });
 let mudou = false, salvando = false;
-document.querySelector('form.ficha').addEventListener('input', () => mudou = true);
+document.querySelector('form.ficha').addEventListener('input', e => { if (!e.target.closest('#excluir')) mudou = true; });
 document.querySelector('form.ficha').addEventListener('submit', () => salvando = true);
 addEventListener('beforeunload', e => { if (mudou && !salvando) e.preventDefault(); });
 </script>

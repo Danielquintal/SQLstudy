@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block titulo %}Agenda{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">Consultas</p>
+  <h1>Agenda</h1>
+  <p class="sub">Semana de {{ ini.strftime('%d/%m') }} a {{ fim.strftime('%d/%m/%Y') }} · {{ total }} consulta{{ 's' if total != 1 }}
+    {% if pendentes %} · {{ pendentes }} sem confirmação enviada{% endif %}</p>
+</div>
+<a class="btn pri" href="{{ url_for('consulta') }}">+ Agendar consulta</a>
+{% endblock %}
+{% block corpo %}
+<div class="acoes nav-semana">
+  <a class="btn" href="{{ url_for('agenda_semana', semana=anterior.isoformat()) }}">‹ Semana anterior</a>
+  <a class="btn" href="{{ url_for('agenda_semana') }}">Hoje</a>
+  <a class="btn" href="{{ url_for('agenda_semana', semana=proxima.isoformat()) }}">Próxima semana ›</a>
+  <label class="note ir-data" for="ir-data">Ir para <input id="ir-data" type="date" value="{{ ini.isoformat() }}"></label>
+</div>
+{% if erro_google %}<div class="msg aviso">Não consegui ler o Google Agenda: {{ erro_google }}</div>{% endif %}
+{% if google_ligado %}<p class="note" style="margin:0">Ligada ao seu Google Agenda: as consultas vão para lá, e os seus outros compromissos aparecem aqui em cinza.</p>{% endif %}
+<div class="semana">
+  {% for d, cs in dias %}
+  <section class="dia{{ ' hoje' if d == hoje }}{{ ' passado' if d < hoje }}{{ ' vazio' if not cs }}" aria-label="{{ d.strftime('%d/%m') }}">
+    <header><span class="dsem">{{ ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][d.weekday()] }}</span>
+      <span class="dnum">{{ d.strftime('%d/%m') }}</span>{% if d == hoje %}<span class="chip good">hoje</span>{% endif %}</header>
+    {% for tipo, c, _ in cs %}
+    {% if tipo == 'google' %}
+    <div class="cons google" title="Compromisso do seu Google Agenda">
+      <span class="hora">{{ 'Dia inteiro' if c.dia_todo else c.inicio.strftime('%H:%M') + '–' + c.fim.strftime('%H:%M') }}</span>
+      <span class="nome">{{ c.titulo }}</span>
+      <span class="det">Google Agenda</span>
+    </div>
+    {% else %}
+    <a class="cons st-{{ c.status }}" href="{{ url_for('consulta', cid=c.id) }}">
+      <span class="hora">{{ c.inicio.strftime('%H:%M') }}–{{ c.fim.strftime('%H:%M') }}</span>
+      <span class="nome">{{ c.nome }}</span>
+      <span class="det">{{ modalidades[c.modalidade] }} · <span class="st">{{ status[c.status] }}</span></span>
+      {% if c.status in ('agendada', 'confirmada') and c.inicio > now %}
+      <span class="conf">{% if c.whatsapp_enviado_em %}<span title="Confirmação enviada pelo WhatsApp">WhatsApp ✓</span>{% endif %}
+        {% if c.email_enviado_em %}<span title="Confirmação enviada por e-mail">E-mail ✓</span>{% endif %}
+        {% if not (c.whatsapp_enviado_em or c.email_enviado_em) %}<span class="falta">Confirmação não enviada</span>{% endif %}</span>
+      {% endif %}
+    </a>
+    {% endif %}
+    {% endfor %}
+    <a class="mais" href="{{ url_for('consulta', data=d.isoformat()) }}" aria-label="Agendar em {{ d.strftime('%d/%m') }}">+ agendar</a>
+  </section>
+  {% endfor %}
+</div>
+<script>
+document.getElementById('ir-data').addEventListener('change', e => { if (e.target.value) location = '?semana=' + e.target.value; });
+</script>
+{% endblock %}

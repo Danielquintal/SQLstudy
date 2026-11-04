@@ -10,15 +10,33 @@
 {% block corpo %}
 <div class="busca">
   <input id="busca" type="search" placeholder="Buscar pelo nome (não precisa de acento)" autofocus autocomplete="off" aria-label="Buscar paciente">
+  <label class="ordenar" for="ordenar">Ordenar
+    <select id="ordenar">
+      <option value="ultima:desc">Última avaliação (recentes primeiro)</option>
+      <option value="nome:asc">Nome (A → Z)</option>
+      <option value="nome:desc">Nome (Z → A)</option>
+      <option value="n:desc">Mais avaliações</option>
+      <option value="idade:asc">Idade (mais novos)</option>
+      <option value="idade:desc">Idade (mais velhos)</option>
+      <option value="sexo:asc">Sexo</option>
+    </select>
+  </label>
   <span class="note" id="contagem"></span>
 </div>
 <div class="card" style="padding:6px 8px">
   <div class="tablebox">
   <table>
-    <thead><tr><th class="t">Nome</th><th class="oculta-cel">Sexo</th><th class="oculta-cel">Idade</th><th>Avaliações</th><th>Última</th></tr></thead>
+    <thead><tr>
+      <th class="t" aria-sort="none"><button type="button" class="ordem" data-col="nome">Nome</button></th>
+      <th class="oculta-cel" aria-sort="none"><button type="button" class="ordem" data-col="sexo">Sexo</button></th>
+      <th class="oculta-cel" aria-sort="none"><button type="button" class="ordem" data-col="idade">Idade</button></th>
+      <th aria-sort="none"><button type="button" class="ordem" data-col="n">Avaliações</button></th>
+      <th aria-sort="none"><button type="button" class="ordem" data-col="ultima">Última</button></th>
+    </tr></thead>
     <tbody id="lista">
     {% for p in pacientes %}
-      <tr data-busca="{{ p.busca }}">
+      <tr data-busca="{{ p.busca }}" data-sexo="{{ p.genero or '' }}" data-idade="{{ p.idade if p.idade is not none else '' }}"
+          data-n="{{ p.n or 0 }}" data-ultima="{{ p.ultima.isoformat() if p.ultima else '' }}">
         <td class="t"><a class="linha" href="{{ url_for('paciente', pid=p.id) }}">{{ p.nome }}</a></td>
         <td class="oculta-cel">{{ p.genero or '' }}</td>
         <td class="n oculta-cel">{{ p.idade if p.idade is not none else '' }}</td>
@@ -43,6 +61,39 @@ function filtrar() {
   document.getElementById('nada').hidden = n > 0;
 }
 busca.addEventListener('input', filtrar);
+
+// ordenar: clicar no título da coluna (de novo inverte) ou escolher na caixa "Ordenar"
+const tbody = document.getElementById('lista'), ordenar = document.getElementById('ordenar');
+const PRIMEIRO = { nome: 'asc', sexo: 'asc', idade: 'asc', n: 'desc', ultima: 'desc' };   // sentido do primeiro clique
+const valor = (tr, col) => col === 'nome' ? tr.dataset.busca : col === 'idade' || col === 'n' ? (tr.dataset[col] === '' ? null : +tr.dataset[col]) : tr.dataset[col] || null;
+let atual = { col: 'ultima', dir: 'desc' };
+function ordenarPor(col, dir) {
+  atual = { col, dir };
+  const s = dir === 'asc' ? 1 : -1;
+  linhas.sort((a, b) => {
+    const x = valor(a, col), y = valor(b, col);
+    if (x === null || y === null) return (x === null) - (y === null) || a.dataset.busca.localeCompare(b.dataset.busca);   // vazios no fim
+    const c = typeof x === 'number' ? x - y : x.localeCompare(y, 'pt-BR');
+    return c * s || a.dataset.busca.localeCompare(b.dataset.busca);
+  });
+  linhas.forEach(tr => tbody.appendChild(tr));
+  document.querySelectorAll('th[aria-sort]').forEach(th => {
+    const b = th.querySelector('.ordem');
+    th.setAttribute('aria-sort', b.dataset.col === col ? (dir === 'asc' ? 'ascending' : 'descending') : 'none');
+  });
+  const op = [...ordenar.options].find(o => o.value === `${col}:${dir}`);
+  ordenar.value = op ? op.value : '';
+  try { localStorage.setItem('ordem-pacientes', `${col}:${dir}`); } catch (e) {}
+}
+document.querySelectorAll('.ordem').forEach(b => b.addEventListener('click', () => {
+  const col = b.dataset.col;
+  const dir = atual.col === col ? (atual.dir === 'asc' ? 'desc' : 'asc') : PRIMEIRO[col];
+  ordenarPor(col, dir);
+}));
+ordenar.addEventListener('change', () => { if (ordenar.value) ordenarPor(...ordenar.value.split(':')); });
+let salva = null;
+try { salva = localStorage.getItem('ordem-pacientes'); } catch (e) {}
+if (salva && /^(nome|sexo|idade|n|ultima):(asc|desc)$/.test(salva)) ordenarPor(...salva.split(':'));
 busca.addEventListener('keydown', e => {
   if (e.key === 'Enter') { const t = linhas.find(tr => !tr.hidden); if (t) location = t.querySelector('a').href; }
 });

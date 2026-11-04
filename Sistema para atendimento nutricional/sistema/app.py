@@ -3,8 +3,9 @@
 Uso:  python sistema/app.py   (ou dois cliques em "Abrir sistema.bat")  ->  http://localhost:5000
 Só atende este computador (127.0.0.1). Depois de gravar uma avaliação, gera de novo a planilha e a página do paciente.
 """
-import json, os, sys, webbrowser
+import base64, json, os, shutil, sys, webbrowser
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
@@ -18,6 +19,7 @@ from calculos import calcular
 from campos import CAMPOS, TEXTO
 from montar_pagina import gerar_html, montar
 from planilha_paciente import SECTIONS, build, safe_name
+import agenda
 import checkin
 import contatos
 import links
@@ -91,9 +93,11 @@ def contagem_contatos():
             n = len(contatos.pendencias(cur, contatos.carregar()))
             cur.execute("SELECT count(*) FROM checkin WHERE paciente_id IS NULL AND NOT excluido")
             sem = cur.fetchone()[0]
+            cur.execute("SELECT count(*) FROM consulta WHERE inicio::date = current_date AND status <> 'cancelada'")
+            hoje = cur.fetchone()[0]
     except psycopg.Error:
-        n = sem = 0
-    return {"n_contatos": n, "n_pedidos": len(links.pedidos()), "n_checkin_sem": sem}
+        n = sem = hoje = 0
+    return {"n_contatos": n, "n_pedidos": len(links.pedidos()), "n_checkin_sem": sem, "n_consultas_hoje": hoje}
 
 
 def ler_formulario(form):
@@ -191,6 +195,7 @@ def paciente(pid):
         cur = con.cursor()
         p = buscar_paciente(cur, pid)
         checkins = checkin.com_alertas(checkin.lista(cur, "k.paciente_id = %s", (pid,), 26))
+        consultas = agenda.lista(cur, "c.paciente_id = %s", (pid,))
         avs = avaliacoes_do_banco(cur, pid)
         cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s ORDER BY feito_em DESC LIMIT 6", (pid,))
         historico = cur.fetchall()
@@ -210,10 +215,14 @@ def paciente(pid):
              + (["retorno"] if p["retorno_em"] and p["retorno_em"] >= date.today() else [])
              + (["checkin"] if checkin.configurado(cfg) and not p["checkin_pausado"] else []))
     mensagens = [(t, contatos.TITULOS[t], contatos.mensagem(cfg, t, p, extra)) for t in tipos]
+    # a página do paciente tem conteúdo com avaliação, plano alimentar ou check-in (paciente novo já pode ter link)
+    tem_pagina = bool(avs or planos_paciente or (checkin.configurado(cfg) and not p["checkin_pausado"]))
     return render_template("paciente.html", p=p, avs=list(reversed(avs)), primeira=primeira, ultima=ultima,
                            url=url, art=art, pedido=links.pedido(pid), historico=historico, mensagens=mensagens,
                            planos=planos_paciente, checkins=checkins, grafico=checkin.grafico_peso(checkins),
-                           checkin_ligado=checkin.configurado(cfg), checkin_email=checkin.usa_email(cfg),
+                           checkin_ligado=checkin.configurado(cfg), checkin_email=checkin.usa_email(cfg), tem_pagina=tem_pagina,
+                           proximas=[c for c in consultas if c["fim"] >= datetime.now()],
+                           passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,
                            email_ok=checkin.email_valido(p["email"]),
                            tem_whatsapp=bool(contatos.telefone_whatsapp(p["telefone"])), titulos=contatos.ROTULOS)
 
@@ -226,8 +235,8 @@ def evolucao(pid):
         avs = [para_app_naive(r) for r in avaliacoes_do_banco(cur, pid)]
         plano = planos.plano_do_banco(cur, pid)
         link_ck = checkin.link_paciente(cur, contatos.carregar(), pid, p["nome"])
-    if not avs:
-        flash("Este paciente ainda não tem avaliações.")
+    if not (avs or plano or link_ck):
+        flash("A página deste paciente ainda não tem conteúdo: lance uma avaliação ou um plano alimentar.")
         return redirect(url_for("paciente", pid=pid))
     return gerar_html(str(TEMPLATE), p["nome"], avs, plano, link_ck)
 
@@ -460,13 +469,14 @@ def editor_plano(pid=None, plid=None):
                   "energia": {"sexo": p["genero"], "idade": nutricao.idade_em(p["data_nascimento"]), "peso": peso,
                               "altura": altura, "acamado": False, "formula": nutricao.formula_sugerida(imc),
                               "fa": 1.2, "ajuste": 0},
+                  "agua": {"ml_kg": 33, "ml": None, "exibir": True},
                   "refeicoes": [{"hora": h, "nome": n, "obs": "", "itens": []}
                                 for h, n in (("07:00", "Café da manhã"), ("10:00", "Lanche da manhã"), ("12:30", "Almoço"),
                                              ("16:00", "Lanche da tarde"), ("20:00", "Jantar"))]}
     base = {"imc": round(imc, 1) if imc else None,
             "data_avaliacao": ultima["data_avaliacao"].strftime("%d/%m/%Y") if ultima else None}
     return render_template("editor_plano.html", p=p, plid=plid, editor=editor, alimentos=alimentos, base=base,
-                           formulas=nutricao.FORMULAS, grupos=grupos)
+                           formulas=nutricao.FORMULAS, grupos=grupos, diretrizes_agua=nutricao.DIRETRIZES_AGUA)
 
 
 @app.route("/paciente/<int:pid>/plano/salvar", methods=["POST"])
@@ -696,8 +706,72 @@ def perfil(pid):
                         flash(a, "aviso")
                     flash("Nome alterado: a planilha e a página foram geradas de novo." + pedir_atualizacao(pid, novo["nome"]))
                 return redirect(url_for("paciente", pid=pid))
+        cur.execute("""SELECT (SELECT count(*) FROM plano_alimentar WHERE paciente_id = %(p)s),
+                              (SELECT count(*) FROM checkin WHERE paciente_id = %(p)s AND NOT excluido)""", {"p": pid})
+        n_planos, n_checkins = cur.fetchone()
     return render_template("perfil.html", p={"id": pid, "nome": atual["nome"]}, form=form, erros=erros, ufs=UFS,
-                           n_avs=n_avs)
+                           n_avs=n_avs, n_planos=n_planos, n_checkins=n_checkins, art=links.artefato(pid, atual["nome"]))
+
+
+# ---------- excluir paciente ----------
+EXCLUIDOS = Path(__file__).resolve().parent.parent / "_backup" / "pacientes_excluidos"
+
+
+def _para_json(v):
+    if isinstance(v, (bytes, memoryview)):
+        return {"base64": base64.b64encode(bytes(v)).decode()}   # PDF do plano
+    if isinstance(v, Decimal):
+        return float(v)
+    return str(v)                                                 # datas
+
+
+def _linhas(cur, sql, args):
+    cur.execute(sql, args)
+    cols = [d.name for d in cur.description]
+    return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+@app.route("/paciente/<int:pid>/excluir", methods=["POST"])
+def excluir_paciente(pid):
+    """apaga o paciente e tudo dele; antes, guarda uma cópia completa em _backup/pacientes_excluidos"""
+    if request.form.get("confirma", "").strip().upper() != "EXCLUIR":
+        flash("Nada foi excluído. Para excluir, digite EXCLUIR na caixa de confirmação.", "aviso")
+        return redirect(url_for("perfil", pid=pid) + "#excluir")
+    from atualizar_paciente import PLANILHAS
+    with conectar() as con:
+        cur = con.cursor()
+        p = buscar_paciente(cur, pid)
+        copia = {"excluido_em": datetime.now().isoformat(timespec="seconds"),
+                 "paciente": _linhas(cur, "SELECT * FROM paciente WHERE id = %s", (pid,))[0]}
+        for tabela in ("avaliacao", "plano_alimentar", "contato", "checkin"):
+            copia[tabela] = _linhas(cur, f"SELECT * FROM {tabela} WHERE paciente_id = %s ORDER BY id", (pid,))
+        # planilha e página deste paciente (com homônimo, os arquivos levam um número no nome)
+        cur.execute("SELECT nome FROM paciente WHERE id <> %s", (pid,))
+        homonimo = any(norm(n) == norm(p["nome"]) for n, in cur.fetchall())
+        planilha, _ = achar_planilha(p["nome"], {a["data_avaliacao"] for a in copia["avaliacao"]}, homonimo)
+        pagina = PAGINAS / f"{safe_name(p['nome'])}{f' ({pid})' if homonimo else ''}.html"
+        EXCLUIDOS.mkdir(parents=True, exist_ok=True)
+        arq = EXCLUIDOS / f"{safe_name(p['nome'])} ({pid}) {datetime.now():%Y-%m-%d %H%M%S}.json"
+        arq.write_text(json.dumps(copia, ensure_ascii=False, indent=1, default=_para_json), encoding="utf-8")
+        cur.execute("DELETE FROM paciente WHERE id = %s", (pid,))   # avaliações, planos, contatos e check-ins vão junto
+    pagina.unlink(missing_ok=True)
+    if planilha and planilha.exists():
+        destino = PLANILHAS / "Excluídos" / planilha.name
+        destino.parent.mkdir(exist_ok=True)
+        if destino.exists():
+            destino = destino.with_name(f"{destino.stem} {datetime.now():%Y-%m-%d %H%M%S}{destino.suffix}")
+        try:
+            shutil.move(str(planilha), str(destino))
+        except PermissionError:
+            flash(f"A planilha “{planilha.name}” está aberta no Excel e ficou na pasta. Feche o Excel e apague ou "
+                  f"mova o arquivo se quiser.", "aviso")
+    links.cancelar(pid)
+    art = links.excluir(pid, p["nome"])
+    flash(f"{p['nome']} foi excluído, com {len(copia['avaliacao'])} avaliação(ões) e {len(copia['plano_alimentar'])} "
+          f"plano(s). Uma cópia de tudo ficou em _backup/pacientes_excluidos e a planilha foi para a pasta "
+          f"“Excluídos”." + (" O link publicado continua no ar: para tirá-lo, peça ao Claude “apague o link de "
+                             f"{p['nome']}”." if art else ""))
+    return redirect(url_for("inicio"))
 
 
 def renomear_planilha(antigo, novo):
@@ -844,6 +918,20 @@ def configuracao():
         for t in contatos.TITULOS:
             if request.form.get(f"msg_{t}", "").strip():
                 cfg["mensagens"][t] = request.form[f"msg_{t}"].strip()
+        ag = cfg["agenda"]
+        for k in ("local_presencial", "local_online", "profissional"):     # podem ficar vazios
+            if k in request.form:
+                ag[k] = request.form[k].strip()
+        for k in ("email_assunto", "email_texto"):                          # vazio = mantém o texto atual
+            if request.form.get(k, "").strip():
+                ag[k] = request.form[k].strip().replace("\r\n", "\n")
+        if "agenda_duracao" in request.form:   # o cartão da agenda veio no formulário
+            for k in ("google", "google_convidar", "google_mostrar"):
+                ag[k] = bool(request.form.get(k))
+        try:
+            ag["duracao"] = max(10, min(240, int(request.form.get("agenda_duracao", ag["duracao"]))))
+        except ValueError:
+            pass
         ck = cfg["checkin"]
         ck["email_ativo"] = bool(request.form.get("email_ativo"))
         for k in ("email_remetente", "email_assunto", "email_texto"):
@@ -906,8 +994,208 @@ def configuracao():
     return render_template("configuracao.html", cfg=cfg, titulos=contatos.TITULOS, variaveis=contatos.VARIAVEIS,
                            padrao=contatos.PADRAO["mensagens"], script=checkin.SCRIPT.read_text(encoding="utf-8"),
                            exemplo=checkin.link_formulario(cfg, "Maria da Silva"), estado=estado,
-                           versao_atual=checkin.VERSAO_SCRIPT, n_ativos=len(ativos),
+                           versao_atual=checkin.VERSAO_SCRIPT, versao_email=agenda.VERSAO_EMAIL,
+                           versao_google=agenda.VERSAO_GOOGLE, n_ativos=len(ativos),
                            n_com_email=sum(checkin.email_valido(e) for e in ativos))
+
+
+# ---------- agenda ----------
+
+@app.route("/agenda")
+def agenda_semana():
+    try:
+        ref = date.fromisoformat(request.args.get("semana", ""))
+    except ValueError:
+        ref = date.today()
+    ini = ref - timedelta(days=ref.weekday())
+    cfg = contatos.carregar()
+    with conectar() as con:
+        cs = agenda.lista(con.cursor(), "c.inicio >= %s AND c.inicio < %s", (ini, ini + timedelta(days=7)))
+    google, erro_google = [], None
+    if agenda.google_pronto(cfg) and cfg["agenda"].get("google_mostrar", True):
+        try:
+            google = agenda.eventos_google(cfg, ini, ini + timedelta(days=7))
+        except checkin.ErroGoogle as e:
+            erro_google = str(e)
+    # cada dia: consultas e compromissos do Google, por horário (os de dia inteiro primeiro)
+    dias = []
+    for i in range(7):
+        d = ini + timedelta(days=i)
+        itens = [("consulta", c, c["inicio"]) for c in cs if c["inicio"].date() == d]
+        itens += [("google", g, datetime.combine(d, datetime.min.time()) if g["dia_todo"] else g["inicio"])
+                  for g in google if ((g["inicio"].date() <= d < g["fim"].date()) if g["dia_todo"] else g["inicio"].date() == d)]
+        itens.sort(key=lambda x: x[2])
+        dias.append((d, itens))
+    pendentes = sum(1 for c in cs if c["status"] in ("agendada", "confirmada") and c["inicio"] >= datetime.now()
+                    and not (c["whatsapp_enviado_em"] or c["email_enviado_em"]))
+    return render_template("agenda.html", dias=dias, ini=ini, fim=ini + timedelta(days=6), hoje=date.today(),
+                           google_ligado=agenda.google_pronto(cfg), erro_google=erro_google, n_google=len(google),
+                           anterior=ini - timedelta(days=7), proxima=ini + timedelta(days=7), total=len(cs),
+                           pendentes=pendentes, status=agenda.STATUS, modalidades=agenda.MODALIDADES, now=datetime.now())
+
+
+@app.route("/agenda/nova", methods=["GET", "POST"])
+@app.route("/consulta/<int:cid>", methods=["GET", "POST"])
+def consulta(cid=None):
+    cfg = contatos.carregar()
+    ag = cfg["agenda"]
+    with conectar() as con:
+        cur = con.cursor()
+        c = agenda.buscar(cur, cid) if cid else None
+        if cid and not c:
+            abort(404)
+        f, erros = request.form, []
+        if request.method == "POST":
+            pid = c["paciente_id"] if c else None
+            if not c:
+                nome = " ".join(f.get("paciente", "").split())
+                cur.execute("SELECT id, nome FROM paciente")
+                achados = [i for i, n in cur.fetchall() if norm(n) == norm(nome)]
+                if len(achados) == 1:
+                    pid = achados[0]
+                else:
+                    erros.append(f"Não achei um paciente só com o nome “{nome}”. Escolha um nome da lista."
+                                 if nome else "Escolha o paciente.")
+            try:
+                inicio = datetime.combine(date.fromisoformat(f.get("data", "")), datetime.strptime(f.get("hora", ""), "%H:%M").time())
+            except ValueError:
+                inicio = None
+                erros.append("Informe a data e o horário.")
+            try:
+                duracao = max(10, min(480, int(f.get("duracao") or ag["duracao"])))
+            except ValueError:
+                duracao = ag["duracao"]
+            modalidade = f.get("modalidade") if f.get("modalidade") in agenda.MODALIDADES else "presencial"
+            status = f.get("status") if f.get("status") in agenda.STATUS else (c["status"] if c else "agendada")
+            valores = (inicio, duracao, modalidade, f.get("local", "").strip() or None, status,
+                       f.get("observacao", "").strip() or None)
+            if not erros:
+                if c:
+                    mudou_hora = inicio != c["inicio"]
+                    cur.execute("UPDATE consulta SET inicio = %s, duracao_min = %s, modalidade = %s, local = %s, status = %s, "
+                                "observacao = %s" + (", whatsapp_enviado_em = NULL, email_enviado_em = NULL" if mudou_hora else "")
+                                + " WHERE id = %s", (*valores, cid))
+                    flash("Consulta atualizada." + (" O horário mudou: envie a nova confirmação abaixo." if mudou_hora else ""))
+                else:
+                    cur.execute("INSERT INTO consulta (paciente_id, inicio, duracao_min, modalidade, local, status, observacao) "
+                                "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id", (pid, *valores))
+                    cid = cur.fetchone()[0]
+                    flash("Consulta agendada. Agora envie a confirmação ao paciente, logo abaixo.")
+                agenda.atualizar_retorno(cur, pid)
+                try:
+                    if agenda.sincronizar_evento(cur, cfg, agenda.buscar(cur, cid)):
+                        flash("Google Agenda atualizado." if status != "cancelada" else "Evento tirado do Google Agenda.")
+                except checkin.ErroGoogle as e:
+                    flash(str(e), "aviso")
+                for o in agenda.conflitos(cur, inicio, duracao, cid):
+                    flash(f"Atenção: no mesmo horário já existe a consulta de {o['nome']} "
+                          f"({o['inicio']:%H:%M}–{o['fim']:%H:%M}).", "aviso")
+                return redirect(url_for("consulta", cid=cid) + "#confirmar")
+        cur.execute("SELECT nome FROM paciente ORDER BY nome")
+        nomes = [r[0] for r in cur.fetchall()]
+        novo = {"paciente": "", "data": request.args.get("data", ""), "hora": "", "duracao": ag["duracao"],
+                "modalidade": "presencial", "local": ag["local_presencial"], "status": "agendada", "observacao": ""}
+        if request.args.get("paciente", "").isdigit():
+            cur.execute("SELECT nome FROM paciente WHERE id = %s", (int(request.args["paciente"]),))
+            r = cur.fetchone()
+            novo["paciente"] = r[0] if r else ""
+        if c:
+            novo = {"paciente": c["nome"], "data": c["inicio"].date().isoformat(), "hora": c["inicio"].strftime("%H:%M"),
+                    "duracao": c["duracao_min"], "modalidade": c["modalidade"], "local": c["local"] or "",
+                    "status": c["status"], "observacao": c["observacao"] or ""}
+        if request.method == "POST":
+            novo.update({k: f.get(k, novo[k]) for k in novo})
+        historico = []
+        if c:
+            cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s AND tipo IN ('confirmacao', 'confirmacao_email') "
+                        "AND referencia = %s ORDER BY feito_em DESC", (c["paciente_id"], str(cid)))
+            historico = cur.fetchall()
+    confirmar = None
+    if c:
+        confirmar = {"whatsapp": agenda.texto(cfg["mensagens"]["confirmacao"], c, cfg),
+                     "assunto": agenda.texto(ag["email_assunto"], c, cfg), "email": agenda.texto(ag["email_texto"], c, cfg),
+                     "tem_whatsapp": bool(contatos.telefone_whatsapp(c["telefone"])), "email_pronto": agenda.email_pronto(cfg)}
+    return render_template("consulta.html", c=c, form=novo, erros=erros, nomes=nomes, confirmar=confirmar,
+                           google_ligado=agenda.google_pronto(cfg),
+                           historico=historico, status=agenda.STATUS, modalidades=agenda.MODALIDADES,
+                           locais={"presencial": ag["local_presencial"], "online": ag["local_online"]},
+                           titulos=contatos.ROTULOS)
+
+
+@app.route("/consulta/<int:cid>/whatsapp", methods=["POST"])
+def consulta_whatsapp(cid):
+    with conectar() as con:
+        cur = con.cursor()
+        c = agenda.buscar(cur, cid) or abort(404)
+        link = contatos.link_whatsapp(c["telefone"], request.form.get("texto", ""))
+        if not link:
+            flash(f"O telefone de {c['nome']} não serve para o WhatsApp. Corrija na ficha do paciente.", "aviso")
+            return redirect(url_for("consulta", cid=cid) + "#confirmar")
+        cur.execute("UPDATE consulta SET whatsapp_enviado_em = now() WHERE id = %s", (cid,))
+        cur.execute("INSERT INTO contato (paciente_id, tipo, referencia) VALUES (%s, 'confirmacao', %s)", (c["paciente_id"], str(cid)))
+    return redirect(link)
+
+
+@app.route("/consulta/<int:cid>/email", methods=["POST"])
+def consulta_email(cid):
+    f = request.form
+    with conectar() as con:
+        cur = con.cursor()
+        c = agenda.buscar(cur, cid) or abort(404)
+        email = f.get("email", "").strip()
+        if email != (c["email"] or "") and checkin.email_valido(email):
+            cur.execute("UPDATE paciente SET email = %s WHERE id = %s", (email, c["paciente_id"]))   # fica salvo na ficha
+            c["email"] = email
+        elif email and not checkin.email_valido(email):
+            flash(f"O e-mail “{email}” não parece válido.", "aviso")
+            return redirect(url_for("consulta", cid=cid) + "#confirmar")
+        try:
+            agenda.enviar_email(c, contatos.carregar(), f.get("assunto", "").strip(), f.get("texto", "").strip())
+        except checkin.ErroGoogle as e:
+            con.commit()
+            flash(str(e), "aviso")
+            return redirect(url_for("consulta", cid=cid) + "#confirmar")
+        cur.execute("UPDATE consulta SET email_enviado_em = now() WHERE id = %s", (cid,))
+        cur.execute("INSERT INTO contato (paciente_id, tipo, referencia) VALUES (%s, 'confirmacao_email', %s)", (c["paciente_id"], str(cid)))
+    flash(f"Confirmação enviada por e-mail para {c['email']}, com o convite para a agenda do paciente.")
+    return redirect(url_for("consulta", cid=cid) + "#confirmar")
+
+
+@app.route("/consulta/<int:cid>/excluir", methods=["POST"])
+def consulta_excluir(cid):
+    with conectar() as con:
+        cur = con.cursor()
+        c = agenda.buscar(cur, cid) or abort(404)
+        cur.execute("DELETE FROM consulta WHERE id = %s", (cid,))
+        agenda.atualizar_retorno(cur, c["paciente_id"])
+    flash(f"Consulta de {c['nome']} em {c['inicio']:%d/%m %H:%M} excluída.")
+    try:
+        agenda.excluir_evento(contatos.carregar(), c["google_evento_id"])
+    except checkin.ErroGoogle as e:
+        flash(str(e) + " Apague o evento no Google Agenda à mão.", "aviso")
+    return redirect(url_for("agenda_semana", semana=c["inicio"].date().isoformat()))
+
+
+@app.route("/agenda/google/enviar", methods=["POST"])
+def agenda_google_enviar():
+    """leva para o Google Agenda as consultas futuras que ainda não estão lá"""
+    cfg = contatos.carregar()
+    if not agenda.google_pronto(cfg):
+        flash("Ligue o Google Agenda na Configuração (e atualize o script) primeiro.", "aviso")
+        return redirect(url_for("configuracao") + "#agenda")
+    feitas, erros = 0, []
+    with conectar() as con:
+        cur = con.cursor()
+        for c in agenda.lista(cur, "c.inicio >= now() AND c.status <> 'cancelada' AND c.google_evento_id IS NULL", ()):
+            try:
+                agenda.sincronizar_evento(cur, cfg, c)
+                feitas += 1
+            except checkin.ErroGoogle as e:
+                erros.append(str(e))
+                break
+    flash(f"{feitas} consulta(s) enviada(s) ao Google Agenda." if feitas or not erros else erros[0],
+          "aviso" if erros else "")
+    return redirect(url_for("configuracao") + "#agenda")
 
 
 # ---------- check-in semanal (Formulário Google) ----------

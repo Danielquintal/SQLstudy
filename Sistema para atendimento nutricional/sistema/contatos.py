@@ -20,7 +20,18 @@ PADRAO = {
                 "email_assunto": "Seu check-in da semana, {primeiro_nome}",
                 "email_texto": "Oi, {primeiro_nome}!\n\nChegou a hora do check-in da semana. São 2 minutinhos e me "
                                "ajudam muito a acompanhar você até a próxima consulta.\n\nUm abraço,\nDaniel Quintal"},
+    # agenda: duração padrão, locais padrão e o e-mail de confirmação (o WhatsApp fica em mensagens > confirmacao)
+    "agenda": {"duracao": 60, "local_presencial": "", "local_online": "", "profissional": "Daniel Quintal · Nutricionista",
+               "google": False, "google_convidar": False, "google_mostrar": True,
+               "email_assunto": "Consulta confirmada: {data_consulta} às {hora_consulta}",
+               "email_texto": "Olá, {primeiro_nome}!\n\nSua consulta de nutrição está marcada para {dia_semana}, "
+                              "{data_consulta}, às {hora_consulta}.\n{local_consulta}\n\nO convite vai anexo para "
+                              "você salvar na sua agenda. Se precisar remarcar, é só responder este e-mail ou me "
+                              "chamar no WhatsApp.\n\nAté lá!\nDaniel Quintal, nutricionista"},
     "mensagens": {
+        "confirmacao": "Olá, {primeiro_nome}! Sua consulta está marcada para {dia_semana}, {data_consulta}, às "
+                       "{hora_consulta}. {local_consulta} Se precisar remarcar, é só me avisar por aqui. "
+                       "Daniel Quintal, nutricionista",
         "retorno": "Olá, {primeiro_nome}! Passando para lembrar da sua consulta {quando} ({data_retorno}). "
                    "Se precisar remarcar, é só me avisar por aqui. Daniel Quintal, nutricionista",
         "evolucao": "Olá, {primeiro_nome}! Sua avaliação de {data_avaliacao} já está na sua página de evolução, "
@@ -32,9 +43,9 @@ PADRAO = {
         "livre": "Olá, {primeiro_nome}! ",
     },
 }
-TITULOS = {"retorno": "Lembrete de retorno", "checkin": "Pedido de check-in", "evolucao": "Link da evolução",
-           "aniversario": "Aniversário", "livre": "Mensagem livre"}
-ROTULOS = dict(TITULOS, checkin_email="Check-in por e-mail")   # nomes no histórico de contatos
+TITULOS = {"confirmacao": "Confirmação de consulta", "retorno": "Lembrete de retorno", "checkin": "Pedido de check-in",
+           "evolucao": "Link da evolução", "aniversario": "Aniversário", "livre": "Mensagem livre"}
+ROTULOS = dict(TITULOS, checkin_email="Check-in por e-mail", confirmacao_email="Confirmação por e-mail")   # histórico
 VARIAVEIS = {
     "{primeiro_nome}": "primeiro nome do paciente",
     "{nome}": "nome completo",
@@ -43,6 +54,10 @@ VARIAVEIS = {
     "{data_avaliacao}": "data da última avaliação",
     "{link_evolucao}": "link publicado da página de evolução",
     "{link_checkin}": "link do formulário de check-in, já com o nome do paciente",
+    "{data_consulta}": "data da consulta agendada",
+    "{hora_consulta}": "horário da consulta",
+    "{dia_semana}": "dia da semana da consulta",
+    "{local_consulta}": "endereço (presencial) ou link (online) da consulta",
 }
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
 
@@ -53,8 +68,9 @@ def carregar():
         salvo = json.loads(CONFIG.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         return cfg
-    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k not in ("mensagens", "checkin")})
+    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k not in ("mensagens", "checkin", "agenda")})
     cfg["checkin"].update(salvo.get("checkin", {}))
+    cfg["agenda"].update(salvo.get("agenda", {}))
     cfg["mensagens"].update({k: v for k, v in salvo.get("mensagens", {}).items() if k in TITULOS})
     return cfg
 

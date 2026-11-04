@@ -71,6 +71,20 @@ def vincular(pid, nome):
             return
 
 
+def excluir(pid, nome):
+    """paciente excluído: o link sai da lista e fica guardado em "excluidos" (para poder ser apagado no claude.ai)"""
+    dados = _ler(ARTEFATOS, {"pacientes": {}})
+    pacs = dados["pacientes"]
+    chave = next((n for n, v in pacs.items() if v.get("id") == pid), None) \
+        or next((n for n, v in pacs.items() if "id" not in v and norm(n) == norm(nome)), None)
+    if chave is None:
+        return None
+    info = pacs.pop(chave)
+    dados.setdefault("excluidos", []).append(dict(info, nome=chave, excluido_em=datetime.now().isoformat(timespec="minutes")))
+    _gravar(ARTEFATOS, dados)
+    return info
+
+
 def concluir(pid, nome, url):
     """grava o link publicado e tira o pedido da fila"""
     dados = _ler(ARTEFATOS, {"pacientes": {}})

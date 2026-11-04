@@ -9,7 +9,7 @@ import pypdfium2
 
 ESCALA = 2.0          # 144 dpi: legível no celular sem deixar a página pesada
 QUALIDADE = 72        # JPEG
-MAX_PAGINAS = 20
+MAX_PAGINAS = 35     # ~140 KB por página: 35 páginas dão uns 5 MB, longe do limite de 16 MB da página publicada
 
 
 def pdf_para_paginas(dados):

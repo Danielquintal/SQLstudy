@@ -15,6 +15,7 @@
     <a class="marca" href="{{ url_for('inicio') }}"><small>Daniel Quintal · Nutricionista</small>Avaliações antropométricas</a>
     <nav class="menu" aria-label="Menu">
       <a class="btn" href="{{ url_for('inicio') }}">Pacientes</a>
+      <a class="btn" href="{{ url_for('agenda_semana') }}">Agenda{% if n_consultas_hoje %} <span class="badge" title="Consultas hoje">{{ n_consultas_hoje }}</span>{% endif %}</a>
       <a class="btn" href="{{ url_for('contatos_do_dia') }}">Contatos{% if n_contatos %} <span class="badge">{{ n_contatos }}</span>{% endif %}</a>
       <a class="btn" href="{{ url_for('checkins') }}">Check-ins{% if n_checkin_sem %} <span class="badge" title="Respostas sem paciente identificado">{{ n_checkin_sem }}</span>{% endif %}</a>
       <a class="btn" href="{{ url_for('alimentos_proprios') }}">Alimentos</a>

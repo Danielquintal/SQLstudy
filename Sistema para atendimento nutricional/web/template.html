@@ -113,7 +113,7 @@ footer{color:var(--muted);font-size:12px}
 .ref .subs .op{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--ink)}
 .ref .rec-link{margin:0 18px 14px;font-size:13px;color:var(--muted)}
 .ref .qtd{color:var(--muted);font-weight:400}
-.ref .obs{margin:auto 18px 14px;padding:8px 12px;border-radius:8px;background:var(--bg);font-size:13px;color:var(--muted)}
+.ref .obs{white-space:pre-line;margin:auto 18px 14px;padding:8px 12px;border-radius:8px;background:var(--bg);font-size:13px;color:var(--muted)}
 .ref .obs b{color:var(--ink);font-weight:600}
 .receitas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .receitas .card{grid-column:auto}
@@ -158,7 +158,30 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 .grupo-itens div{display:flex;flex-direction:column;gap:1px;border-bottom:1px solid var(--line);padding:7px 0}
 .grupo-itens span{font-weight:500}
 .grupo-itens b{font-weight:400;font-size:12px;color:var(--muted)}
+/* Meta de água: copos que o paciente marca ao longo do dia */
+.agua-card{gap:10px}
+.agua-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px}
+.agua-top h2{font-size:15px}
+.agua-top .alvo{font:500 13px var(--mono);color:var(--muted)}
+.agua-barra{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.agua-barra i{display:block;height:100%;background:var(--c6);transition:width .25s}
+.copos{display:flex;flex-wrap:wrap;gap:6px}
+.copo{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:10px;width:44px;height:50px;padding:6px;cursor:pointer;color:var(--line)}
+.copo svg{width:100%;height:100%;display:block}
+.copo .agua-nivel{fill:transparent;transition:fill .15s}
+.copo.cheio{border-color:var(--c6);color:var(--c6)}
+.copo.cheio .agua-nivel{fill:var(--c6);fill-opacity:.35}
+.copo:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
+.agua-rodape{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;font-size:13px;color:var(--muted)}
+.agua-rodape b{color:var(--ink);font-weight:600}
+.agua-rodape .ok{color:var(--good);font-weight:600}
+.agua-zerar{appearance:none;border:0;background:none;color:var(--muted);font:inherit;text-decoration:underline;cursor:pointer;padding:0}
 /* Check-in: cartão com o botão que abre o formulário */
+.aviso-novo{flex-direction:row;align-items:flex-start;gap:14px;border-color:color-mix(in srgb,var(--c2) 40%,var(--line));background:color-mix(in srgb,var(--c2) 7%,var(--surface))}
+.aviso-novo svg{flex:none;width:28px;height:28px;color:var(--c2);margin-top:2px}
+.aviso-novo div{display:flex;flex-direction:column;gap:4px}
+.aviso-novo b{font-size:16px}
+.aviso-novo p{margin:0;color:var(--muted);font-size:14px}
 .ck-card{max-width:640px;gap:12px}
 .ck-card h2{font-size:20px}
 .ck-card p{margin:0}
@@ -211,6 +234,10 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 
 <main>
   <div class="wrap">
+    <section class="card aviso-novo" id="aviso-novo" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v6M12 16.5v.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <div><b id="aviso-titulo"></b><p id="aviso-texto"></p></div>
+    </section>
     <section class="kpis" id="kpis"></section>
 
     <section class="grid view" data-view="composicao">
@@ -454,6 +481,26 @@ function drawCls(rows) {
 // alimento do plano: texto pronto ("Banana - 1 unidade") ou {nome, qtd} lido do PDF do App Naive
 const alimento = a => typeof a === 'string' ? esc(a) : `${esc(a.nome)}${a.qtd ? ` <span class="qtd">${esc(a.qtd)}</span>` : ''}`;
 
+// meta de água do plano ("3082 ml durante o dia (aproximadamente 11 copos de 300ml)") -> {ml, copos, copoMl}
+function metaAgua(txt) {
+  const m = String(txt || '').replace(/\./g, '').match(/(\d+)\s*ml/i);
+  if (!m) return null;
+  const ml = +m[1], c = String(txt).match(/(\d+)\s*copos?\s*de\s*(\d+)\s*ml/i);
+  const copoMl = c ? +c[2] : 300;
+  return { ml, copos: Math.min(c ? +c[1] : Math.ceil(ml / copoMl), 24), copoMl };
+}
+const COPO_SVG = '<svg viewBox="0 0 24 30" aria-hidden="true"><path class="agua-nivel" d="M5.2 11h13.6l-1.5 15.2a2 2 0 0 1-2 1.8H8.7a2 2 0 0 1-2-1.8z"/><path d="M3 3h18l-2.2 23.3a2 2 0 0 1-2 1.7H7.2a2 2 0 0 1-2-1.7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+function aguaHTML(P) {
+  const a = metaAgua(P.agua);
+  if (!a) return '';
+  return `<div class="card w12 agua-card" data-ml="${a.ml}" data-copos="${a.copos}" data-copo-ml="${a.copoMl}">
+      <div class="agua-top"><h2>Meta de água</h2><span class="alvo">${a.ml.toLocaleString('pt-BR')} ml por dia · ${a.copos} copos de ${a.copoMl} ml</span></div>
+      <div class="agua-barra"><i></i></div>
+      <div class="copos">${Array.from({ length: a.copos }, (_, i) => `<button type="button" class="copo" data-i="${i}" aria-label="Copo ${i + 1} de ${a.copos}" aria-pressed="false">${COPO_SVG}</button>`).join('')}</div>
+      <div class="agua-rodape"><span class="agua-status"></span><button type="button" class="agua-zerar">Zerar hoje</button></div>
+    </div>`;
+}
+
 // um ou vários planos (ex.: dia de treino e dia de descanso); páginas antigas trazem um plano só
 const PLANOS = !PLANO ? [] : Array.isArray(PLANO) ? PLANO : [PLANO];
 
@@ -479,13 +526,14 @@ function planoHTML(P, k) {
   return `
     <div class="plano-top"${T ? '' : ' style="grid-template-columns:minmax(0,1fr)"'}>
       <div class="card"><div class="meta"><strong>${esc(P.titulo)}</strong><span>Prescrito em ${esc(P.prescrito)}</span><span>${esc(P.profissional)}</span>
-        ${P.agua ? `<span class="agua">Água: ${esc(P.agua)}</span>` : ''}</div></div>
+        ${P.agua && !metaAgua(P.agua) ? `<span class="agua">Água: ${esc(P.agua)}</span>` : ''}</div></div>
       ${macrosCard}
     </div>
+    ${aguaHTML(P)}
     <div class="refeicoes">${P.refeicoes.map(r => `
       <article class="ref">
         <div class="ref-h">${r.hora ? `<span class="hora">${esc(r.hora)}</span>` : ''}<h3>${esc(r.nome)}</h3>${r.kcal ? `<span class="kc">${r.kcal} kcal · P ${fmt(r.p)} · C ${fmt(r.c)} · L ${fmt(r.l)}</span>` : ''}</div>
-        ${r.itens.length ? '' : '<p class="obs">Sem alimentos definidos: refeição livre.</p>'}<ul>${r.itens.map(i => `<li><span class="principal">${alimento(i.principal || i)}</span>${i.subs.length ? `<span class="subs"><span class="ou">ou</span>${i.subs.map(s => s.grupo && (P.grupos || []).length
+        ${r.itens.length || r.obs ? '' : '<p class="obs">Sem alimentos definidos: refeição livre.</p>'}<ul>${r.itens.map(i => `<li><span class="principal">${alimento(i.principal || i)}</span>${i.subs.length ? `<span class="subs"><span class="ou">ou</span>${i.subs.map(s => s.grupo && (P.grupos || []).length
           ? `<button type="button" class="op op-grupo" data-plano="${k}" data-grupo="${s.grupo}">${esc(s.nome)} <span class="qtd">da lista de substituição</span></button>`
           : `<span class="op">${alimento(s)}</span>`).join('')}</span>` : ''}</li>`).join('')}</ul>
         ${r.obs ? `<p class="obs"><b>Observação:</b> ${esc(r.obs)}</p>` : ''}
@@ -527,6 +575,30 @@ function drawPlano() {
     g.open = true;
     g.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }));
+  // copos de água bebidos hoje: contagem só deste aparelho, que recomeça a cada dia
+  const hoje = new Date(), chaveAgua = `agua-${hoje.getFullYear()}-${hoje.getMonth() + 1}-${hoje.getDate()}`;
+  let bebidos = 0;
+  try {
+    bebidos = +(localStorage.getItem(chaveAgua) || 0);
+    Object.keys(localStorage).filter(k => k.startsWith('agua-') && k !== chaveAgua).forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+  const pintarAgua = () => document.querySelectorAll('.agua-card').forEach(card => {
+    const total = +card.dataset.copos, copoMl = +card.dataset.copoMl, meta = +card.dataset.ml, n = Math.min(bebidos, total);
+    card.querySelectorAll('.copo').forEach((b, i) => { b.classList.toggle('cheio', i < n); b.setAttribute('aria-pressed', String(i < n)); });
+    card.querySelector('.agua-barra i').style.width = `${n / total * 100}%`;
+    card.querySelector('.agua-status').innerHTML = n >= total
+      ? `<span class="ok">Meta de hoje cumprida!</span> ${(bebidos * copoMl).toLocaleString('pt-BR')} ml`
+      : `<b>${n} de ${total}</b> copos hoje · ${(n * copoMl).toLocaleString('pt-BR')} ml · faltam ${Math.max(0, meta - n * copoMl).toLocaleString('pt-BR')} ml`;
+  });
+  const guardarAgua = () => { try { localStorage.setItem(chaveAgua, String(bebidos)); } catch (e) {} pintarAgua(); };
+  document.querySelectorAll('.agua-card .copo').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.i;
+    bebidos = i < bebidos ? i : i + 1;   // tocar num copo cheio desmarca dele em diante
+    guardarAgua();
+  }));
+  document.querySelectorAll('.agua-zerar').forEach(b => b.addEventListener('click', () => { bebidos = 0; guardarAgua(); }));
+  pintarAgua();
+
   let marcados = {};
   try { marcados = JSON.parse(localStorage.getItem('compras') || '{}'); } catch (e) {}
   document.querySelectorAll('.compras input').forEach(cb => {
@@ -542,8 +614,9 @@ function drawPlano() {
 function render() {
   const rows = recorte();
   const plano = view === 'plano', ck = view === 'checkin';
-  document.getElementById('kpis').hidden = plano || ck;
-  document.querySelector('.range').hidden = plano || ck;
+  document.getElementById('kpis').hidden = plano || ck || !DADOS.length;
+  document.querySelector('.range').hidden = plano || ck || !DADOS.length;
+  if (!DADOS.length && !plano && !ck) return;   // paciente ainda sem avaliação
   document.getElementById('sub').textContent = ck ? 'Check-in semanal'
     : plano ? (PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Plano alimentar prescrito em ${PLANOS[0].prescrito}`)
     : `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${rows[0].dataAvaliacao} a ${rows[rows.length - 1].dataAvaliacao} · Altura ${fmt(n(rows[rows.length - 1].estatura), 0)} cm`;
@@ -763,7 +836,7 @@ async function relatorioPlano() {
           return linha;
         }), { columnStyles: temSubs ? { 0: { cellWidth: 85 } } : {} });
         doc.y -= 3;
-      } else texto(doc, 'Sem alimentos definidos: refeição livre.', { tam: 9, cor: COR.muted });
+      } else if (!ref.obs) texto(doc, 'Sem alimentos definidos: refeição livre.', { tam: 9, cor: COR.muted });
       if (ref.obs) texto(doc, `Observação: ${ref.obs}`, { tam: 9, cor: COR.muted });
       doc.y += 4;
     }
@@ -840,7 +913,20 @@ if (PLANOS.length) document.getElementById('rel-plano').hidden = false;
 document.getElementById('foot').textContent ='Fonte: App Naive · evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
 if (PLANOS.length) { document.getElementById('t-plano').hidden = false; drawPlano(); }
 if (CHECKIN) { document.getElementById('t-checkin').hidden = false; document.getElementById('ck-link').href = CHECKIN; }
+// paciente novo, ainda sem avaliação: a página mostra só o plano e o check-in
+if (!DADOS.length) {
+  ['composicao', 'classificacoes', 'circunferencias', 'dobras'].forEach(v => { document.getElementById('t-' + v).hidden = true; });
+  document.getElementById('rel-av').hidden = true;
+  document.getElementById('foot').textContent = '';
+  if (!PLANOS.length) document.querySelector('.relatorios').hidden = true;
+  // aviso para o paciente não estranhar a página com pouca coisa
+  document.getElementById('aviso-titulo').textContent = 'Bem-vindo(a) à sua página!';
+  document.getElementById('aviso-texto').textContent = PLANOS.length
+    ? 'Os gráficos da sua evolução (peso, composição corporal, medidas e classificações) vão aparecer aqui depois da sua primeira avaliação.'
+    : 'Suas avaliações e seu plano alimentar vão aparecer aqui depois da consulta. Enquanto isso, você já pode fazer o check-in semanal.';
+  document.getElementById('aviso-novo').hidden = false;
+}
 const inicial = location.hash.slice(1);
-const alvo = document.querySelector(`.tab[data-view="${inicial}"]`);
+const alvo = document.querySelector(`.tab[data-view="${inicial}"]:not([hidden])`) || document.querySelector('.tab:not([hidden])');
 if (alvo) alvo.click(); else render();
 </script>

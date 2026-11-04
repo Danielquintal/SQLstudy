@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Consulta · ' + c.nome if c else 'Agendar consulta' }}{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('agenda_semana', semana=c.inicio.date().isoformat() if c else none) }}">Agenda</a>
+    {% if c %} / <a href="{{ url_for('paciente', pid=c.paciente_id) }}">{{ c.nome }}</a>{% endif %}</p>
+  <h1>{{ 'Consulta' if c else 'Agendar consulta' }}</h1>
+  {% if c %}<p class="sub">{{ c.inicio.strftime('%d/%m/%Y') }} · {{ c.inicio.strftime('%H:%M') }}–{{ c.fim.strftime('%H:%M') }} ·
+    {{ modalidades[c.modalidade] }} · {{ status[c.status] }}{% if google_ligado %} ·
+    {{ 'no Google Agenda ✓' if c.google_evento_id else 'ainda não está no Google Agenda' }}{% endif %}</p>{% endif %}
+</div>
+{% endblock %}
+{% block corpo %}
+{% if erros %}<div class="msg erro" role="alert">Nada foi salvo. Confira:<ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+<form method="post" class="card ficha" id="form-consulta">
+  <h2>{{ 'Dados da consulta' if c else 'Nova consulta' }}</h2>
+  <div class="cadastro">
+    <div class="campo" style="grid-column:1/-1"><label for="paciente">Paciente</label>
+      {% if c %}<input class="texto" id="paciente" value="{{ c.nome }}" disabled>
+      {% else %}<input class="texto" id="paciente" name="paciente" list="nomes" value="{{ form.paciente }}" required autocomplete="off"
+        placeholder="Comece a digitar o nome">
+      <datalist id="nomes">{% for n in nomes %}<option value="{{ n }}">{% endfor %}</datalist>{% endif %}</div>
+    <div class="campo"><label for="data">Data</label><input id="data" type="date" name="data" value="{{ form.data }}" required></div>
+    <div class="campo"><label for="hora">Horário</label><input id="hora" type="time" name="hora" value="{{ form.hora }}" required step="300"></div>
+    <div class="campo"><label for="duracao">Duração</label>
+      <select id="duracao" name="duracao">
+        {% for d in [20, 30, 40, 45, 50, 60, 75, 90, 120] %}<option value="{{ d }}" {{ 'selected' if form.duracao|int == d }}>{{ d }} min</option>{% endfor %}
+      </select></div>
+    {% if c %}<div class="campo"><label for="status">Situação</label>
+      <select id="status" name="status">{% for k, v in status.items() %}<option value="{{ k }}" {{ 'selected' if form.status == k }}>{{ v }}</option>{% endfor %}</select></div>{% endif %}
+  </div>
+  <fieldset class="modalidade">
+    <legend>Modalidade</legend>
+    {% for k, v in modalidades.items() %}
+    <label><input type="radio" name="modalidade" value="{{ k }}" {{ 'checked' if form.modalidade == k }}> {{ v }}</label>
+    {% endfor %}
+  </fieldset>
+  <div class="campo"><label for="local" id="local-rot">{{ 'Link da chamada' if form.modalidade == 'online' else 'Endereço' }}</label>
+    <input class="texto" id="local" name="local" value="{{ form.local }}"></div>
+  <div class="campo"><label for="obs">Observação (só para você)</label>
+    <textarea id="obs" name="observacao" rows="2">{{ form.observacao }}</textarea></div>
+  <div class="acoes">
+    <button class="btn pri">{{ 'Salvar alterações' if c else 'Agendar' }}</button>
+    <a class="btn" href="{{ url_for('agenda_semana', semana=c.inicio.date().isoformat() if c else none) }}">{{ 'Voltar para a agenda' if c else 'Cancelar' }}</a>
+  </div>
+</form>
+
+{% if c %}
+<div class="card" id="confirmar">
+  <h2>Confirmação para o paciente</h2>
+  {% if c.status in ('cancelada', 'realizada', 'faltou') %}<p class="msg aviso" style="margin:0">Esta consulta está como “{{ status[c.status] }}”.</p>{% endif %}
+  <div class="duas confirmacoes">
+    <form method="post" action="{{ url_for('consulta_whatsapp', cid=c.id) }}" target="_blank" class="item zapform">
+      <div class="quem"><span class="tipo">WhatsApp</span>
+        {% if c.whatsapp_enviado_em %}<span class="chip good">aberto em {{ c.whatsapp_enviado_em.strftime('%d/%m %H:%M') }}</span>{% endif %}</div>
+      <textarea name="texto" rows="6" aria-label="Mensagem de WhatsApp">{{ confirmar.whatsapp }}</textarea>
+      <div class="acoes">
+        {% if confirmar.tem_whatsapp %}<button class="btn zap">Abrir no WhatsApp</button>
+        {% else %}<span class="note">Telefone inválido para WhatsApp. Corrija na <a href="{{ url_for('paciente', pid=c.paciente_id) }}#acompanhamento">ficha</a>.</span>{% endif %}
+      </div>
+    </form>
+    <form method="post" action="{{ url_for('consulta_email', cid=c.id) }}" class="item">
+      <div class="quem"><span class="tipo">E-mail</span>
+        {% if c.email_enviado_em %}<span class="chip good">enviado em {{ c.email_enviado_em.strftime('%d/%m %H:%M') }}</span>{% endif %}</div>
+      <div class="campo"><label for="em-para">Para</label>
+        <input class="texto" id="em-para" type="email" name="email" value="{{ c.email or '' }}" placeholder="e-mail do paciente" required></div>
+      <div class="campo"><label for="em-ass">Assunto</label><input class="texto" id="em-ass" name="assunto" value="{{ confirmar.assunto }}"></div>
+      <textarea name="texto" rows="7" aria-label="Texto do e-mail">{{ confirmar.email }}</textarea>
+      <div class="acoes">
+        {% if confirmar.email_pronto %}<button class="btn pri">Enviar e-mail</button>
+          <span class="note">Vai com o convite (.ics) para a agenda do paciente.</span>
+        {% else %}<span class="note">Para enviar e-mail, atualize o script do Google em
+          <a href="{{ url_for('configuracao') }}#agenda">Configuração › Agenda</a>.</span>{% endif %}
+      </div>
+      {% if not c.email %}<p class="note" style="margin:0">O e-mail digitado aqui fica salvo na ficha do paciente.</p>{% endif %}
+    </form>
+  </div>
+  {% if historico %}<p class="note" style="margin:0">Enviado: {% for t, q in historico %}{{ titulos[t] }} em {{ q.strftime('%d/%m %H:%M') }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+</div>
+
+<form method="post" action="{{ url_for('consulta_excluir', cid=c.id) }}" class="card">
+  <div class="acoes">
+    <button type="button" class="btn perigo" onclick="this.hidden=true;this.nextElementSibling.hidden=false">Excluir consulta</button>
+    <span hidden class="confirma">Excluir esta consulta? (para manter o registro, mude a situação para “Cancelada”)
+      <button class="btn perigo cheio">Sim, excluir</button></span>
+  </div>
+</form>
+{% endif %}
+<script>
+// endereço ou link padrão conforme a modalidade (só troca se o campo ainda tem o padrão ou está vazio)
+const LOCAIS = {{ locais|tojson }};
+const local = document.getElementById('local');
+document.querySelectorAll('input[name=modalidade]').forEach(r => r.addEventListener('change', () => {
+  const outra = r.value === 'online' ? 'presencial' : 'online';
+  if (!local.value.trim() || local.value === LOCAIS[outra]) local.value = LOCAIS[r.value] || '';
+  document.getElementById('local-rot').textContent = r.value === 'online' ? 'Link da chamada' : 'Endereço';
+}));
+// depois de abrir o WhatsApp, recarrega para mostrar que foi enviado
+document.querySelectorAll('form.zapform').forEach(f => f.addEventListener('submit', () => setTimeout(() => location.reload(), 800)));
+</script>
+{% endblock %}

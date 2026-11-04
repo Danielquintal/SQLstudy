@@ -5,12 +5,18 @@ Fórmulas da taxa metabólica basal (TMB), como o profissional usa:
 - Mifflin-St Jeor (1990): obesidade (IMC >= 30);
 - FAO/OMS (1985): pacientes acamados (por faixa de idade, só com o peso).
 Gasto energético total (GET) = TMB x fator atividade; meta = GET + ajuste (ex.: -500 kcal).
+Meta de água = peso x ml/kg da diretriz escolhida (padrão 33 ml/kg, base adulta), ou o valor digitado.
 O editor (sistema/templates/editor_plano.html) repete estas contas em JavaScript para mostrar enquanto se digita;
 ao salvar, o servidor refaz tudo aqui, com os nutrientes tirados do banco.
 """
+import math
 from datetime import date
 
 FORMULAS = {"harris": "Harris-Benedict", "mifflin": "Mifflin-St Jeor", "fao": "FAO/OMS"}
+# diretrizes de água (ml por kg de peso por dia)
+DIRETRIZES_AGUA = {25: "25 ml/kg · idosos", 30: "30 ml/kg", 33: "33 ml/kg · base adulta", 35: "35 ml/kg · adultos ativos",
+                   40: "40 ml/kg · atletas e muito suor"}
+COPO_ML = 300
 
 # FAO/OMS 1985: (idade até, homem (a, b), mulher (a, b)) -> TMB = a x peso + b
 FAO = [(18, (17.5, 651), (12.2, 746)), (30, (15.3, 679), (14.7, 496)), (60, (11.6, 879), (8.7, 829)),
@@ -65,6 +71,28 @@ def energia(e):
     fa = num("fa") or 1.0
     get = t * fa
     return {"tmb": round(t), "get": round(get), "meta": round(get + (num("ajuste") or 0))}
+
+
+def _numero(v):
+    try:
+        return float(str(v).replace(",", ".")) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def agua(editor):
+    """meta de água do plano: (ml por dia, copos de 300 ml); None se desligada ou sem peso"""
+    a = editor.get("agua") or {}
+    if a.get("exibir") is False:
+        return None
+    ml = _numero(a.get("ml"))      # valor digitado pelo profissional; vazio = calcular pelo peso
+    if not ml:
+        peso = _numero((editor.get("energia") or {}).get("peso"))
+        ml = peso * (_numero(a.get("ml_kg")) or 33) if peso else None
+    if not ml:
+        return None
+    ml = round(ml)
+    return ml, math.ceil(ml / COPO_ML)
 
 
 def nutrientes(alimento, gramas):
@@ -130,8 +158,10 @@ def plano_para_paciente(editor, alimentos, profissional):
                           "c": round(t.get("carboidrato_g", 0), 1), "l": round(t.get("lipidios_g", 0), 1)})
     dia = somar(partes_dia)
     prescrito = date.fromisoformat(editor["prescrito"]) if editor.get("prescrito") else date.today()
+    meta_agua = agua(editor)
+    extra = {"agua": f"{meta_agua[0]} ml durante o dia (aproximadamente {meta_agua[1]} copos de {COPO_ML}ml)"} if meta_agua else {}
     return {"titulo": (editor.get("titulo") or "Plano alimentar").strip(), "prescrito": prescrito.strftime("%d/%m/%Y"),
-            "profissional": profissional, "refeicoes": refeicoes,
+            "profissional": profissional, "refeicoes": refeicoes, **extra,
             "totais": {"kcal": round(dia.get("kcal", 0)), "p": round(dia.get("proteina_g", 0), 1),
                        "l": round(dia.get("lipidios_g", 0), 1), "c": round(dia.get("carboidrato_g", 0), 1)},
             "micros": [[rot, f"{fmt(round(dia[c], 1))}{un}"] for c, rot, un in MICROS if c in dia],

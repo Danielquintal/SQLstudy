@@ -195,3 +195,74 @@ tr.ck-texto span{display:block;max-width:90ch}
 .graf-peso text{font:11px var(--mono);fill:var(--muted)}
 .script-gs{width:100%;font:12px var(--mono);min-height:160px}
 table.ck td.alertas{white-space:normal;min-width:200px}
+
+/* editor: ingestão hídrica */
+.agua-meta{display:flex;gap:10px;align-items:flex-end}
+.agua-meta .campo{flex:1;min-width:0}
+.agua-meta input{font:500 16px var(--mono);padding:7px 9px}
+#agua.desligada .agua-meta,#agua.desligada #a-copos{opacity:.5}
+.chave{position:relative;display:inline-block;width:42px;height:24px;flex:none;cursor:pointer}
+.chave input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.chave span{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:background .15s}
+.chave span::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.chave input:checked+span{background:var(--accent)}
+.chave input:checked+span::after{transform:translateX(18px)}
+.chave input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+
+/* lista de pacientes: ordenar pelas colunas */
+th button.ordem{appearance:none;border:0;background:none;padding:0;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+th button.ordem::after{content:"↕";opacity:.35;font-size:11px}
+th[aria-sort="ascending"] button.ordem::after{content:"▲";opacity:1;font-size:9px}
+th[aria-sort="descending"] button.ordem::after{content:"▼";opacity:1;font-size:9px}
+th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--ink)}
+th button.ordem:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.busca .ordenar{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.busca .ordenar select{font:14px var(--sans);padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--ink)}
+/* perfil: excluir paciente */
+.zona-perigo{border-color:color-mix(in srgb,var(--bad) 35%,var(--line))}
+.zona-perigo h2{color:var(--bad)}
+
+/* agenda */
+.nav-semana{align-items:center}
+.nav-semana .ir-data{display:flex;align-items:center;gap:6px;margin-left:auto}
+.nav-semana .ir-data input{font:14px var(--mono);padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--ink)}
+.semana{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+.dia{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:180px;min-width:0}
+.dia header{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.dia .dsem{font-weight:600}
+.dia .dnum{font:13px var(--mono);color:var(--muted)}
+.dia.hoje{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.dia.passado{opacity:.7}
+.cons{display:flex;flex-direction:column;gap:1px;padding:7px 9px;border-radius:9px;background:var(--bg);border-left:3px solid var(--accent);text-decoration:none;color:var(--ink);font-size:13px;min-width:0}
+.cons:hover{background:color-mix(in srgb,var(--accent) 10%,var(--bg))}
+.cons .hora{font:500 12px var(--mono);color:var(--muted)}
+.cons .nome{font-weight:600;overflow-wrap:anywhere}
+.cons .det,.cons .conf{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 8px}
+.cons .falta,.lista-consultas .falta{color:var(--warn)}
+.cons.st-confirmada{border-left-color:var(--good)}
+.cons.st-confirmada .st{color:var(--good);font-weight:600}
+.cons.st-faltou{border-left-color:var(--bad)}
+.cons.st-faltou .st{color:var(--bad)}
+.cons.st-realizada{border-left-color:var(--line);opacity:.8}
+.cons.st-cancelada{border-left-color:var(--line);opacity:.55}
+.cons.st-cancelada .nome{text-decoration:line-through}
+.dia .mais{margin-top:auto;font-size:12px;color:var(--muted);text-decoration:none;padding:4px 2px}
+.dia .mais:hover{color:var(--accent)}
+@media (max-width:1000px){.semana{grid-template-columns:minmax(0,1fr)}.dia{min-height:0}.dia.vazio{padding-block:6px}}
+/* ficha: consultas do paciente */
+.lista-consultas{display:flex;flex-direction:column;gap:6px}
+.lista-consultas .cons{flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 12px;border-left-width:3px}
+.lista-consultas .cons.passada{opacity:.7}
+.chip.st-agendada{color:var(--muted)}
+.chip.st-confirmada{color:var(--good)}
+.chip.st-faltou{color:var(--bad)}
+.chip.st-realizada,.chip.st-cancelada{color:var(--muted)}
+/* consulta */
+fieldset.modalidade{border:0;padding:0;margin:0;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+fieldset.modalidade legend{font-size:13px;color:var(--muted);float:left;margin-right:6px}
+fieldset.modalidade label{display:flex;gap:6px;align-items:center}
+.confirmacoes .item{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.confirmacoes textarea{width:100%}
+.confirmacoes .campo input{width:100%}
+.cons.google{border-left-color:var(--line);background:transparent;border:1px dashed var(--line);border-left:3px solid var(--muted);color:var(--muted)}
+.cons.google .nome{font-weight:500;color:var(--ink)}

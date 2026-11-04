@@ -51,6 +51,71 @@
       marque “Não pedir check-in semanal” no Acompanhamento da ficha dele. Apagar a URL e a chave desliga o check-in.</p>
   </div>
 
+  <div class="card" id="agenda">
+    <h2>Agenda</h2>
+    <div class="cadastro">
+      <div class="campo"><label for="ag-dur">Duração padrão da consulta</label>
+        <select id="ag-dur" name="agenda_duracao">
+          {% for d in [30, 40, 45, 50, 60, 75, 90] %}<option value="{{ d }}" {{ 'selected' if cfg.agenda.duracao == d }}>{{ d }} minutos</option>{% endfor %}
+        </select></div>
+      <div class="campo" style="grid-column:span 2"><label for="ag-prof">Seu nome nos e-mails e no convite</label>
+        <input class="texto" id="ag-prof" name="profissional" value="{{ cfg.agenda.profissional }}"></div>
+      <div class="campo" style="grid-column:1/-1"><label for="ag-end">Endereço do consultório (consulta presencial)</label>
+        <input class="texto" id="ag-end" name="local_presencial" value="{{ cfg.agenda.local_presencial }}" placeholder="Rua, número, sala, bairro, cidade"></div>
+      <div class="campo" style="grid-column:1/-1"><label for="ag-link">Link padrão da consulta online (opcional)</label>
+        <input class="texto" id="ag-link" name="local_online" value="{{ cfg.agenda.local_online }}" placeholder="Ex.: link fixo do Google Meet"></div>
+    </div>
+    <p class="note" style="margin:0">A mensagem de WhatsApp da confirmação fica em “Mensagens de WhatsApp”, logo abaixo.</p>
+    <h2 style="font-size:14px;margin-top:4px">Google Agenda</h2>
+    {% if cfg.checkin.url and (cfg.checkin.versao or 0) < versao_google %}
+      <p class="note" style="margin:0">Para ligar ao Google Agenda, atualize o código do script do Google (passo a passo no
+        quadro de e-mail logo abaixo; a versão necessária é a {{ versao_google }}). Na hora de executar a função
+        <b>mostrar</b>, o Google pede para autorizar o acesso à sua agenda: permita.</p>
+    {% elif not cfg.checkin.url %}
+      <p class="note" style="margin:0">O Google Agenda usa o mesmo script do check-in: ligue o check-in acima primeiro.</p>
+    {% endif %}
+    <label style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" name="google" value="1" {{ 'checked' if cfg.agenda.google }}>
+      Colocar as consultas no meu Google Agenda (cria, muda e apaga junto com a Agenda do sistema)
+    </label>
+    <label style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" name="google_mostrar" value="1" {{ 'checked' if cfg.agenda.google_mostrar }}>
+      Mostrar meus outros compromissos do Google na Agenda do sistema
+    </label>
+    <label style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" name="google_convidar" value="1" {{ 'checked' if cfg.agenda.google_convidar }}>
+      Convidar o paciente pelo Google Agenda (ele recebe o convite do Google no e-mail, além da sua confirmação)
+    </label>
+    {% if cfg.agenda.google and (cfg.checkin.versao or 0) >= versao_google %}
+    <div class="acoes"><button class="btn" formaction="{{ url_for('agenda_google_enviar') }}" formnovalidate>Enviar ao Google as consultas já agendadas</button>
+      <span class="note">Leva as consultas futuras que ainda não estão no Google.</span></div>
+    {% endif %}
+    <h2 style="font-size:14px;margin-top:4px">E-mail de confirmação</h2>
+    {% if not cfg.checkin.url %}
+      <p class="note" style="margin:0">O e-mail sai pela sua conta Google, pelo mesmo script do check-in: ligue o check-in acima primeiro.</p>
+    {% elif (cfg.checkin.versao or 0) < versao_google %}
+      <div class="msg aviso" style="margin:0">
+        <b>Atualize o código do script do Google</b> (a versão instalada é a {{ cfg.checkin.versao or 1 }}; o e-mail precisa da
+        {{ versao_email }} e o Google Agenda da {{ versao_google }}):
+        <ol class="passos" style="margin-top:8px">
+          <li>Abra o projeto “Check-in” em <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a>.</li>
+          <li>Clique em <b>Copiar o código</b> (no passo a passo do check-in, acima), apague o código antigo, cole o novo e salve.</li>
+          <li><b>Implantar › Gerenciar implantações</b> › lápis › Versão: <b>Nova versão</b> › Implantar. A URL e a chave continuam iguais.</li>
+          <li>Escolha a função <b>mostrar</b> e clique em <b>Executar</b>; o Google pede autorização para enviar e-mail e para
+            mexer na sua agenda: permita.</li>
+          <li>Volte aqui e recarregue a página.</li>
+        </ol>
+      </div>
+    {% else %}
+      <p class="note" style="margin:0">Pronto para enviar: o e-mail sai da sua conta Google com o convite (.ics) anexo.</p>
+    {% endif %}
+    <div class="campo"><label for="ag-ass">Assunto</label>
+      <input class="texto" id="ag-ass" name="email_assunto" value="{{ cfg.agenda.email_assunto }}"></div>
+    <div class="campo"><label for="ag-txt">Texto do e-mail</label>
+      <textarea id="ag-txt" name="email_texto" rows="7">{{ cfg.agenda.email_texto }}</textarea>
+      <span class="note">Use <code>{primeiro_nome}</code>, <code>{data_consulta}</code>, <code>{hora_consulta}</code>, <code>{dia_semana}</code> e <code>{local_consulta}</code>.</span></div>
+  </div>
+
   {% if cfg.checkin.formulario %}
   <div class="card" id="email">
     <h2>Check-in por e-mail automático</h2>
