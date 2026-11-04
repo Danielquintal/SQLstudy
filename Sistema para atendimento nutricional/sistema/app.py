@@ -1,4 +1,4 @@
-"""Sistema local: pacientes e avaliações no navegador, gravando direto no banco app_naive.
+"""Sistema local: pacientes e avaliações no navegador, gravando direto no banco de dados.
 
 Uso:  python sistema/app.py   (ou dois cliques em "Abrir sistema.bat")  ->  http://localhost:5000
 Só atende este computador (127.0.0.1). Depois de gravar uma avaliação, gera de novo a planilha e a página do paciente.
@@ -14,7 +14,7 @@ from flask import Flask, abort, flash, redirect, render_template, request, url_f
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from atualizar_paciente import (CONEXAO, PAGINAS, TEMPLATE, achar_planilha, avaliacoes_do_banco, converter,
-                                mostrar, norm, para_app_naive)
+                                mostrar, norm, para_pagina)
 from calculos import calcular
 from campos import CAMPOS, TEXTO
 from montar_pagina import gerar_html, montar
@@ -23,10 +23,11 @@ import agenda
 import checkin
 import reds
 import exames
+import perfil as antropo
 import contatos
 import links
 import plano as planos
-import plano_app_naive
+import plano_pdf
 import nutricao
 
 PORTA = 5000
@@ -75,7 +76,7 @@ def idade(nasc, ref=None):
 
 
 CAMPOS_PACIENTE = ["id", "nome", "genero", "data_nascimento", "telefone", "email", "retorno_em",
-                   "whatsapp_bloqueado", "checkin_pausado"]
+                   "whatsapp_bloqueado", "checkin_pausado", "meta_gordura_pct", "meta_imo"]
 
 
 def buscar_paciente(cur, pid):
@@ -123,7 +124,7 @@ def gerar_arquivos(cur, pid, nome):
     banco = avaliacoes_do_banco(cur, pid)
     if not banco:
         return []
-    avs = [para_app_naive(r) for r in banco]
+    avs = [para_pagina(r) for r in banco]
     cur.execute("SELECT nome FROM paciente WHERE id <> %s", (pid,))
     homonimo = any(norm(n) == norm(nome) for n, in cur.fetchall())
     _, destino = achar_planilha(nome, {r["data_avaliacao"] for r in banco}, homonimo)
@@ -208,6 +209,8 @@ def paciente(pid):
                                   "alertas": exames.alertas(grupos_ex)}
         testes = exames.desempenho(cur, pid)
         avs = avaliacoes_do_banco(cur, pid)
+        perfil_pac = antropo.para_pagina(avs, p["genero"], p["data_nascimento"],
+                                        p["meta_gordura_pct"] and float(p["meta_gordura_pct"]), p["meta_imo"] and float(p["meta_imo"]))
         cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s ORDER BY feito_em DESC LIMIT 6", (pid,))
         historico = cur.fetchall()
         cur.execute("SELECT id, titulo, prescrito, nome_arquivo, enviado_em, jsonb_array_length(plano->'paginas'), "
@@ -237,7 +240,7 @@ def paciente(pid):
                            reds_leafq=ult_leafq and {"data": ult_leafq[0], "total": ult_leafq[1], "risco": ult_leafq[1] >= reds.RISCO_LEAFQ},
                            reds_ed=ult_ed and (lambda ed: {"data": ult_ed[0], "ed": ed, "classe": reds.classe_ed(ed)})(
                                reds.energia_disponivel(*ult_ed[1:])),
-                           ult_exame=ult_exame, testes=testes,
+                           ult_exame=ult_exame, testes=testes, perfil=perfil_pac,
                            passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,
                            email_ok=checkin.email_valido(p["email"]),
                            tem_whatsapp=bool(contatos.telefone_whatsapp(p["telefone"])), titulos=contatos.ROTULOS)
@@ -248,7 +251,7 @@ def evolucao(pid):
     with conectar() as con:
         cur = con.cursor()
         p = buscar_paciente(cur, pid)
-        avs = [para_app_naive(r) for r in avaliacoes_do_banco(cur, pid)]
+        avs = [para_pagina(r) for r in avaliacoes_do_banco(cur, pid)]
         plano = planos.plano_do_banco(cur, pid)
         link_ck = checkin.link_paciente(cur, contatos.carregar(), pid, p["nome"])
         extras = exames.extras_pagina(cur, pid)
@@ -331,8 +334,13 @@ def avaliacao(pid, aid=None):
             for c in ("altura_cm", "diametro_umero", "diametro_punho", "diametro_femur"):
                 form[c] = numero(ult.get(c))
         ops = opcoes_texto(cur)
+    ops["protocolo_dobras"] = antropo.do_sexo(p["genero"])
+    if form.get("protocolo_dobras") and form["protocolo_dobras"] not in ops["protocolo_dobras"]:
+        ops["protocolo_dobras"].append(form["protocolo_dobras"])   # protocolo gravado antes, de outro sexo
+    rotulos = {k: f"{v['nome']} · {v['publico']}" for k, v in antropo.PROTOCOLOS.items()}
+    rotulos.update(siri="Siri", brozek="Brozek")
     return render_template("avaliacao.html", p=p, aid=aid, form=form, erros=erros, secoes=SECOES, texto=TEXTO,
-                           ops=ops, calculados=CALCULADOS)
+                           ops=ops, calculados=CALCULADOS, rotulos=rotulos)
 
 
 def pedir_atualizacao(pid, nome):
@@ -355,6 +363,12 @@ def calcular_formulario(pid):
     saida["_passos"] = passos   # fórmulas com os números, para o quadro "Como foi calculado"
     import calculos
     saida["_dobras"] = calculos.dobras_do_protocolo(valores.get("protocolo_dobras"), p["genero"])   # destacadas na tela
+    tudo = dict(valores, **calc)
+    pf = antropo.perfil(tudo, p["genero"], p["data_nascimento"], d or date.today(),
+                       p["meta_gordura_pct"] and float(p["meta_gordura_pct"]), p["meta_imo"] and float(p["meta_imo"]),
+                       valores.get("equacao_gordura") or "siri")
+    pf["escolhido"] = valores.get("protocolo_dobras")
+    saida["_perfil"] = pf   # comparação dos protocolos, somatotipo, PVC, Z-score e metas
     return saida
 
 
@@ -389,13 +403,13 @@ def enviar_plano(pid):
         flash("Escolha o PDF do plano alimentar.", "aviso")
         return redirect(voltar)
     dados = arq.read()
-    # PDF do App Naive vira a dieta interativa; qualquer outro PDF (ou se pedir) entra página por página
-    lido = None if request.form.get("como_paginas") else plano_app_naive.ler(dados)
+    # PDF de plano num modelo conhecido vira a dieta interativa; qualquer outro PDF (ou se pedir) entra página por página
+    lido = None if request.form.get("como_paginas") else plano_pdf.ler(dados)
     if lido:
         titulo = titulo or lido["titulo"]
         prescrito = prescrito or datetime.strptime(lido["prescrito"], "%d/%m/%Y").date()
         lido.update(titulo=titulo, prescrito=prescrito.strftime("%d/%m/%Y"))
-        plano, resumo = lido, f"lido do App Naive: {len(lido['refeicoes'])} refeições"
+        plano, resumo = lido, f"lido do PDF: {len(lido['refeicoes'])} refeições"
     else:
         try:
             paginas = planos.pdf_para_paginas(dados)
@@ -893,6 +907,23 @@ def acompanhamento(pid):
                      " ".join(f.get("telefone", "").split()) or None, email, pid))
     flash("Acompanhamento salvo.")
     return redirect(url_for("paciente", pid=pid) + "#acompanhamento")
+
+
+@app.route("/paciente/<int:pid>/metas", methods=["POST"])
+def metas_perfil(pid):
+    f = request.form
+    gc, imo = exames.ler_numero(f.get("meta_gordura_pct")), exames.ler_numero(f.get("meta_imo"))
+    if gc is not None and not 3 <= gc <= 50:
+        flash("% de gordura alvo: use um valor entre 3 e 50.", "aviso")
+        gc = None
+    if imo is not None and not 1 <= imo <= 10:
+        flash("Índice músculo-ósseo alvo: use um valor entre 1 e 10 (costuma ficar entre 3 e 5).", "aviso")
+        imo = None
+    with conectar() as con:
+        buscar_paciente(con.cursor(), pid)
+        con.execute("UPDATE paciente SET meta_gordura_pct = %s, meta_imo = %s WHERE id = %s", (gc, imo, pid))
+    flash("Metas salvas.")
+    return redirect(url_for("paciente", pid=pid) + "#perfil")
 
 
 @app.route("/paciente/<int:pid>/whatsapp/<tipo>", methods=["POST"])
@@ -1673,7 +1704,7 @@ if __name__ == "__main__":
     try:
         conectar().close()
     except psycopg.OperationalError as e:
-        sys.exit(f"Não consegui conectar ao banco app_naive. O PostgreSQL está ligado?\n{e}")
+        sys.exit(f"Não consegui conectar ao banco de dados. O PostgreSQL está ligado?\n{e}")
     print(f"Sistema aberto em http://localhost:{PORTA}  (feche esta janela para desligar)")
     if "--sem-navegador" not in sys.argv:
         webbrowser.open(f"http://localhost:{PORTA}")

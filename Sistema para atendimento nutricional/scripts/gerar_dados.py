@@ -1,10 +1,10 @@
-"""Gera 02_dados.sql (INSERTs) a partir das planilhas do App Naive.
+"""Gera 02_dados.sql (INSERTs) a partir das planilhas exportadas do programa anterior.
 
 Uso:  python gerar_dados.py
 Lê, da pasta Downloads:
   - pacientes_app_naive_02-11-2026.xlsx       -> tabela paciente
   - antropometria_pacientes_app_naive.json    -> tabela avaliacao (mesmos dados da aba "Avaliações",
-                                               com o código do App Naive que liga cada avaliação ao paciente)
+                                               com o código que liga cada avaliação ao paciente)
 """
 import json, re, sys
 from datetime import datetime

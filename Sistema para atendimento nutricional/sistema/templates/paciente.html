@@ -88,7 +88,7 @@
     {% for pl in planos %}
       <tr>
         <td class="t"><b>{{ pl.titulo }}</b><br><span class="note">prescrito em {{ pl.prescrito|br }}
-          {% if pl.refeicoes and not pl.montado %}· {{ pl.refeicoes }} refeições{% if pl.kcal %} · {{ pl.kcal }} kcal{% endif %} (lido do App Naive)
+          {% if pl.refeicoes and not pl.montado %}· {{ pl.refeicoes }} refeições{% if pl.kcal %} · {{ pl.kcal }} kcal{% endif %} (lido do PDF)
           {% elif pl.montado %}· {{ pl.refeicoes }} refeições · {{ pl.kcal }} kcal
           {% elif pl.montado %}· montado no sistema{% else %}· {{ pl.paginas }} página{{ 's' if pl.paginas != 1 }} do PDF{% endif %}</span></td>
         <td><div class="acoes" style="justify-content:flex-end">
@@ -119,10 +119,10 @@
       <div class="campo" style="justify-content:flex-end"><button class="btn pri">{{ 'Adicionar plano' if planos else 'Enviar plano' }}</button></div>
     </div>
     <label class="note" style="display:flex;gap:8px;align-items:center">
-      <input type="checkbox" name="como_paginas" value="1"> Mostrar o PDF página por página, mesmo sendo do App Naive
+      <input type="checkbox" name="como_paginas" value="1"> Mostrar o PDF página por página, mesmo num modelo que o sistema sabe ler
     </label>
   </form>
-  <p class="note">Cada PDF enviado vira mais um plano (para trocar um plano, remova o antigo). PDF do App Naive vira a dieta
+  <p class="note">Cada PDF enviado vira mais um plano (para trocar um plano, remova o antigo). PDF de plano num modelo conhecido vira a dieta
     interativa, com título e data lidos do próprio PDF; dê um título próprio para diferenciar (ex.: “Dia de treino”,
     “Dia de descanso”). PDF feito por você aparece página por página.
     {% if url %}Depois de enviar ou remover, o link deste paciente entra na fila para atualizar.{% endif %}</p>
@@ -232,6 +232,43 @@
   {% else %}
   <p class="note" style="margin:0">Questionário LEAF-Q e energia disponível (ingestão − gasto no exercício, por kg de massa livre de gordura).</p>
   {% endif %}
+</div>
+
+<div class="card" id="perfil">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <h2>Perfil antropométrico</h2>
+    {% if perfil.data %}<span class="note">Avaliação de {{ perfil.data }}</span>{% endif %}
+  </div>
+  <div class="reds-resumo">
+    {% set s = perfil.somatotipo[-1] if perfil.somatotipo else none %}
+    <div><span class="k">Somatotipo</span>
+      {% if s %}<span class="v">{{ s.endo|round(1)|num }} · {{ s.meso|round(1)|num }} · {{ s.ecto|round(1)|num }}</span><span class="note">{{ s.classe }} (endo · meso · ecto)</span>
+      {% else %}<span class="note">Precisa das dobras tricipital, subescapular, supraespinhal e panturrilha, diâmetros do úmero e do fêmur
+        e circunferências do braço contraído e da panturrilha.</span>{% endif %}</div>
+    {% set q = perfil.pvc[-1] if perfil.pvc else none %}
+    {% if q or (p.idade is not none and p.idade < 18) %}
+    <div><span class="k">Pico de crescimento (PVC)</span>
+      {% if q %}<span class="v">{{ '+' if q.offset > 0 }}{{ q.offset|round(1)|num }}<small> anos</small></span>
+        <span class="note">{{ q.fase }} · idade estimada do pico {{ q.idade_pvc|round(1)|num }} anos (maturação {{ q.momento }})</span>
+      {% else %}<span class="note">Meça a altura sentado na avaliação para estimar.</span>{% endif %}</div>
+    {% endif %}
+    {% set m = perfil.metas %}
+    <div><span class="k">Metas</span>
+      {% if m.peso_sugerido %}<span class="v">{{ m.peso_sugerido|num }}<small> kg</small></span>
+        <span class="note">peso sugerido para {{ m.alvo_gc|num }}% de gordura ({{ '−' if m.gordura_a_perder > 0 else '+' }}{{ m.gordura_a_perder|abs|num }} kg)</span>{% endif %}
+      {% if m.muscular_alvo %}<span class="note">Massa muscular alvo {{ m.muscular_alvo|num }} kg (IMO {{ m.alvo_imo|num }}):
+        {{ '+' if m.muscular_a_ganhar > 0 }}{{ m.muscular_a_ganhar|num }} kg</span>{% endif %}
+      {% if m.imo %}<span class="note">Índice músculo-ósseo atual: {{ m.imo|num }}</span>{% endif %}
+      {% if not (m.peso_sugerido or m.muscular_alvo or m.imo) %}<span class="note">Defina as metas abaixo.</span>{% endif %}</div>
+  </div>
+  <form method="post" action="{{ url_for('metas_perfil', pid=p.id) }}" class="acoes" style="align-items:flex-end">
+    <div class="campo" style="max-width:180px"><label for="m-gc">% de gordura alvo</label>
+      <input id="m-gc" name="meta_gordura_pct" inputmode="decimal" value="{{ p.meta_gordura_pct|num if p.meta_gordura_pct is not none }}" placeholder="ex.: 12"></div>
+    <div class="campo" style="max-width:220px"><label for="m-imo">Índice músculo-ósseo alvo</label>
+      <input id="m-imo" name="meta_imo" inputmode="decimal" value="{{ p.meta_imo|num if p.meta_imo is not none }}" placeholder="ex.: 3,5"></div>
+    <button class="btn">Salvar metas</button>
+    <span class="note">Protocolos comparados, Z-score e somatotipo completo ficam no quadro "Perfil antropométrico" de cada avaliação.</span>
+  </form>
 </div>
 
 <div class="card" id="exames">

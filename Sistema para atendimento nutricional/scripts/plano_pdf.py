@@ -1,8 +1,8 @@
-"""Lê o PDF de plano alimentar exportado pelo App Naive e monta o plano estruturado da aba Plano alimentar
+"""Lê o PDF de plano alimentar exportado pelo programa de prescrição e monta o plano estruturado da aba Plano alimentar
 (refeições, opção principal, substituições, observações, macros por refeição, micronutrientes, lista de compras
 e receitas).
 
-O App Naive exporta em dois modelos, e a leitura usa a fonte, a cor e a posição do texto:
+O programa exporta em dois modelos, e a leitura usa a fonte, a cor e a posição do texto:
 - cartões: horário (15pt, azul), nome da refeição na coluna da esquerda, alimento principal
   (9,8pt escuro) e quantidade (cinza), substituições na coluna da direita ("ou Nome → quantidade"), observações;
 - lista: nome da refeição como título (13,5pt negrito, às vezes com o horário: "07:30 - Café da manhã") e,
@@ -20,7 +20,7 @@ O App Naive exporta em dois modelos, e a leitura usa a fonte, a cor e a posiçã
   com texto livre (vira observação), meta de água, relatório, lista de compras e receitas ("Receita culinária").
 Todos têm a página "Relatório de nutrientes". ler(dados) devolve o plano ou None se não reconhecer o PDF.
 
-Uso para conferir: python scripts/plano_app_naive.py "arquivo.pdf"
+Uso para conferir: python scripts/plano_pdf.py "arquivo.pdf"
 """
 import ctypes, json, re, sys, unicodedata
 from datetime import datetime
@@ -462,7 +462,7 @@ def _ler_lista(paginas):
             item, partes = bloco
             for op in " ".join(partes).split("\x00"):
                 op = _alimento(op) if op.strip() else None
-                if op and op not in item["subs"]:   # o App Naive às vezes repete a mesma opção
+                if op and op not in item["subs"]:   # o PDF às vezes repete a mesma opção
                     item["subs"].append(op)
         bloco = None
 
@@ -727,4 +727,4 @@ def _relatorio(trechos, rotulos=None):
 
 if __name__ == "__main__":
     plano = ler(open(sys.argv[1], "rb").read())
-    print(json.dumps(plano, ensure_ascii=False, indent=1) if plano else "Não é um PDF de plano do App Naive.")
+    print(json.dumps(plano, ensure_ascii=False, indent=1) if plano else "Não é um PDF de plano alimentar num dos modelos conhecidos.")

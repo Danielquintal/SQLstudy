@@ -1,5 +1,5 @@
--- Banco de dados dos pacientes e avaliações antropométricas (origem: App Naive)
--- Rodar conectado ao banco "app_naive":  psql -U postgres -d app_naive -f 01_schema.sql
+-- Banco de dados dos pacientes e avaliações antropométricas
+-- Rodar conectado ao banco "atendimento_nutricional":  psql -U postgres -d atendimento_nutricional -f 01_schema.sql
 SET client_encoding = 'UTF8';
 
 DROP TABLE IF EXISTS exame_valor;  -- tabelas de sql/03, 04, 08, 09, 10 e 11, que dependem de paciente
@@ -19,7 +19,7 @@ DROP TABLE IF EXISTS paciente;
 -- Cadastro (planilha "pacientes_app_naive_02-11-2026.xlsx")
 CREATE TABLE paciente (
     id               serial PRIMARY KEY,
-    app_naive_id       bigint UNIQUE,          -- código do paciente no App Naive (link da evolução)
+    app_naive_id       bigint UNIQUE,          -- código do paciente no programa anterior (importação)
     nome             text NOT NULL,
     cpf              varchar(14),
     telefone         text,

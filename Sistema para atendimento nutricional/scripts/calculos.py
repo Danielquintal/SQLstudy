@@ -1,4 +1,4 @@
-"""Cálculos da avaliação antropométrica, iguais aos do App Naive (conferidos com as 1297 avaliações do banco).
+"""Cálculos da avaliação antropométrica (conferidos com as 1297 avaliações do banco).
 
 calcular(valores, genero, nascimento, data, passos=None) devolve o que dá para calcular com o que foi medido
 (e, se receber a lista passos, anota em cada conta a fórmula com os números usados, para mostrar na tela):
@@ -66,7 +66,7 @@ def classe(valor, cortes, nomes):
 
 
 def classificar_imc(imc, idade=None):
-    imc = round(imc, 1)  # o App Naive classifica o IMC já arredondado
+    imc = round(imc, 1)  # o IMC é classificado já arredondado
     if not 8 <= imc <= 100:
         return "Verifique altura e peso"
     if idade is not None and idade >= 60:  # idosos: Lipschitz
@@ -146,10 +146,13 @@ COEF_POLLOCK = {("pollock7", "M"): (1.112, 0.00043499, 0.00000055, 0.00028826), 
 
 
 def dobras_do_protocolo(prot, genero):
-    """dobras que entram no protocolo (Pollock 3 e Guedes mudam com o sexo)"""
+    """dobras que entram no protocolo (Pollock 3 e Guedes mudam com o sexo; os outros estão em perfil.py)"""
     if prot == "pollock7":
         return POLLOCK7
-    return {"pollock3": POLLOCK3, "guedes": GUEDES}.get(prot, {}).get(genero, [])
+    if prot in ("pollock3", "guedes"):
+        return {"pollock3": POLLOCK3, "guedes": GUEDES}[prot].get(genero, [])
+    import perfil
+    return perfil.dobras(prot, genero)
 
 
 def formula_densidade(prot, genero):
@@ -263,6 +266,39 @@ def calcular(v, genero, nascimento, data, passos=None):
                f"495 ÷ {br(d, 4)} − 450" if eq == "siri" else f"457 ÷ {br(d, 4)} − 414,2", f"{br(gc_calc)}%")
     elif prot in NOME_PROTOCOLO and not tem("gordura_pct"):
         anotar("gordura_pct", f"% de gordura ({nome_eq})", f_gc, "Aguarda a densidade corporal", "–")
+    # protocolos das planilhas de cineantropometria (Petroski, Durnin, Faulkner, Withers...): scripts/perfil.py
+    import perfil
+    if prot in perfil.PROTOCOLOS and prot not in NOME_PROTOCOLO:
+        pr = perfil.PROTOCOLOS[prot]
+        titulo = f"{'Densidade corporal' if pr['tipo'] == 'densidade' else '% de gordura'} ({pr['nome']}, {pr['ref']})"
+        campo = "densidade_corporal" if pr["tipo"] == "densidade" else "gordura_pct"
+        if genero not in pr["sexo"]:
+            anotar(campo, titulo, "a equação é de outro sexo", f"{pr['nome']} é para {SEXO.get(pr['sexo'], pr['sexo'])}", "–")
+        else:
+            r = perfil.gordura(prot, v, genero, idade, eq)
+            formula = pr["formula"] + ("   (S = somatório das dobras)" if pr["dobras"] and "S" in pr["formula"] else "")
+            if "falta" in r:
+                anotar(campo, titulo, formula, f"Faltam: {juntar(r['falta'])}", "–")
+            else:
+                usados = [f"{perfil.NOMES[k]} {br(v[k])}" for k in pr["outros"] if tem(k)]
+                if "braco_relaxado" in pr["outros"]:
+                    usados.append(f"braço relaxado {br(perfil.lado(v, 'braco_relaxado'))}")
+                if "idade" in pr["outros"]:
+                    usados.append(f"idade {idade}")
+                if r["soma"] is not None:
+                    soma = por("somatorio_dobras_mm", r["soma"])
+                    anotar("somatorio_dobras_mm", f"Somatório das dobras ({pr['nome']})",
+                           " + ".join(perfil.NOMES[k] for k in pr["dobras"]), " + ".join(br(v[k]) for k in pr["dobras"]), f"{br(soma)} mm")
+                conta = (f"S = {br(r['soma'])}" if r["soma"] is not None else "") + ("; " if r["soma"] is not None and usados else "") + ", ".join(usados)
+                if pr["tipo"] == "densidade":
+                    d = por("densidade_corporal", r["densidade"])
+                    anotar("densidade_corporal", titulo, formula, conta, br(d, 4), regra=pr["publico"])
+                    gc_calc = por("gordura_pct", 495 / d - 450 if eq == "siri" else 457 / d - 414.2)
+                    anotar("gordura_pct", f"% de gordura ({nome_eq})", f_gc,
+                           f"495 ÷ {br(d, 4)} − 450" if eq == "siri" else f"457 ÷ {br(d, 4)} − 414,2", f"{br(gc_calc)}%")
+                else:
+                    gc_calc = por("gordura_pct", r["gc"])
+                    anotar("gordura_pct", titulo, formula, conta, f"{br(gc_calc)}%", regra=pr["publico"])
     gc = pegar("gordura_pct")
     if gc is not None:
         cg = por("classificacao_gordura", classificar_gordura(gc, genero, idade))

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block cabeca %}
 <div>
-  <p class="eyebrow">Banco app_naive</p>
+  <p class="eyebrow">Banco de dados</p>
   <h1>Pacientes</h1>
   <p class="sub">{{ pacientes|length }} cadastrados · {{ pacientes|selectattr('n')|list|length }} com avaliações</p>
 </div>

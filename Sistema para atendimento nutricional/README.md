@@ -1,4 +1,4 @@
-# Banco de dados App Naive
+# Sistema de atendimento nutricional
 
 > **Dados fictícios.** Os pacientes deste repositório têm nomes inventados. CPF, telefone/WhatsApp, e-mail,
 > endereço e código do App Naive foram retirados, e as datas de nascimento são fictícias. As avaliações
@@ -13,9 +13,9 @@ Pacientes e avaliações antropométricas em PostgreSQL, com as planilhas por pa
 |---|---|
 | `sql/01_schema.sql` | Tabelas `paciente` e `avaliacao` e as views `vw_avaliacao` e `vw_resumo_paciente` |
 | `sql/02_dados.sql` | Carga inicial (gerada por `scripts/gerar_dados.py`) |
-| `scripts/gerar_dados.py` | Gera `02_dados.sql` a partir da exportação do App Naive e do `.json` da coleta |
+| `scripts/gerar_dados.py` | Gera `02_dados.sql` a partir da exportação do programa anterior e do `.json` da coleta |
 | `scripts/atualizar_paciente.py` | Passa a aba Tabela da planilha de um paciente para o banco e gera de novo a planilha e a página |
-| `scripts/campos.py` | Correspondência entre as colunas do banco e os campos do App Naive |
+| `scripts/campos.py` | Correspondência entre as colunas do banco e os campos da página e da planilha |
 | `scripts/planilha_paciente.py` | Monta a planilha de um paciente (abas Evolução, Tabela, Gráficos) |
 | `scripts/montar_pagina.py` | Monta a página HTML de evolução (artefato) de um paciente |
 | `web/template.html` | Modelo da página de evolução |
@@ -32,14 +32,14 @@ Pacientes e avaliações antropométricas em PostgreSQL, com as planilhas por pa
 | `web/paginas/` | Páginas geradas, prontas para publicar |
 | `sistema/` | Sistema no navegador (Flask): `app.py` é o servidor, `templates/` as telas, `static/` o estilo |
 | `Abrir sistema.bat` | Abre o sistema com dois cliques (o atalho da Área de Trabalho aponta para ele) |
-| `scripts/calculos.py` | Fórmulas e tabelas de classificação, iguais às do App Naive |
+| `scripts/calculos.py` | Fórmulas e tabelas de classificação |
 | `sql/03_whatsapp.sql` | Tabela dos contatos de WhatsApp e data do retorno (`03_whatsapp_desfazer.sql` desfaz) |
 
 As planilhas que você edita ficam em `Downloads\Antropometria por paciente`.
 
 ## Passo 1: preparar o ambiente (uma vez só)
 
-1. **Abrir no VS Code:** Arquivo → Abrir Pasta → `Downloads\Banco de dados App Naive`.
+1. **Abrir no VS Code:** Arquivo → Abrir Pasta → `Downloads\Sistema de atendimento nutricional`.
    O VS Code vai sugerir as extensões recomendadas (Python, PostgreSQL e Live Preview). Aceite.
 2. **Guardar a senha do PostgreSQL** para os scripts não perguntarem toda vez.
    Crie o arquivo `%APPDATA%\postgresql\pgpass.conf` (crie a pasta `postgresql` se não existir) com uma linha:
@@ -49,11 +49,11 @@ As planilhas que você edita ficam em `Downloads\Antropometria por paciente`.
    Esse arquivo fica só no seu computador e não vai para nenhum script.
 3. **Rodar as tarefas, em ordem:** Terminal → Executar Tarefa…
    1. `1. Instalar dependências do Python`
-   2. `2. Criar o banco app_naive` (pule se já criou)
+   2. `2. Criar o banco de dados` (pule se já criou)
    3. `3. Recarregar banco (esquema + dados)`
    4. `4. Testar conexão com o banco`: deve mostrar 358 pacientes e 1297 avaliações
 4. **Conectar a extensão PostgreSQL:** ícone do elefante na barra lateral → nova conexão →
-   servidor `localhost`, usuário `postgres`, banco `app_naive`.
+   servidor `localhost`, usuário `postgres`, banco `atendimento_nutricional`.
 
 > A tarefa 3 apaga e recarrega tudo. Depois que o fluxo de atualização por paciente estiver pronto (passo 2), use-a só para refazer o banco do zero.
 
@@ -85,7 +85,7 @@ Faz o mesmo que o passo 2 sem Excel e sem terminal.
    Abre uma janela preta e o navegador em `http://localhost:5000`. **Deixe a janela preta aberta** enquanto usa; fechar ela desliga o sistema.
 2. **Pacientes:** digite parte do nome (sem acento mesmo) e Enter para abrir o primeiro da lista.
 3. **Nova avaliação:** altura, diâmetros ósseos e protocolo já vêm da última avaliação. Os campos de borda tracejada
-   são calculados enquanto você digita, com as fórmulas do App Naive (`scripts/calculos.py`):
+   são calculados enquanto você digita, com as fórmulas de `scripts/calculos.py`:
    - IMC e classificação (adultos: OMS; 60 anos ou mais: Lipschitz) e peso ideal;
    - RCQ e risco (Bray, por sexo e idade);
    - CMB = braço relaxado esquerdo − π × dobra tricipital, adequação pelo P50 de Frisancho e classificação;
@@ -93,8 +93,8 @@ Faz o mesmo que o passo 2 sem Excel e sem terminal.
    - massas de gordura, livre de gordura, residual, óssea (precisa dos diâmetros do punho e do fêmur) e muscular;
    - classificação do % de gordura da bioimpedância.
 
-   Um campo calculado corrigido à mão é mantido e entra nas contas seguintes. Conferido com as 1297 avaliações do
-   App Naive: 99,7% dos valores iguais. Para 56 anos ou mais (e as duas primeiras faixas de mulheres de 46 a 55),
+   Um campo calculado corrigido à mão é mantido e entra nas contas seguintes. Conferido com as 1297 avaliações
+   importadas: 99,7% dos valores iguais. Para 56 anos ou mais (e as duas primeiras faixas de mulheres de 46 a 55),
    a classificação do % de gordura tem poucos exemplos no banco: confira.
 4. **Gravar:** grava no banco e gera de novo a planilha e a página do paciente. Se a planilha estiver aberta no Excel,
    o sistema avisa; feche o Excel e clique em **Gerar planilha e página**.
@@ -119,10 +119,10 @@ Faz o mesmo que o passo 2 sem Excel e sem terminal.
 ## Plano alimentar na página do paciente
 
 - **Ficha do paciente → Plano alimentar:** envie o PDF do plano.
-  - **PDF do App Naive** (os modelos de exportação conhecidos: em cartões, com horário; em lista, com "Opções de
+  - **PDF de plano alimentar** (os modelos de exportação conhecidos: em cartões, com horário; em lista, com "Opções de
     substituição"; em lista com "• Alimento" e trocas "Ou ..."; e a exportação completa, com tabela de opções,
     meta de água e "Lista de substituição" por grupos, que aparece na página com botões "N porções do Grupo X"):
-    é lido sozinho (`scripts/plano_app_naive.py`) e vira a dieta interativa: refeições, opção principal e substituições,
+    é lido sozinho (`scripts/plano_pdf.py`) e vira a dieta interativa: refeições, opção principal e substituições,
     observações, calorias e macros por refeição e do dia, micronutrientes, receitas e lista de compras.
     Título e data vêm do próprio PDF, a não ser que você preencha.
   - **PDF feito por você** (ou marcando "mostrar página por página"): cada página vira uma imagem, do jeito que foi
@@ -177,7 +177,7 @@ Tabela e campos: `sql/03_whatsapp.sql` (tabela `contato`; campos `retorno_em` e 
 os lembretes ficam em `sistema/contatos.py`. Para desfazer no banco: `sql/03_whatsapp_desfazer.sql`.
 
 Backups: `_backup/antes_checkin_2026-11-03` (antes do WhatsApp) e `_backup/com_checkin_2026-11-03` (com o check-in
-pelo Formulário Google, que foi testado e retirado). Cada um tem os arquivos e a cópia do banco (`app_naive.dump`).
+pelo Formulário Google, que foi testado e retirado). Cada um tem os arquivos e a cópia do banco (`atendimento_nutricional.dump`).
 
 
 ## Próximo passo

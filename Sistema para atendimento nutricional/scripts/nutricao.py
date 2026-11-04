@@ -23,7 +23,7 @@ FAO = [(18, (17.5, 651), (12.2, 746)), (30, (15.3, 679), (14.7, 496)), (60, (11.
        (999, (13.5, 487), (10.5, 596))]
 
 MACROS = [("kcal", "kcal"), ("proteina_g", "p"), ("carboidrato_g", "c"), ("lipidios_g", "l")]
-# nutrientes mostrados no total do dia (como no relatório do App Naive): coluna, rótulo, unidade
+# nutrientes mostrados no total do dia (como no relatório do plano): coluna, rótulo, unidade
 MICROS = [("ag_monoinsaturados_g", "AG Monoinsat.", "g"), ("ag_poliinsaturados_g", "AG Poliinsat.", "g"),
           ("ag_saturados_g", "AG Saturada", "g"), ("ag_trans_g", "AG Trans", "g"), ("colesterol_mg", "Colesterol", "mg"),
           ("fibra_g", "Fibras", "g"), ("calcio_mg", "Cálcio", "mg"), ("magnesio_mg", "Magnésio", "mg"),

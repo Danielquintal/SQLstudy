@@ -339,7 +339,7 @@ def montar_paginas():
 
     cls = Pagina("classificacoes", "Classificações")
     cabecalho(cls); cartoes(cls); classificacoes(cls)
-    cls.add(M, 530, LARG, 530, tabela("Classificações por avaliação (calculadas pelo App Naive)", [
+    cls.add(M, 530, LARG, 530, tabela("Classificações por avaliação", [
         ("imc", "IMC"), ("classificacao_imc", "Classificação IMC"), ("rcq", "RCQ"), ("risco_rcq", "Risco (RCQ)"),
         ("gordura_pct", "% Gordura"), ("classificacao_gordura", "Classif. gordura"),
         ("bia_gordura_pct", "% Gordura (BIA)"), ("bia_classificacao_gordura", "Classif. (BIA)"),

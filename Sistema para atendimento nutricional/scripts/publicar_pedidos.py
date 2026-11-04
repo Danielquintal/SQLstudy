@@ -13,7 +13,7 @@ import psycopg
 
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ / "sistema"))
-from atualizar_paciente import CONEXAO, PAGINAS, TEMPLATE, avaliacoes_do_banco, para_app_naive
+from atualizar_paciente import CONEXAO, PAGINAS, TEMPLATE, avaliacoes_do_banco, para_pagina
 from montar_pagina import montar
 from plano import plano_do_banco
 from planilha_paciente import safe_name
@@ -36,7 +36,7 @@ def preparar():
                 print(json.dumps({"id": p["id"], "erro": "paciente não existe mais"}, ensure_ascii=False))
                 continue
             nome = r[0]
-            avs = [para_app_naive(a) for a in avaliacoes_do_banco(cur, p["id"])]
+            avs = [para_pagina(a) for a in avaliacoes_do_banco(cur, p["id"])]
             plano, link_ck = plano_do_banco(cur, p["id"]), checkin.link_paciente(cur, cfg, p["id"], nome)
             extras = exames.extras_pagina(cur, p["id"])
             if not (avs or plano or link_ck or exames.tem_extras(extras)):

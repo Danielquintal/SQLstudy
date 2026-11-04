@@ -118,7 +118,7 @@ def build(nome, rows, out):
     ws["A1"] = f"Evolução antropométrica - {nome}"
     ws["A1"].font = Font(bold=True, size=14, color="1F4E78")
     periodo = f"de {rows[0]['dataAvaliacao']} a {rows[-1]['dataAvaliacao']}" if N > 1 else f"em {rows[0]['dataAvaliacao']}"
-    ws["A2"] = f"{N} {'avaliação' if N == 1 else 'avaliações'} {periodo} · Fonte: App Naive"
+    ws["A2"] = f"{N} {'avaliação' if N == 1 else 'avaliações'} {periodo}"
     ws["A2"].font = Font(italic=True, color="595959")
 
     hr = 4

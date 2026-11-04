@@ -377,3 +377,26 @@ table.ref-tab input.un{width:110px}
 .dp-card svg polyline{fill:none;stroke-width:2.5;vector-effect:non-scaling-stroke}
 .dp-card svg .d{stroke:var(--accent)} .dp-card svg .e{stroke:var(--warn);stroke-dasharray:4 3}
 .var-boa{color:var(--good);font-weight:600} .var-ruim{color:var(--bad);font-weight:600}
+
+/* perfil antropométrico (avaliação) */
+.pf{display:flex;flex-direction:column;gap:18px}
+.pf-bloco{display:flex;flex-direction:column;gap:8px;min-width:0}
+.pf-bloco h3{margin:0;font-size:15px}
+.pf tr.escolhido td{background:color-mix(in srgb,var(--good) 8%,transparent)}
+.pf-falta summary{cursor:pointer;color:var(--muted);font-size:13px}
+.pf-falta ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.pf-soma{display:grid;grid-template-columns:minmax(0,300px) 1fr;gap:16px;align-items:center}
+@media (max-width:700px){.pf-soma{grid-template-columns:1fr}}
+.pf-num{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.pf-num>div{display:flex;flex-direction:column;gap:2px;background:var(--bg);border-radius:10px;padding:10px 12px}
+.pf-num .k{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.pf-num .v{font:500 22px var(--mono)}
+.somatocarta{width:100%;max-width:300px;height:auto}
+.somatocarta .tri{fill:color-mix(in srgb,var(--accent) 6%,transparent);stroke:var(--muted);stroke-width:1.2}
+.somatocarta .eixo{stroke:var(--line);stroke-width:1}
+.somatocarta text,.zbar text{font:11px var(--sans);fill:var(--muted)}
+.somatocarta .pt{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.zbar{width:100%;max-width:640px;height:auto}
+.zbar .grade{stroke:var(--line)} .zbar .zero{stroke:var(--muted)}
+.zbar .pos{fill:var(--accent)} .zbar .neg{fill:var(--warn)}
+.pf-metas{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}

@@ -15,7 +15,7 @@
       <div class="campo"><label for="data">Data da avaliação</label>
         <input id="data" type="date" name="data_avaliacao" value="{{ form.data_avaliacao }}" required></div>
     </div>
-    <p class="note">Campos com borda tracejada são calculados enquanto você digita, com as mesmas fórmulas do App Naive:
+    <p class="note">Campos com borda tracejada são calculados enquanto você digita, com as fórmulas de scripts/calculos.py:
       o % de gordura sai das dobras do protocolo escolhido (Pollock 7, Pollock 3 ou Guedes) com a equação de Siri ou Brozek;
       a massa óssea precisa dos diâmetros do punho e do fêmur; a CMB usa o braço relaxado esquerdo e a dobra tricipital.
       Se corrigir um deles à mão, o valor digitado é mantido. As dobras que entram no protocolo escolhido ficam destacadas em verde.</p>
@@ -36,7 +36,7 @@
         {% if col in ['protocolo_dobras', 'equacao_gordura'] %}
           <select id="{{ col }}" name="{{ col }}">
             <option value=""></option>
-            {% for o in ops[col] %}<option {{ 'selected' if form.get(col) == o }}>{{ o }}</option>{% endfor %}
+            {% for o in ops[col] %}<option value="{{ o }}" {{ 'selected' if form.get(col) == o }}>{{ rotulos.get(o, o) }}</option>{% endfor %}
           </select>
         {% elif col in texto %}
           <input class="texto" id="{{ col }}" name="{{ col }}" value="{{ form.get(col, '') }}" list="ops-{{ col }}" autocomplete="off">
@@ -55,6 +55,13 @@
     <h2>Como foi calculado</h2>
     <p class="note" style="margin:0">Cada conta com a fórmula, os números desta avaliação e o resultado. Atualiza enquanto você digita.</p>
     <div id="passos" class="passos-calc"><p class="vazio" style="margin:0">Preencha peso, altura, dobras e circunferências para ver as contas.</p></div>
+  </div>
+
+  <div class="card" id="perfil">
+    <h2>Perfil antropométrico</h2>
+    <p class="note" style="margin:0">Protocolos de % de gordura comparados, somatotipo, pico de crescimento, Z-score e metas desta avaliação.
+      Atualiza enquanto você digita.</p>
+    <div id="pf" class="pf"></div>
   </div>
 
   <div class="barra">
@@ -113,6 +120,7 @@ async function calcular(soPassos) {
     // dobras usadas pelo protocolo escolhido (e pelo sexo do paciente) ficam destacadas
     document.querySelectorAll('.campo.usada').forEach(c => c.classList.remove('usada'));
     (res._dobras || []).forEach(k => { const i = $(k); if (i) i.closest('.campo').classList.add('usada'); });
+    desenharPerfil(res._perfil);
     if (soPassos === true) { desenharPassos(res._passos, res); return; }   // ao abrir: só mostra as contas
     desenharPassos(res._passos);
     calc.forEach(i => {
@@ -123,6 +131,78 @@ async function calcular(soPassos) {
     contar();
   } catch (e) { /* sem resposta: grava assim mesmo, o servidor calcula ao gravar */ }
 }
+// ---------- quadro "Perfil antropométrico" ----------
+const nf = (x, c = 1) => x == null ? '–' : x.toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
+// somatocarta: X = ecto − endo, Y = 2 × meso − (endo + ecto); pontas em 7-1-1, 1-7-1 e 1-1-7
+function somatocarta(s) {
+  const W = 300, H = 300, px = x => 150 + x * 17, py = y => 200 - y * 10.5;
+  const pts = [[-6, -6], [0, 12], [6, -6]].map(([x, y]) => [px(x), py(y)]);
+  const lado = (a, b, k) => { const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, cx = 150, cy = py(0);
+    return `Q ${mx + (mx - cx) * k} ${my + (my - cy) * k} ${b[0]} ${b[1]}`; };
+  return `<svg viewBox="0 0 ${W} ${H}" class="somatocarta" role="img" aria-label="Somatocarta">
+    <path d="M ${pts[0][0]} ${pts[0][1]} ${lado(pts[0], pts[1], .25)} ${lado(pts[1], pts[2], .25)} ${lado(pts[2], pts[0], .25)} Z" class="tri"/>
+    <line x1="${px(0)}" y1="${py(0)}" x2="${pts[1][0]}" y2="${pts[1][1]}" class="eixo"/>
+    <line x1="${px(0)}" y1="${py(0)}" x2="${pts[0][0]}" y2="${pts[0][1]}" class="eixo"/>
+    <line x1="${px(0)}" y1="${py(0)}" x2="${pts[2][0]}" y2="${pts[2][1]}" class="eixo"/>
+    <text x="${pts[1][0]}" y="${pts[1][1] - 8}" text-anchor="middle">Mesomorfia</text>
+    <text x="${pts[0][0] - 4}" y="${pts[0][1] + 18}" text-anchor="start">Endomorfia</text>
+    <text x="${pts[2][0] + 4}" y="${pts[2][1] + 18}" text-anchor="end">Ectomorfia</text>
+    <circle cx="${px(s.x)}" cy="${py(s.y)}" r="6" class="pt"><title>${nf(s.endo)} · ${nf(s.meso)} · ${nf(s.ecto)}</title></circle></svg>`;
+}
+function zbarras(z) {
+  const L = 190, W = 520, mid = L + (W - L - 20) / 2, k = (W - L - 20) / 6;
+  return `<svg viewBox="0 0 ${W} ${z.length * 20 + 26}" class="zbar" role="img" aria-label="Z-score de cada medida">
+    ${[-3, -2, -1, 0, 1, 2, 3].map(t => `<line x1="${mid + t * k}" x2="${mid + t * k}" y1="0" y2="${z.length * 20}" class="${t ? 'grade' : 'zero'}"/><text x="${mid + t * k}" y="${z.length * 20 + 16}" text-anchor="middle">${t > 0 ? '+' + t : t}</text>`).join('')}
+    ${z.map((r, i) => { const v = Math.max(-3.4, Math.min(3.4, r.z)), x = v < 0 ? mid + v * k : mid;
+      return `<text x="${L - 8}" y="${i * 20 + 14}" text-anchor="end">${esc(r.nome)}</text>
+        <rect x="${x}" y="${i * 20 + 4}" width="${Math.abs(v) * k}" height="12" class="${r.z < 0 ? 'neg' : 'pos'}"><title>${nf(r.z, 2)}</title></rect>`; }).join('')}</svg>`;
+}
+function desenharPerfil(pf) {
+  if (!pf) return;
+  const partes = [];
+  // protocolos
+  const ok = pf.protocolos.filter(p => p.gc != null), falta = pf.protocolos.filter(p => p.gc == null);
+  partes.push(`<div class="pf-bloco"><h3>% de gordura por protocolo</h3>
+    ${ok.length ? `<div class="tablebox"><table><thead><tr><th class="t">Protocolo</th><th class="t">Para quem</th><th>% gordura</th><th></th></tr></thead><tbody>
+      ${ok.map(p => `<tr class="${p.protocolo === pf.escolhido ? 'escolhido' : ''}"><td class="t"><b>${esc(p.nome)}</b><br><span class="note">${esc(p.ref)}</span></td>
+        <td class="t note">${esc(p.publico)}${p.fora_idade ? '<br><span class="chip warn">fora da faixa de idade</span>' : ''}</td><td class="n"><b>${nf(p.gc)}%</b></td>
+        <td>${p.protocolo === pf.escolhido ? '<span class="chip good">em uso</span>' : `<button type="button" class="btn mini usar-prot" data-p="${p.protocolo}">Usar</button>`}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="note" style="margin:0">Preencha as dobras para comparar os protocolos.</p>'}
+    ${falta.length ? `<details class="pf-falta"><summary>${falta.length} protocolo${falta.length > 1 ? 's' : ''} sem todas as medidas</summary>
+      <ul>${falta.map(p => `<li><b>${esc(p.nome)}</b> (${esc(p.publico)}): faltam ${esc(p.falta.join(', '))}</li>`).join('')}</ul></details>` : ''}
+  </div>`);
+  // somatotipo
+  const s = pf.somatotipo;
+  partes.push(`<div class="pf-bloco"><h3>Somatotipo (Heath-Carter)</h3>${s.endo != null ? `<div class="pf-soma">${somatocarta(s)}
+    <div class="pf-num"><div><span class="k">Endomorfia</span><span class="v">${nf(s.endo)}</span><span class="note">adiposidade relativa</span></div>
+      <div><span class="k">Mesomorfia</span><span class="v">${nf(s.meso)}</span><span class="note">robustez musculoesquelética</span></div>
+      <div><span class="k">Ectomorfia</span><span class="v">${nf(s.ecto)}</span><span class="note">linearidade (IP ${nf(s.hwr)})</span></div>
+      <div><span class="k">Classificação</span><span class="v" style="font-size:16px;font-family:var(--sans)">${esc(s.classe)}</span><span class="note">X ${nf(s.x)} · Y ${nf(s.y)}</span></div></div></div>`
+    : `<p class="note" style="margin:0">Faltam: ${esc(s.falta.join(', '))}.</p>`}</div>`);
+  // PVC
+  const q = pf.pvc;
+  if (q) partes.push(`<div class="pf-bloco"><h3>Pico de velocidade de crescimento (Mirwald, 2002)</h3>${q.offset != null
+    ? `<p style="margin:0"><b>${q.offset > 0 ? '+' : ''}${nf(q.offset)} anos</b> do pico (${esc(q.fase.toLowerCase())}) · idade estimada do pico <b>${nf(q.idade_pvc)} anos</b>
+       (média ${nf(q.media)}): maturação ${esc(q.momento)}.${q.fora ? ' <span class="note">Fora da faixa da equação (8 a 17 anos).</span>' : ''}</p>
+       <p class="note" style="margin:0">Valores negativos: anos que faltam até o pico; positivos: anos desde o pico. Erro da equação de cerca de 0,5 ano.</p>`
+    : `<p class="note" style="margin:0">Faltam: ${esc(q.falta.join(', '))}.</p>`}</div>`);
+  // Z-score
+  if (pf.z.length >= 5) partes.push(`<div class="pf-bloco"><h3>Proporcionalidade: Z-score (Phantom)</h3>
+    <p class="note" style="margin:0">Cada medida ajustada à estatura do Phantom (170,18 cm) e comparada à média dele: 0 é igual, ±1 é um desvio-padrão.</p>${zbarras(pf.z)}</div>`);
+  // metas
+  const m = pf.metas, lin = [];
+  if (m.imo != null) lin.push(`Índice músculo-ósseo: <b>${nf(m.imo, 2)}</b> (massa muscular ÷ massa óssea)`);
+  if (m.muscular_lee != null) lin.push(`Massa muscular por Lee (2000): <b>${nf(m.muscular_lee)} kg</b>`);
+  if (m.peso_sugerido != null) lin.push(`Para <b>${nf(m.alvo_gc)}%</b> de gordura: peso sugerido <b>${nf(m.peso_sugerido)} kg</b> (${m.gordura_a_perder > 0 ? 'perder' : 'pode ganhar'} ${nf(Math.abs(m.gordura_a_perder))} kg de gordura)`);
+  if (m.muscular_alvo != null) lin.push(`Com IMO alvo <b>${nf(m.alvo_imo)}</b>: massa muscular alvo <b>${nf(m.muscular_alvo)} kg</b> (${m.muscular_a_ganhar > 0 ? '+' : ''}${nf(m.muscular_a_ganhar)} kg)`);
+  partes.push(`<div class="pf-bloco"><h3>Metas</h3>${lin.length ? `<ul class="pf-metas">${lin.map(l => `<li>${l}</li>`).join('')}</ul>` : ''}
+    <p class="note" style="margin:0">${m.alvo_gc || m.alvo_imo ? '' : 'Defina o % de gordura e o índice músculo-ósseo alvo no card "Perfil antropométrico" da ficha do paciente. '}Metas valem para todas as avaliações do paciente.</p></div>`);
+  $('pf').innerHTML = partes.join('');
+  $('pf').querySelectorAll('.usar-prot').forEach(b => b.onclick = () => {
+    $('protocolo_dobras').value = b.dataset.p; mudou = true; calcular();
+  });
+}
+
 $('ficha').addEventListener('input', e => {
   if (e.target.closest('.campo.calc')) return;
   clearTimeout(espera); espera = setTimeout(calcular, 300);

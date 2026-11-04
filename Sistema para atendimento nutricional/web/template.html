@@ -190,6 +190,61 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 .aviso-novo b{font-size:16px}
 .aviso-novo p{margin:0;color:var(--muted);font-size:14px}
 .ck-dados{display:flex;flex-direction:column;gap:12px}
+/* metas diárias */
+.mt-topo{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.mt-nav{display:flex;align-items:center;gap:8px}
+.mt-nav b{min-width:150px;text-align:center;font-size:16px}
+.mt-btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font:500 14px var(--sans);cursor:pointer}
+.mt-btn:disabled{opacity:.4;cursor:default}
+.mt-btn.pri{background:var(--c2);border-color:var(--c2);color:#fff}
+.mt-hoje-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px}
+.mt-hoje-top .alvo{font:500 13px var(--mono);color:var(--muted)}
+.mt-barra{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.mt-barra i{display:block;height:100%;background:var(--c2);transition:width .25s}
+.mt-pecas{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.mt-peca{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:14px;min-height:96px;padding:10px 8px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font:500 13px var(--sans);text-align:center;
+  transition:transform .12s,border-color .15s,background .15s}
+.mt-peca .ic{font-size:26px;line-height:1;filter:grayscale(1);opacity:.55;transition:filter .15s,opacity .15s}
+.mt-peca:active{transform:scale(.96)}
+.mt-peca[aria-pressed="true"]{border-color:var(--c2);background:color-mix(in srgb,var(--c2) 12%,var(--surface));color:var(--ink)}
+.mt-peca[aria-pressed="true"] .ic{filter:none;opacity:1}
+.mt-peca[aria-pressed="true"]::after{content:"✓";font:600 12px var(--sans);color:var(--c2)}
+.mt-peca:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
+.mt-rodape{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;font-size:13px;color:var(--muted)}
+.mt-rodape b{color:var(--ink);font-weight:600}
+.mt-rodape .ok{color:var(--good);font-weight:600}
+.mt-zerar{appearance:none;border:0;background:none;color:var(--muted);font:inherit;text-decoration:underline;cursor:pointer;padding:0}
+.mt-novo{display:flex;gap:8px;flex-wrap:wrap}
+.mt-novo input{flex:1;min-width:180px;font:15px var(--sans);padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.mt-sug{display:flex;flex-wrap:wrap;gap:6px}
+.mt-sug button{appearance:none;border:1px dashed var(--line);background:none;color:var(--muted);border-radius:999px;padding:4px 10px;font:13px var(--sans);cursor:pointer}
+.mt-lista{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.mt-lista li{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:6px 0}
+.mt-lista button{appearance:none;border:0;background:none;color:var(--bad);font:13px var(--sans);cursor:pointer}
+table.mt-grade{border-collapse:collapse;font-size:12px}
+table.mt-grade th,table.mt-grade td{padding:0;text-align:center;border-bottom:1px solid var(--line)}
+table.mt-grade th{font:500 11px var(--mono);color:var(--muted);padding:4px 0;min-width:26px}
+table.mt-grade th.fds{color:var(--c3)}
+table.mt-grade td.nome{text-align:left;padding:6px 10px 6px 0;font-size:13px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;position:sticky;left:0;background:var(--surface)}
+table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:nowrap}
+.mt-dia{appearance:none;width:24px;height:24px;margin:2px 1px;border-radius:6px;border:1px solid var(--line);background:none;cursor:pointer;color:#fff;font-size:12px;line-height:1;padding:0}
+.mt-dia.ok{background:var(--c2);border-color:var(--c2)}
+.mt-dia.hoje{outline:2px solid var(--c4);outline-offset:1px}
+.mt-dia:disabled{opacity:.25;cursor:default}
+.mt-resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.mt-resumo>div{background:var(--bg);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.mt-resumo .k{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.mt-resumo .v{font:500 22px var(--mono)}
+.pf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px}
+.pf-grid .card{grid-column:auto}
+.somato{position:relative;width:100%;max-width:420px;aspect-ratio:1;margin:0 auto}
+.somato canvas{width:100%;height:100%}
+.pf-num{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pf-num>div{background:var(--bg);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.pf-num .k{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.pf-num .v{font:500 20px var(--mono)}
+.pf-metas{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 .ex-tab td.gr{text-align:left;background:var(--bg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .ex-tab td.v-baixo,.ex-tab td.v-alto{color:var(--bad);font-weight:600}
 .ex-tab td.v-atencao{color:var(--warn);font-weight:600}
@@ -198,9 +253,10 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 .dp-card h3{margin:0;font-size:15px}
 .dp-card .v{font:500 22px var(--mono)}
 .dp-card .v small{font-size:13px;color:var(--muted);margin-left:3px}
-.dp-card svg{width:100%;height:80px}
-.dp-card svg polyline{fill:none;stroke-width:2.5;vector-effect:non-scaling-stroke}
-.dp-card svg .d{stroke:var(--c2)} .dp-card svg .e{stroke:var(--c4);stroke-dasharray:4 3}
+.dp-card .chart{height:190px}
+.dp-geral{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px}
+.dp-geral .card{grid-column:auto}
+.dp-geral .chart{height:260px}
 .var-boa{color:var(--good);font-weight:600} .var-ruim{color:var(--bad);font-weight:600}
 .ck-tab{width:100%;border-collapse:collapse;font-size:13px}
 .nota-baixa{color:var(--bad);font-weight:600}
@@ -246,6 +302,8 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
         <button type="button" id="rel-reds" hidden>Rastreio RED-S</button>
         <button type="button" id="rel-ex" hidden>Exames</button>
         <button type="button" id="rel-dp" hidden>Desempenho</button>
+        <button type="button" id="rel-pf" hidden>Perfil</button>
+        <button type="button" id="rel-mt" hidden>Metas do mês</button>
       </div>
       <span class="msg" id="rel-msg" role="status" aria-live="polite"></span>
     </div>
@@ -259,6 +317,8 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
       <button class="tab" role="tab" id="t-plano" aria-selected="false" data-view="plano" hidden>Plano alimentar</button>
       <button class="tab" role="tab" id="t-checkin" aria-selected="false" data-view="checkin" hidden>Check-in e rastreios</button>
       <button class="tab" role="tab" id="t-exames" aria-selected="false" data-view="exames" hidden>Exames e desempenho</button>
+      <button class="tab" role="tab" id="t-perfil" aria-selected="false" data-view="perfil" hidden>Perfil</button>
+      <button class="tab" role="tab" id="t-metas" aria-selected="false" data-view="metas">Metas diárias</button>
     </nav>
   </div>
 </header>
@@ -279,7 +339,7 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
 
     <section class="cls view" data-view="classificacoes" hidden>
       <div class="cls-cards" id="cls"></div>
-      <div class="card w12"><h2>Classificações por avaliação</h2><p class="note">Classificações calculadas pelo App Naive na data de cada avaliação.</p><div class="tablebox"><table id="tb-cls"></table></div></div>
+      <div class="card w12"><h2>Classificações por avaliação</h2><p class="note">Classificações calculadas na data de cada avaliação.</p><div class="tablebox"><table id="tb-cls"></table></div></div>
     </section>
 
     <section class="grid view" data-view="circunferencias" hidden>
@@ -299,6 +359,8 @@ details.grupo .qtd{font-weight:400;color:var(--muted);font-size:12px;margin-left
     <section class="plano view" data-view="plano" id="plano" hidden></section>
 
     <section class="view ck-dados" data-view="exames" id="ex-dados" hidden></section>
+    <section class="view ck-dados" data-view="perfil" id="pf-dados" hidden></section>
+    <section class="view ck-dados" data-view="metas" id="mt-dados" hidden></section>
     <section class="view" data-view="checkin" hidden>
       <div class="card ck-card" id="ck-card" hidden>
         <h2>Check-in da semana</h2>
@@ -324,6 +386,9 @@ const CHECKINS = __CHECKINS__;
 const REDS = __REDS__;
 const EXAMES = __EXAMES__;
 const DESEMPENHO = __DESEMPENHO__;
+const PERFIL = __PERFIL__;
+const TEM_PERFIL = PERFIL.somatotipo.length || PERFIL.pvc.length || PERFIL.z.length
+  || ['peso_sugerido', 'muscular_alvo', 'imo'].some(k => PERFIL.metas[k] != null);
 
 const n = v => { if (v == null) return null; const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? null : x; };
 const fmt = (v, d = 1) => v == null ? '–' : v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -428,7 +493,7 @@ function drawTable(rows) {
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-// tom do selo a partir do texto da classificação do App Naive: verde se adequado, amarelo para todo o resto
+// tom do selo a partir do texto da classificação: verde se adequado, amarelo para todo o resto
 const tom = s => {
   s = (s || '').toLowerCase();
   if (!s || /n\/d|verifique/.test(s)) return 'flat';
@@ -515,7 +580,7 @@ function drawCls(rows) {
       : `<td>${k === 'peso_ideal' ? (faixaPeso(r[k]) ? faixaPeso(r[k]).map(x => fmt(x)).join('–') + ' kg' : '–') : (chip(r[k]) || '–')}</td>`).join('')}</tr>`).join('') + '</tbody>';
 }
 
-// alimento do plano: texto pronto ("Banana - 1 unidade") ou {nome, qtd} lido do PDF do App Naive
+// alimento do plano: texto pronto ("Banana - 1 unidade") ou {nome, qtd} lido do PDF do plano
 const alimento = a => typeof a === 'string' ? esc(a) : `${esc(a.nome)}${a.qtd ? ` <span class="qtd">${esc(a.qtd)}</span>` : ''}`;
 
 // meta de água do plano ("3082 ml durante o dia (aproximadamente 11 copos de 300ml)") -> {ml, copos, copoMl}
@@ -712,6 +777,337 @@ function variacoes(t) {
       varE: a && r.esq != null && a.esq ? (r.esq - a.esq) / a.esq * 100 : null };
   });
 }
+// rótulos curtos em até 2 linhas, para caber embaixo das barras
+const quebra = (txt, max = 16) => {
+  const linhas = [''];
+  txt.split(' ').forEach(p => { const l = linhas.length - 1; if (linhas[l] && (linhas[l] + ' ' + p).length > max) linhas.push(p); else linhas[l] = (linhas[l] + ' ' + p).trim(); });
+  return linhas.length > 2 ? [linhas[0], linhas.slice(1).join(' ').slice(0, max - 1) + '…'] : linhas;
+};
+// dados da visão geral: cargas (testes em kg de um lado só) e % de melhora de cada teste
+function visaoGeral() {
+  const kg = DESEMPENHO.filter(t => !t.bilateral && t.unidade.toLowerCase() === 'kg' && t.registros.length > 1);
+  const cargas = kg.length ? { labels: kg.map(t => t.teste), primeiro: kg.map(t => t.registros[0].valor),
+    ultimo: kg.map(t => t.registros[t.registros.length - 1].valor) } : null;
+  const itens = [];
+  DESEMPENHO.filter(t => t.var_total != null).forEach(t => {
+    const sinal = t.melhor === 'maior' ? 1 : -1;
+    if (t.bilateral) {
+      itens.push([t.teste + ' (dir.)', t.var_total * sinal]);
+      if (t.var_total_esq != null) itens.push([t.teste + ' (esq.)', t.var_total_esq * sinal]);
+    } else itens.push([t.teste, t.var_total * sinal]);
+  });
+  return { cargas, melhora: itens.length ? { labels: itens.map(x => x[0]), valores: itens.map(x => Math.round(x[1] * 10) / 10) } : null };
+}
+// gráfico de barras com o valor escrito em cima de cada barra (no PDF, desenhado grande e com fundo branco)
+function cfgBarras(labels, series, { pdf = false, sufixo = '', deitado = false } = {}) {
+  const ink = pdf ? '#5E7178' : css('--muted'), grade = pdf ? '#DCE5E6' : css('--line'), forte = pdf ? '#13262E' : css('--ink');
+  const fs = pdf ? 19 : 11, f = v => fmtV(v) + sufixo;
+  // eixo dos valores e eixo dos nomes (barras deitadas: nomes à esquerda, cabem inteiros)
+  const eixoV = { beginAtZero: true, grace: '10%', ticks: { color: ink, font: { size: fs }, callback: v => f(v) }, grid: { color: grade }, border: { display: false } };
+  const eixoN = { ticks: { color: deitado ? forte : ink, font: { size: fs }, maxRotation: 0, autoSkip: false }, grid: { display: false } };
+  return {
+    type: 'bar',
+    data: { labels: deitado ? labels : labels.map(l => quebra(l)), datasets: series.map(x => ({ label: x.label, data: x.data, backgroundColor: x.cor,
+      borderRadius: pdf ? 6 : 4, maxBarThickness: pdf ? 90 : 46, categoryPercentage: 0.7, barPercentage: 0.9 })) },
+    options: {
+      indexAxis: deitado ? 'y' : 'x',
+      responsive: !pdf, maintainAspectRatio: false, animation: false, devicePixelRatio: pdf ? 1 : undefined,
+      layout: { padding: deitado ? { right: pdf ? 90 : 52 } : { top: pdf ? 34 : 22 } },
+      plugins: { legend: { display: series.length > 1, align: 'start', labels: { color: ink, usePointStyle: true, boxWidth: pdf ? 14 : 8, padding: pdf ? 24 : 12, font: { size: pdf ? 21 : 12 } } },
+        tooltip: { enabled: !pdf, callbacks: { title: c => [].concat(c[0].label).join(' '), label: c => ` ${c.dataset.label}: ${f(c.parsed.y)}` } } },
+      scales: deitado ? { x: eixoV, y: eixoN } : { x: eixoN, y: eixoV },
+    },
+    plugins: [{ id: 'valores', afterDatasetsDraw(c) {
+      const { ctx } = c;
+      ctx.save(); ctx.font = pdf ? '600 18px sans-serif' : '600 11px "IBM Plex Mono", monospace'; ctx.fillStyle = forte;
+      const rot = v => fmtV(v) + (sufixo === '%' ? '%' : '');
+      c.data.datasets.forEach((d, i) => c.getDatasetMeta(i).data.forEach((b, j) => {
+        const v = d.data[j]; if (v == null) return;
+        if (deitado) {
+          ctx.textAlign = v < 0 ? 'right' : 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText(rot(v), b.x + (v < 0 ? -6 : 6), b.y);
+        } else {
+          ctx.textAlign = 'center';
+          ctx.fillText(rot(v), b.x, v < 0 ? b.y + (pdf ? 22 : 13) : b.y - (pdf ? 9 : 5));
+        }
+      }));
+      ctx.restore();
+    } }].concat(pdf ? [{ id: 'fundo', beforeDraw(c) { c.ctx.save(); c.ctx.fillStyle = '#fff'; c.ctx.fillRect(0, 0, c.width, c.height); c.ctx.restore(); } }] : []),
+  };
+}
+// séries de um teste: uma barra por data (e os dois lados, quando houver)
+function seriesTeste(t, pdf) {
+  const c2 = pdf ? LINHA.c2 : css('--c2'), c4 = pdf ? LINHA.c4 : css('--c4');
+  return [{ label: t.bilateral ? 'Direita' : t.teste, data: t.registros.map(r => r.valor), cor: c2 }]
+    .concat(t.bilateral ? [{ label: 'Esquerda', data: t.registros.map(r => r.esq), cor: c4 }] : []);
+}
+function seriesGerais(g, pdf) {
+  const boa = pdf ? '#1F8A5B' : css('--good'), ruim = pdf ? '#C2452D' : css('--bad');
+  return {
+    cargas: g.cargas && [{ label: 'Primeiro teste', data: g.cargas.primeiro, cor: pdf ? '#C9DCDF' : css('--brand-soft') },
+      { label: 'Último teste', data: g.cargas.ultimo, cor: pdf ? LINHA.c2 : css('--c2') }],
+    melhora: g.melhora && [{ label: 'Melhora', data: g.melhora.valores, cor: g.melhora.valores.map(v => v >= 0 ? boa : ruim) }],
+  };
+}
+let graficosDp = [];
+function desenharGraficosDp() {
+  graficosDp.forEach(g => g.destroy());
+  graficosDp = [];
+  const g = visaoGeral(), sg = seriesGerais(g, false);
+  const novo = (el, cfg) => { if (el) graficosDp.push(new Chart(el, cfg)); };
+  if (g.cargas) novo(document.getElementById('dp-cargas'), cfgBarras(g.cargas.labels, sg.cargas, { sufixo: ' kg' }));
+  if (g.melhora) novo(document.getElementById('dp-melhora'), cfgBarras(g.melhora.labels, sg.melhora, { sufixo: '%', deitado: true }));
+  document.querySelectorAll('canvas[data-dp]').forEach(cv => {
+    const t = DESEMPENHO[+cv.dataset.dp];
+    novo(cv, cfgBarras(t.registros.map(r => curta(r.data)), seriesTeste(t, false), { sufixo: t.unidade ? ' ' + t.unidade : '' }));
+  });
+}
+// gráfico de barras desenhado fora da tela, para virar imagem no PDF
+function barrasPDF(labels, series, sufixo = '', deitado = false) {
+  const cv = document.createElement('canvas'); cv.width = 1400; cv.height = deitado ? 90 + 56 * labels.length : 500;
+  const ch = new Chart(cv, cfgBarras(labels, series, { pdf: true, sufixo, deitado }));
+  const url = cv.toDataURL('image/jpeg', 0.92); ch.destroy(); return { url, alt: 180 * cv.height / cv.width };
+}
+function figuraBarras(doc, titulo, img) {
+  espaco(doc, img.alt + 12);
+  if (titulo) { doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...COR.ink); doc.text(t(titulo), 15, doc.y); }
+  else doc.y -= 4;
+  doc.addImage(img.url, 'JPEG', 15, doc.y + 2, 180, img.alt); doc.y += img.alt + 9;
+}
+// ---------- aba Perfil: somatotipo, pico de crescimento, Z-score e metas ----------
+// somatocarta desenhada à mão: X = ecto − endo, Y = 2 × meso − (endo + ecto); pontas em 7-1-1, 1-7-1 e 1-1-7
+function somatocarta(cv, pontos, pdf = false) {
+  const W = cv.width, H = cv.height, ctx = cv.getContext('2d');
+  const tinta = pdf ? '#5E7178' : css('--muted'), linha = pdf ? '#DCE5E6' : css('--line'), cor = pdf ? LINHA.c2 : css('--c2');
+  const forte = pdf ? '#13262E' : css('--ink'), fundo = pdf ? '#fff' : css('--surface');
+  const px = x => W / 2 + x * W / 17, py = y => H * 0.66 - y * H / 27;
+  ctx.fillStyle = fundo; ctx.fillRect(0, 0, W, H);
+  const v = [[-6, -6], [0, 12], [6, -6]].map(([x, y]) => [px(x), py(y)]), c = [px(0), py(0)];
+  ctx.strokeStyle = tinta; ctx.lineWidth = W / 300; ctx.beginPath(); ctx.moveTo(...v[0]);
+  [[0, 1], [1, 2], [2, 0]].forEach(([a, b]) => {
+    const mx = (v[a][0] + v[b][0]) / 2, my = (v[a][1] + v[b][1]) / 2;
+    ctx.quadraticCurveTo(mx + (mx - c[0]) * 0.25, my + (my - c[1]) * 0.25, ...v[b]);
+  });
+  ctx.stroke();
+  ctx.strokeStyle = linha; v.forEach(p => { ctx.beginPath(); ctx.moveTo(...c); ctx.lineTo(...p); ctx.stroke(); });
+  const fs = Math.round(W / 26);
+  ctx.fillStyle = tinta; ctx.font = `${fs}px sans-serif`; ctx.textAlign = 'center';
+  ctx.fillText('Mesomorfia', v[1][0], v[1][1] - fs * 0.6);
+  ctx.textAlign = 'left'; ctx.fillText('Endomorfia', v[0][0] - fs * 0.3, v[0][1] + fs * 1.4);
+  ctx.textAlign = 'right'; ctx.fillText('Ectomorfia', v[2][0] + fs * 0.3, v[2][1] + fs * 1.4);
+  // evolução: linha ligando as avaliações, a mais recente em destaque
+  if (pontos.length > 1) {
+    ctx.strokeStyle = cor; ctx.globalAlpha = 0.5; ctx.setLineDash([W / 100, W / 120]); ctx.beginPath();
+    pontos.forEach((p, i) => i ? ctx.lineTo(px(p.x), py(p.y)) : ctx.moveTo(px(p.x), py(p.y)));
+    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  pontos.forEach((p, i) => {
+    const ult = i === pontos.length - 1;
+    ctx.beginPath(); ctx.arc(px(p.x), py(p.y), W / (ult ? 55 : 85), 0, Math.PI * 2);
+    ctx.fillStyle = ult ? cor : fundo; ctx.fill(); ctx.strokeStyle = cor; ctx.lineWidth = W / 220; ctx.stroke();
+  });
+  const u = pontos[pontos.length - 1];
+  // valores ao lado do ponto mais recente, virados para dentro do triângulo
+  const dir = u.x > 1.5 ? -1 : 1;
+  ctx.fillStyle = forte; ctx.font = `600 ${fs}px sans-serif`; ctx.textAlign = dir > 0 ? 'left' : 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${fmt(u.endo)} · ${fmt(u.meso)} · ${fmt(u.ecto)}`, px(u.x) + dir * W / 28, py(u.y));
+  ctx.textBaseline = 'alphabetic';
+}
+const FASES_PVC = { 'Antes do pico': 'Ainda não chegou ao pico de crescimento', 'Perto do pico': 'Está perto do pico de crescimento',
+  'Depois do pico': 'Já passou do pico de crescimento' };
+function desenharPerfilPag() {
+  const partes = [], s = PERFIL.somatotipo, q = PERFIL.pvc, m = PERFIL.metas;
+  if (s.length) {
+    const u = s[s.length - 1];
+    partes.push(`<div class="card"><h2>Somatotipo</h2>
+      <p class="note">O formato do corpo em três notas: endomorfia (gordura), mesomorfia (músculos e ossos) e ectomorfia (linearidade, corpo mais longo e fino).</p>
+      <div class="somato"><canvas id="pf-somato" role="img" aria-label="Somatocarta com o somatotipo de cada avaliação"></canvas></div>
+      <div class="pf-num"><div><span class="k">Endomorfia</span><span class="v">${fmt(u.endo)}</span></div>
+        <div><span class="k">Mesomorfia</span><span class="v">${fmt(u.meso)}</span></div><div><span class="k">Ectomorfia</span><span class="v">${fmt(u.ecto)}</span></div></div>
+      <p style="margin:0"><b>${esc(u.classe)}</b> <span class="note">em ${esc(u.data)}</span></p>
+      ${s.length > 1 ? `<div class="tablebox"><table class="ck-tab"><thead><tr><th style="text-align:left">Data</th><th>Endo</th><th>Meso</th><th>Ecto</th><th style="text-align:left">Classificação</th></tr></thead>
+        <tbody>${s.slice().reverse().map(r => `<tr><td style="text-align:left">${esc(r.data)}</td><td>${fmt(r.endo)}</td><td>${fmt(r.meso)}</td><td>${fmt(r.ecto)}</td><td style="text-align:left">${esc(r.classe)}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>`);
+  }
+  if (PERFIL.z.length) partes.push(`<div class="card"><h2>Proporções do corpo (Z-score)</h2>
+    <p class="note">Cada medida comparada a um corpo de referência (Phantom), já ajustada à sua altura. 0 é igual à referência; para a direita, maior; para a esquerda, menor.</p>
+    <div class="chart" style="height:${Math.max(220, 26 * PERFIL.z.length + 40)}px"><canvas id="pf-z"></canvas></div>
+    <p class="note">Avaliação de ${esc(PERFIL.data)}.</p></div>`);
+  if (q.length) {
+    const u = q[q.length - 1], anos = Math.abs(u.offset);
+    partes.push(`<div class="card"><h2>Pico de crescimento</h2>
+      <p style="margin:0;font-size:17px"><b>${esc(FASES_PVC[u.fase] || u.fase)}</b></p>
+      <p style="margin:0">${u.offset < 0 ? `Faltam cerca de <b>${fmt(anos)} anos</b> para o pico` : `O pico foi há cerca de <b>${fmt(anos)} anos</b>`},
+        com idade estimada de <b>${fmt(u.idade_pvc)} anos</b> (a média é ${fmt(u.media)}): maturação ${esc(u.momento)}.</p>
+      <p class="note">O pico de velocidade de crescimento é a fase em que a altura cresce mais rápido. Estimativa de Mirwald (2002) pela altura, altura sentado, peso e idade; erro de cerca de meio ano.</p>
+      ${q.length > 1 ? `<div class="tablebox"><table class="ck-tab"><thead><tr><th style="text-align:left">Data</th><th>Idade</th><th>Anos do pico</th><th>Idade do pico</th></tr></thead>
+        <tbody>${q.slice().reverse().map(r => `<tr><td style="text-align:left">${esc(r.data)}</td><td>${fmt(r.idade)}</td><td>${r.offset > 0 ? '+' : ''}${fmt(r.offset)}</td><td>${fmt(r.idade_pvc)}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>`);
+  }
+  const lin = [];
+  if (m.peso_sugerido != null) lin.push(`Para chegar a <b>${fmt(m.alvo_gc)}%</b> de gordura, o peso sugerido é <b>${fmt(m.peso_sugerido)} kg</b>${m.gordura_a_perder > 0 ? `: perder cerca de <b>${fmt(m.gordura_a_perder)} kg</b> de gordura, mantendo a massa magra` : ''}.`);
+  if (m.muscular_alvo != null) lin.push(`Massa muscular alvo: <b>${fmt(m.muscular_alvo)} kg</b>${m.muscular_a_ganhar > 0 ? ` (ganhar cerca de <b>${fmt(m.muscular_a_ganhar)} kg</b>)` : ''}.`);
+  if (m.imo != null) lin.push(`Índice músculo-ósseo atual: <b>${fmt(m.imo, 2)}</b>${m.alvo_imo ? ` (meta ${fmt(m.alvo_imo, 1)})` : ''}: quanto de músculo você tem para cada quilo de osso.`);
+  if (lin.length) partes.push(`<div class="card"><h2>Metas</h2><ul class="pf-metas">${lin.map(l => `<li>${l}</li>`).join('')}</ul>
+    <p class="note">Calculadas com a avaliação de ${esc(PERFIL.data)}.</p></div>`);
+  document.getElementById('pf-dados').innerHTML = `<div class="pf-grid">${partes.join('')}</div>`;
+}
+let graficoZ = null;
+function desenharGraficosPerfil() {
+  const cv = document.getElementById('pf-somato');
+  if (cv) {
+    const lado = cv.parentElement.clientWidth, dpr = window.devicePixelRatio || 1;
+    if (lado) { cv.width = cv.height = Math.round(lado * dpr); somatocarta(cv, PERFIL.somatotipo); }
+  }
+  const z = document.getElementById('pf-z');
+  if (z) {
+    if (graficoZ) graficoZ.destroy();
+    const boa = css('--c2'), outra = css('--c4');
+    graficoZ = new Chart(z, cfgBarras(PERFIL.z.map(r => r.nome), [{ label: 'Z-score', data: PERFIL.z.map(r => r.z), cor: PERFIL.z.map(r => r.z >= 0 ? boa : outra) }], { deitado: true }));
+  }
+}
+// ---------- aba Metas diárias: o paciente escolhe as metas dele e marca cada dia do mês (fica salvo neste aparelho) ----------
+const MT_CHAVE = 'metas-diarias-v1';
+let MT = { meses: {} };
+try { const g = JSON.parse(localStorage.getItem(MT_CHAVE)); if (g && g.meses) MT = g; } catch (e) { /* sem armazenamento: funciona até fechar */ }
+const mtSalvar = () => { try { localStorage.setItem(MT_CHAVE, JSON.stringify(MT)); } catch (e) { } };
+const SUGESTOES_METAS = ['Beber água', 'Treinar', 'Ler um livro', 'Meditar', 'Andar com o cachorro', 'Usar escada', 'Dormir 7 a 8 horas',
+  'Comer frutas e verduras', 'Alongar', 'Sem celular antes de dormir', 'Tomar sol pela manhã'];
+const NOMES_MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const chaveMes = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+const MES_ATUAL = chaveMes(new Date());
+let mtMes = MES_ATUAL;
+const nomeMes = m => { const [a, n] = m.split('-').map(Number); return `${NOMES_MES[n - 1][0].toUpperCase() + NOMES_MES[n - 1].slice(1)} de ${a}`; };
+const diasNoMes = m => { const [a, n] = m.split('-').map(Number); return new Date(a, n, 0).getDate(); };
+const somarMes = (m, k) => { const [a, n] = m.split('-').map(Number); return chaveMes(new Date(a, n - 1 + k, 1)); };
+// um mês novo começa com as metas do último mês que tinha metas
+function mesDe(m, criar) {
+  if (!MT.meses[m] && criar) {
+    const ant = Object.keys(MT.meses).filter(k => k < m && MT.meses[k].metas.length).sort().pop();
+    MT.meses[m] = { metas: ant ? MT.meses[ant].metas.map(x => ({ id: x.id, nome: x.nome })) : [], feito: {} };
+  }
+  return MT.meses[m] || { metas: [], feito: {} };
+}
+const diaHoje = () => new Date().getDate();
+// dias que já podem ser marcados: o mês inteiro no passado, até hoje no mês atual
+const diasAbertos = m => m < MES_ATUAL ? diasNoMes(m) : m === MES_ATUAL ? diaHoje() : 0;
+function resumoMes(m) {
+  const d = mesDe(m), abertos = diasAbertos(m);
+  const porMeta = d.metas.map(x => ({ nome: x.nome, feitos: (d.feito[x.id] || []).filter(n => n <= abertos).length }));
+  const total = porMeta.reduce((a, x) => a + x.feitos, 0), possivel = d.metas.length * abertos;
+  return { porMeta, abertos, total, possivel, pct: possivel ? Math.round(total / possivel * 100) : 0 };
+}
+function sequencia(d, abertos) {
+  // dias seguidos (até hoje) em que todas as metas foram cumpridas
+  let n = 0;
+  for (let dia = abertos; dia >= 1; dia--) {
+    if (d.metas.length && d.metas.every(x => (d.feito[x.id] || []).includes(dia))) n++; else break;
+  }
+  return n;
+}
+// ícone pelas palavras da meta (metas escritas pelo paciente ganham o ícone geral)
+const ICONES_META = [[/água|agua|beber/, '💧'], [/trein|academia|muscula/, '🏋️'], [/livro|ler|leitura/, '📖'], [/medit|respira/, '🧘'],
+  [/cachorro|cão|pet/, '🐕'], [/escada/, '🏃'], [/dorm|sono/, '😴'], [/fruta|verdura|legume|salada/, '🍎'], [/along|yoga|ioga/, '🤸'],
+  [/celular|tela/, '📵'], [/sol/, '☀️'], [/camin|andar|corr|pedal|bike/, '🚶'], [/doce|açúcar|acucar|refrigerante|álcool|alcool/, '🚫']];
+const iconeMeta = nome => (ICONES_META.find(([r]) => r.test(nome.toLowerCase())) || [, '⭐'])[1];
+function desenharMetas() {
+  const d = mesDe(mtMes, mtMes === MES_ATUAL), n = diasNoMes(mtMes), abertos = diasAbertos(mtMes), r = resumoMes(mtMes);
+  const [ano, mes] = mtMes.split('-').map(Number), ehAtual = mtMes === MES_ATUAL;
+  const feito = (id, dia) => (d.feito[id] || []).includes(dia);
+  const partes = [];
+  partes.push(`<div class="card"><div class="mt-topo">
+    <div class="mt-nav"><button type="button" class="mt-btn" data-mt="ant" aria-label="Mês anterior">‹</button><b>${nomeMes(mtMes)}</b>
+      <button type="button" class="mt-btn" data-mt="prox" aria-label="Próximo mês" ${mtMes >= MES_ATUAL ? 'disabled' : ''}>›</button></div>
+    ${ehAtual ? '' : '<button type="button" class="mt-btn" data-mt="atual">Voltar para este mês</button>'}</div>
+    <p class="note">Escolha o que é importante para a sua qualidade de vida e marque cada dia em que cumpriu. Fica salvo neste aparelho.</p></div>`);
+  if (ehAtual && d.metas.length) {
+    const hoje = diaHoje(), feitasHoje = d.metas.filter(x => feito(x.id, hoje)).length, falta = d.metas.length - feitasHoje;
+    partes.push(`<div class="card w12 mt-hoje">
+      <div class="mt-hoje-top"><h2>Metas de hoje</h2><span class="alvo">${hoje} de ${NOMES_MES[mes - 1]} · ${feitasHoje} de ${d.metas.length}</span></div>
+      <div class="mt-barra"><i style="width:${Math.round(feitasHoje / d.metas.length * 100)}%"></i></div>
+      <div class="mt-pecas">${d.metas.map(x => `<button type="button" class="mt-peca" data-mt="marca" data-id="${x.id}" data-dia="${hoje}" aria-pressed="${feito(x.id, hoje)}">
+        <span class="ic" aria-hidden="true">${iconeMeta(x.nome)}</span>${esc(x.nome)}</button>`).join('')}</div>
+      <div class="mt-rodape"><span>${falta ? `Toque em cada meta que cumprir. Faltam <b>${falta}</b>.` : '<span class="ok">Todas as metas de hoje cumpridas. Parabéns!</span>'}</span>
+        ${feitasHoje ? '<button type="button" class="mt-zerar" data-mt="zerar">Desmarcar hoje</button>' : ''}</div></div>`);
+  }
+  if (d.metas.length) {
+    const cab = Array.from({ length: n }, (_, i) => { const w = new Date(ano, mes - 1, i + 1).getDay();
+      return `<th class="${w === 0 || w === 6 ? 'fds' : ''}" title="${'DSTQQSS'[w]}">${i + 1}<br>${'DSTQQSS'[w]}</th>`; }).join('');
+    partes.push(`<div class="card"><h2>${nomeMes(mtMes)}</h2>
+      <div class="mt-resumo"><div><span class="k">Cumprido no mês</span><span class="v">${r.pct}%</span></div>
+        <div><span class="k">Marcações</span><span class="v">${r.total}<small style="font-size:13px;color:var(--muted)"> de ${r.possivel}</small></span></div>
+        ${ehAtual ? `<div><span class="k">Dias seguidos com tudo</span><span class="v">${sequencia(d, abertos)}</span></div>` : ''}</div>
+      <div class="tablebox"><table class="mt-grade"><thead><tr><th></th>${cab}<th>%</th></tr></thead><tbody>
+        ${d.metas.map((x, i) => `<tr><td class="nome" title="${esc(x.nome)}">${esc(x.nome)}</td>${Array.from({ length: n }, (_, k) => {
+          const dia = k + 1, ok = feito(x.id, dia);
+          return `<td><button type="button" class="mt-dia${ok ? ' ok' : ''}${ehAtual && dia === diaHoje() ? ' hoje' : ''}" data-mt="marca" data-id="${x.id}" data-dia="${dia}"
+            aria-pressed="${ok}" aria-label="${esc(x.nome)}, dia ${dia}" ${dia > abertos ? 'disabled' : ''}>${ok ? '✓' : ''}</button></td>`; }).join('')}
+          <td class="pct">${abertos ? Math.round(r.porMeta[i].feitos / abertos * 100) : 0}%</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note">Toque num quadradinho para marcar ou desmarcar. Dá para marcar dias que passaram e você esqueceu.</p></div>`);
+  }
+  if (ehAtual) {
+    const usadas = new Set(d.metas.map(x => x.nome.toLowerCase()));
+    partes.push(`<div class="card"><h2>Minhas metas</h2>
+      ${d.metas.length ? `<ul class="mt-lista">${d.metas.map(x => `<li><span>${esc(x.nome)}</span><button type="button" data-mt="tirar" data-id="${x.id}">Tirar</button></li>`).join('')}</ul>`
+        : '<p class="note">Você ainda não tem metas. Escreva a sua ou toque numa sugestão.</p>'}
+      <form class="mt-novo" id="mt-form"><input id="mt-nova" maxlength="40" placeholder="Nova meta, ex.: caminhar 30 minutos" aria-label="Nova meta">
+        <button class="mt-btn pri">Adicionar</button></form>
+      <div class="mt-sug">${SUGESTOES_METAS.filter(x => !usadas.has(x.toLowerCase())).map(x => `<button type="button" data-mt="sug">+ ${esc(x)}</button>`).join('')}</div>
+      <p class="note">As metas valem para o mês todo; no mês seguinte elas continuam, e você pode trocar.</p></div>`);
+  } else if (!d.metas.length) partes.push('<div class="card"><p class="note">Nenhuma meta neste mês.</p></div>');
+  document.getElementById('mt-dados').innerHTML = partes.join('');
+  document.getElementById('rel-mt').hidden = !Object.values(MT.meses).some(x => x.metas.length);
+  const f = document.getElementById('mt-form');
+  if (f) f.addEventListener('submit', e => { e.preventDefault(); novaMeta(document.getElementById('mt-nova').value); });
+}
+function novaMeta(nome) {
+  nome = nome.trim().replace(/\s+/g, ' ');
+  if (!nome) return;
+  const d = mesDe(MES_ATUAL, true);
+  if (d.metas.some(x => x.nome.toLowerCase() === nome.toLowerCase()) || d.metas.length >= 15) return;
+  d.metas.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), nome });
+  mtSalvar(); desenharMetas();
+}
+document.getElementById('mt-dados').addEventListener('click', e => {
+  const b = e.target.closest('[data-mt]');
+  if (!b) return;
+  const acao = b.dataset.mt;
+  if (acao === 'ant' || acao === 'prox') mtMes = somarMes(mtMes, acao === 'ant' ? -1 : 1);
+  else if (acao === 'atual') mtMes = MES_ATUAL;
+  else if (acao === 'sug') return novaMeta(b.textContent.replace(/^\+\s*/, ''));
+  else if (acao === 'tirar') {
+    if (!b.dataset.ok) { b.dataset.ok = '1'; b.textContent = 'Tirar mesmo?'; return; }   // confirma com um segundo toque
+    const d = mesDe(MES_ATUAL, true);
+    d.metas = d.metas.filter(x => x.id !== b.dataset.id); delete d.feito[b.dataset.id]; mtSalvar();
+  } else if (acao === 'zerar') {
+    const d = mesDe(MES_ATUAL, true), hoje = diaHoje();
+    Object.keys(d.feito).forEach(id => { d.feito[id] = d.feito[id].filter(x => x !== hoje); }); mtSalvar();
+  } else if (acao === 'marca') {
+    const d = mesDe(mtMes, true), id = b.dataset.id, dia = +b.dataset.dia, lista = d.feito[id] || (d.feito[id] = []);
+    const i = lista.indexOf(dia);
+    if (i >= 0) lista.splice(i, 1); else lista.push(dia);
+    mtSalvar();
+  }
+  desenharMetas();
+});
+function relatorioMetas() {
+  const d = mesDe(mtMes), r = resumoMes(mtMes), n = diasNoMes(mtMes);
+  const doc = novoPDF('Metas diárias', `${nomeMes(mtMes)} · ${r.pct}% cumprido`);
+  secao(doc, 'Resumo do mês');
+  tabela(doc, ['Meta', 'Dias cumpridos', '%'], r.porMeta.map(x => [x.nome, `${x.feitos} de ${r.abertos}`, `${r.abertos ? Math.round(x.feitos / r.abertos * 100) : 0}%`]), {}, [1, 2]);
+  texto(doc, `No total: ${r.total} de ${r.possivel} marcações (${r.pct}%).`, { tam: 10 });
+  // a grade do mês em duas partes, para caber na folha
+  [[1, 16], [17, n]].forEach(([a, b]) => {
+    if (a > n) return;
+    secao(doc, `Dias ${a} a ${b}`);
+    const dias = Array.from({ length: b - a + 1 }, (_, i) => a + i);
+    tabela(doc, ['Meta', ...dias.map(String)], d.metas.map(x => [x.nome, ...dias.map(dd => (d.feito[x.id] || []).includes(dd) ? 'X' : '')]),
+      { styles: { fontSize: 8, cellPadding: 1.4, halign: 'center', textColor: COR.ink, lineColor: COR.line, lineWidth: { bottom: 0.2 } },
+        columnStyles: { 0: { halign: 'left', cellWidth: 46 } }, headStyles: { fillColor: COR.fundo, textColor: COR.muted, fontSize: 7, halign: 'center' } });
+  });
+  texto(doc, 'X = meta cumprida no dia.', { tam: 8, cor: COR.muted });
+  rodapes(doc);
+  return doc;
+}
 function desenharExames() {
   const partes = [];
   if (EXAMES.datas.length) {
@@ -734,14 +1130,17 @@ function desenharExames() {
     partes.push(`<details class="plano-item" id="ex-dp">
       <summary><span class="pl-tit">Testes de desempenho</span>
         <span class="pl-info">${DESEMPENHO.length} teste${DESEMPENHO.length > 1 ? 's' : ''} · último em ${esc(DESEMPENHO.flatMap(t => t.registros).map(r => r.data).sort((a, b) => a.split('/').reverse().join('').localeCompare(b.split('/').reverse().join(''))).pop())}</span></summary>
-      <div class="plano-corpo"><div class="dp-grid">${DESEMPENHO.map(t => {
+      <div class="plano-corpo">${(() => {
+        const g = visaoGeral();
+        return g.cargas || g.melhora ? `<div class="dp-geral">
+          ${g.cargas ? '<div class="card"><h2>Evolução das cargas (kg)</h2><div class="chart"><canvas id="dp-cargas"></canvas></div></div>' : ''}
+          ${g.melhora ? `<div class="card"><h2>Melhora desde o primeiro teste (%)</h2><div class="chart" style="height:${Math.max(200, 36 * g.melhora.labels.length + 50)}px"><canvas id="dp-melhora"></canvas></div></div>` : ''}</div>` : '';
+      })()}<div class="dp-grid">${DESEMPENHO.map((t, i) => {
         const regs = variacoes(t), u = regs[regs.length - 1];
-        const vals = regs.flatMap(r => [r.valor, r.esq]).filter(v => v != null), lo = Math.min(...vals), amp = (Math.max(...vals) - lo) || 1, n = Math.max(regs.length - 1, 1);
-        const linha = k => regs.map((r, i) => r[k] == null ? '' : `${(10 + 280 * i / n).toFixed(1)},${(72 - 62 * (r[k] - lo) / amp).toFixed(1)}`).filter(Boolean).join(' ');
         return `<div class="card dp-card"><h3>${esc(t.teste)}</h3>
           <div><span class="v">${fmtV(u.valor)}${u.esq != null ? ' / ' + fmtV(u.esq) : ''}<small>${esc(t.unidade)}</small></span>${t.bilateral ? ' <span class="note">direita / esquerda</span>' : ''}
           ${t.var_total != null ? `<div class="note">Desde ${esc(regs[0].data)}: ${pct(t.var_total, t.melhor)}${t.var_total_esq != null ? ' / ' + pct(t.var_total_esq, t.melhor) : ''}</div>` : ''}</div>
-          ${regs.length > 1 ? `<svg viewBox="0 0 300 80" preserveAspectRatio="none" role="img" aria-label="Evolução de ${esc(t.teste)}"><polyline class="d" points="${linha('valor')}"/>${t.bilateral ? `<polyline class="e" points="${linha('esq')}"/>` : ''}</svg>` : ''}
+          <div class="chart"><canvas data-dp="${i}" role="img" aria-label="Resultados de ${esc(t.teste)} por data"></canvas></div>
           <div class="tablebox"><table class="ck-tab"><thead><tr><th style="text-align:left">Data</th><th>${t.bilateral ? 'Dir. / Esq.' : 'Resultado'}</th><th>Vs. anterior</th>${t.bilateral ? '<th>Assim.</th>' : ''}</tr></thead>
           <tbody>${regs.slice().reverse().map(r => `<tr><td style="text-align:left">${esc(r.data)}${r.obs ? `<br><span class="note">${esc(r.obs)}</span>` : ''}</td>
             <td>${fmtV(r.valor)}${r.esq != null ? ' / ' + fmtV(r.esq) : ''}</td><td>${pct(r.var, t.melhor)}${t.bilateral && r.varE != null ? ' / ' + pct(r.varE, t.melhor) : ''}</td>
@@ -750,6 +1149,9 @@ function desenharExames() {
       <p class="note" style="margin:0">Em verde quando melhorou (carga ou salto subiu, tempo caiu). Assimetria é a diferença entre os lados.</p></div></details>`);
   }
   document.getElementById('ex-dados').innerHTML = partes.join('');
+  // os gráficos só são desenhados quando a faixa abre (fechada, não tem tamanho)
+  const faixa = document.getElementById('ex-dp');
+  if (faixa) faixa.addEventListener('toggle', () => { if (faixa.open) desenharGraficosDp(); });
 }
 function desenharGraficoCk() {
   const cv = document.getElementById('ch-ck');
@@ -769,11 +1171,12 @@ function desenharGraficoCk() {
 
 function render() {
   const rows = recorte();
-  const plano = view === 'plano', ck = view === 'checkin' || view === 'exames';
+  const plano = view === 'plano', ck = ['checkin', 'exames', 'perfil', 'metas'].includes(view);
   document.getElementById('kpis').hidden = plano || ck || !DADOS.length;
   document.querySelector('.range').hidden = plano || ck || !DADOS.length;
   if (!DADOS.length && !plano && !ck) return;   // paciente ainda sem avaliação
-  document.getElementById('sub').textContent = view === 'exames' ? 'Exames e desempenho' : ck ? 'Check-in e rastreios'
+  if (view === 'perfil') desenharGraficosPerfil();
+  document.getElementById('sub').textContent = view === 'exames' ? 'Exames e desempenho' : view === 'perfil' ? 'Perfil antropométrico' : view === 'metas' ? 'Metas diárias' : ck ? 'Check-in e rastreios'
     : plano ? (PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Plano alimentar prescrito em ${PLANOS[0].prescrito}`)
     : `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${rows[0].dataAvaliacao} a ${rows[rows.length - 1].dataAvaliacao} · Altura ${fmt(n(rows[rows.length - 1].estatura), 0)} cm`;
   if (plano || ck) return;
@@ -1035,17 +1438,61 @@ function relatorioDesempenho() {
       t.var_total == null ? '-' : `${t.var_total > 0 ? '+' : ''}${fmt(t.var_total)}%${t.var_total_esq != null ? ` / ${t.var_total_esq > 0 ? '+' : ''}${fmt(t.var_total_esq)}%` : ''}`];
   }), {}, [3]);
   texto(doc, 'Evolução do primeiro ao último teste. Nos testes de tempo (sprint, corrida), cair é melhorar.', { tam: 8, cor: COR.muted });
+  const g = visaoGeral(), sg = seriesGerais(g, true);
+  if (g.cargas || g.melhora) {
+    secao(doc, 'Visão geral');
+    if (g.cargas) figuraBarras(doc, 'Evolução das cargas (kg): primeiro e último teste', barrasPDF(g.cargas.labels, sg.cargas, ' kg'));
+    if (g.melhora) {
+      figuraBarras(doc, 'Melhora desde o primeiro teste (%)', barrasPDF(g.melhora.labels, sg.melhora, '%', true));
+      texto(doc, 'Barras para a direita: melhorou (carga ou salto subiu, tempo caiu). Para a esquerda: piorou.', { tam: 8, cor: COR.muted });
+    }
+  }
   DESEMPENHO.forEach(t => {
+    espaco(doc, 95);   // título do teste na mesma página do gráfico
     secao(doc, `${t.teste}${t.unidade ? ' (' + t.unidade + ')' : ''}`);
-    if (t.registros.length > 1)
-      figura(doc, t.bilateral ? 'Direita e esquerda' : t.teste, t.registros.map(r => ({ dataAvaliacao: r.data, d: r.valor, e: r.esq })),
-        [['d', t.bilateral ? 'Direita' : t.teste, LINHA.c2], ['e', 'Esquerda', LINHA.c4]],
-        Math.max(...t.registros.map(r => r.valor)) < 10 ? 2 : 1, true);
+    figuraBarras(doc, t.bilateral ? 'Direita e esquerda, por data' : 'Resultado por data',
+      barrasPDF(t.registros.map(r => curta(r.data)), seriesTeste(t, true), t.unidade ? ' ' + t.unidade : ''));
     tabela(doc, ['Data', t.bilateral ? 'Direita / esquerda' : 'Resultado', 'Vs. anterior', ...(t.bilateral ? ['Assimetria'] : []), 'Observação'],
       variacoes(t).reverse().map(r => [r.data, `${fmtV(r.valor)}${r.esq != null ? ' / ' + fmtV(r.esq) : ''}`,
         r.var == null ? '-' : `${r.var > 0 ? '+' : ''}${fmt(r.var)}%${r.varE != null ? ` / ${r.varE > 0 ? '+' : ''}${fmt(r.varE)}%` : ''}`,
         ...(t.bilateral ? [r.assimetria != null ? fmt(r.assimetria) + '%' : '-'] : []), r.obs]), {}, t.bilateral ? [1, 2, 3] : [1, 2]);
   });
+  rodapes(doc);
+  return doc;
+}
+
+function relatorioPerfil() {
+  const s = PERFIL.somatotipo, q = PERFIL.pvc, m = PERFIL.metas;
+  const doc = novoPDF('Perfil antropométrico', `Avaliação de ${PERFIL.data}`);
+  if (s.length) {
+    secao(doc, 'Somatotipo (Heath-Carter)');
+    texto(doc, 'O formato do corpo em três notas: endomorfia (gordura relativa), mesomorfia (músculos e ossos) e ectomorfia (linearidade).', { tam: 9, cor: COR.muted });
+    const cv = document.createElement('canvas'); cv.width = cv.height = 900; somatocarta(cv, s, true);
+    espaco(doc, 95);
+    doc.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', 55, doc.y, 100, 100); doc.y += 104;
+    tabela(doc, ['Data', 'Endomorfia', 'Mesomorfia', 'Ectomorfia', 'Classificação'],
+      s.slice().reverse().map(r => [r.data, fmt(r.endo), fmt(r.meso), fmt(r.ecto), r.classe]), {}, [1, 2, 3]);
+  }
+  if (PERFIL.z.length) {
+    const img = barrasPDF(PERFIL.z.map(r => r.nome), [{ label: 'Z-score', data: PERFIL.z.map(r => r.z), cor: PERFIL.z.map(r => r.z >= 0 ? LINHA.c2 : LINHA.c4) }], '', true);
+    espaco(doc, img.alt + 34);   // título e gráfico na mesma página
+    secao(doc, 'Proporções do corpo (Z-score, Phantom)');
+    texto(doc, 'Cada medida ajustada à estatura de referência (170,18 cm) e comparada à média do Phantom: 0 é igual; positivo, maior; negativo, menor.', { tam: 9, cor: COR.muted });
+    figuraBarras(doc, '', img);
+  }
+  if (q.length) {
+    const u = q[q.length - 1];
+    secao(doc, 'Pico de velocidade de crescimento (Mirwald, 2002)');
+    texto(doc, `${FASES_PVC[u.fase] || u.fase}: ${u.offset < 0 ? 'faltam' : 'passaram'} cerca de ${fmt(Math.abs(u.offset))} anos ${u.offset < 0 ? 'para o' : 'desde o'} pico. Idade estimada do pico: ${fmt(u.idade_pvc)} anos (média ${fmt(u.media)}), maturação ${u.momento}.`, { tam: 10 });
+    tabela(doc, ['Data', 'Idade', 'Anos do pico', 'Idade do pico', 'Fase'],
+      q.slice().reverse().map(r => [r.data, fmt(r.idade), (r.offset > 0 ? '+' : '') + fmt(r.offset), fmt(r.idade_pvc), r.fase]), {}, [1, 2, 3]);
+    texto(doc, 'Valores negativos: anos que faltam até o pico; positivos: anos desde o pico. Erro da equação de cerca de meio ano.', { tam: 8, cor: COR.muted });
+  }
+  const lin = [];
+  if (m.peso_sugerido != null) lin.push(`Para ${fmt(m.alvo_gc)}% de gordura: peso sugerido de ${fmt(m.peso_sugerido)} kg${m.gordura_a_perder > 0 ? ` (perder cerca de ${fmt(m.gordura_a_perder)} kg de gordura)` : ''}.`);
+  if (m.muscular_alvo != null) lin.push(`Massa muscular alvo: ${fmt(m.muscular_alvo)} kg${m.muscular_a_ganhar > 0 ? ` (ganhar cerca de ${fmt(m.muscular_a_ganhar)} kg)` : ''}.`);
+  if (m.imo != null) lin.push(`Índice músculo-ósseo atual: ${fmt(m.imo, 2)}${m.alvo_imo ? ` (meta ${fmt(m.alvo_imo, 1)})` : ''}.`);
+  if (lin.length) { secao(doc, 'Metas'); lin.forEach(l => texto(doc, '- ' + l, { tam: 10 })); }
   rodapes(doc);
   return doc;
 }
@@ -1151,9 +1598,10 @@ async function gerarRelatorio(tipo) {
   try {
     await pdfLibs();
     const doc = tipo === 'plano' ? await relatorioPlano() : tipo === 'checkin' ? relatorioCheckin() : tipo === 'reds' ? relatorioReds()
-      : tipo === 'exames' ? relatorioExames() : tipo === 'desempenho' ? relatorioDesempenho() : relatorioAvaliacao();
+      : tipo === 'exames' ? relatorioExames() : tipo === 'desempenho' ? relatorioDesempenho() : tipo === 'perfil' ? relatorioPerfil()
+      : tipo === 'metas' ? relatorioMetas() : relatorioAvaliacao();
     const titulo = { plano: 'Plano alimentar', checkin: 'Check-in semanal', reds: 'Rastreio RED-S', exames: 'Exames laboratoriais',
-      desempenho: 'Testes de desempenho' }[tipo] || 'Avaliação física';
+      desempenho: 'Testes de desempenho', perfil: 'Perfil antropométrico', metas: `Metas diárias ${nomeMes(mtMes)}` }[tipo] || 'Avaliação física';
     const nome = `${titulo} - ${NOME} - ${hoje().replace(/\//g, '-')}.pdf`;
     relMsg.textContent = 'Confirme o download.';
     await salvar(nome, doc.output('blob'));
@@ -1178,13 +1626,18 @@ document.getElementById('rel-ex').addEventListener('click', () => gerarRelatorio
 document.getElementById('rel-dp').addEventListener('click', () => gerarRelatorio('desempenho'));
 if (EXAMES.datas.length) document.getElementById('rel-ex').hidden = false;
 if (DESEMPENHO.length) document.getElementById('rel-dp').hidden = false;
+document.getElementById('rel-pf').addEventListener('click', () => gerarRelatorio('perfil'));
+if (TEM_PERFIL) document.getElementById('rel-pf').hidden = false;
+document.getElementById('rel-mt').addEventListener('click', () => gerarRelatorio('metas'));
 
-document.getElementById('foot').textContent ='Fonte: App Naive · evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
+document.getElementById('foot').textContent ='Evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
 if (PLANOS.length) { document.getElementById('t-plano').hidden = false; drawPlano(); }
 if (CHECKIN) { document.getElementById('ck-card').hidden = false; document.getElementById('ck-link').href = CHECKIN; }
 const TEM_REDS = (REDS.leafq || []).length || (REDS.energia || []).length;
 if (CHECKIN || CHECKINS.length || TEM_REDS) { document.getElementById('t-checkin').hidden = false; desenharCheckins(); }
 if (EXAMES.datas.length || DESEMPENHO.length) { document.getElementById('t-exames').hidden = false; desenharExames(); }
+if (TEM_PERFIL) { document.getElementById('t-perfil').hidden = false; desenharPerfilPag(); }
+desenharMetas();
 // paciente novo, ainda sem avaliação: a página mostra só o plano e o check-in
 if (!DADOS.length) {
   ['composicao', 'classificacoes', 'circunferencias', 'dobras'].forEach(v => { document.getElementById('t-' + v).hidden = true; });

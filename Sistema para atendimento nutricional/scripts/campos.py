@@ -1,6 +1,6 @@
-"""Mapeamento entre as colunas da tabela avaliacao e as chaves do App Naive (usado por vários scripts)."""
+"""Mapeamento entre as colunas da tabela avaliacao e as chaves usadas na página e na planilha (usado por vários scripts)."""
 
-# coluna da tabela avaliacao -> chave no App Naive
+# coluna da tabela avaliacao -> chave na página e na planilha
 CAMPOS = {
     "peso_kg": "massa", "altura_cm": "estatura", "imc": "imc", "classificacao_imc": "class_imc",
     "peso_ideal": "peso_ideal", "rcq": "razao", "risco_rcq": "risco",

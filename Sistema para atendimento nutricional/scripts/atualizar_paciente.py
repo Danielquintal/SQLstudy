@@ -25,8 +25,8 @@ PLANILHAS = Path.home() / "Downloads" / "Antropometria por paciente"
 TEMPLATE = RAIZ / "web" / "template.html"
 ARTEFATOS = RAIZ / "web" / "artefatos.json"
 PAGINAS = RAIZ / "web" / "paginas"
-# outro banco (ex.: o de demonstração): variável de ambiente APP_NAIVE_CONEXAO
-CONEXAO = os.environ.get("APP_NAIVE_CONEXAO", "host=localhost port=5432 dbname=app_naive user=postgres")
+# outro banco (ex.: o de demonstração): variável de ambiente SISTEMA_CONEXAO
+CONEXAO = os.environ.get("SISTEMA_CONEXAO", "host=localhost port=5432 dbname=atendimento_nutricional user=postgres")
 
 
 def norm(s):
@@ -161,8 +161,8 @@ def glob_escape(s):
     return re.sub(r"([\[\]*?])", r"[\1]", s)
 
 
-def para_app_naive(reg):
-    """linha do banco -> dicionário com as chaves do App Naive, como build() e montar() esperam"""
+def para_pagina(reg):
+    """linha do banco -> dicionário com as chaves da página e da planilha, como build() e montar() esperam"""
     d = reg["data_avaliacao"]
     a = {"dataAvaliacao": d.strftime("%d/%m/%Y"), "dataOrdem": d.strftime("%Y%m%d")}
     for col, chave in CAMPOS.items():
@@ -193,7 +193,7 @@ def main():
     try:
         con = psycopg.connect(CONEXAO)
     except psycopg.OperationalError as e:
-        sair(f"Não consegui conectar ao banco app_naive: {e}")
+        sair(f"Não consegui conectar ao banco de dados: {e}")
 
     with con:
         cur = con.cursor()
@@ -266,7 +266,7 @@ def main():
         if novas or alteracoes:
             print(f"Banco: {len(novas)} inseridas, {len(alteracoes)} alteradas")
 
-        avs = [para_app_naive(r) for r in avaliacoes_do_banco(cur, pid)]
+        avs = [para_pagina(r) for r in avaliacoes_do_banco(cur, pid)]
         plano = plano_do_banco(cur, pid)
 
     if not avs:

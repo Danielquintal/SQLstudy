@@ -12,12 +12,13 @@ KEEP = ["dataAvaliacao", "dataOrdem", "massa", "estatura", "gc", "peso_m", "peso
         "dobra_abdominal", "dobra_coxa",
         "imc", "class_imc", "peso_ideal", "risco", "cmb_cm", "cmb_pct", "class_cmb", "class_gc",
         "bioimpedancia_gordura", "class_gc_bio"]
-PROTOCOLOS = {"pollock7": "Pollock 7", "pollock3": "Pollock 3", "guedes": "Guedes", "petroski": "Petroski",
-              "durnin": "Durnin & Womersley", "faulkner": "Faulkner", "jackson": "Jackson & Pollock"}
+from perfil import PROTOCOLOS as _PROTOCOLOS
+PROTOCOLOS = {k: p["nome"] for k, p in _PROTOCOLOS.items()}
+PROTOCOLOS.update({"pollock7": "Pollock 7", "pollock3": "Pollock 3", "jackson": "Jackson & Pollock"})
 
 
 def separar_cmb(a):
-    """no JSON do App Naive a CMB vem junta: "24.3 (113.4%)" """
+    """nos dados importados a CMB vem junta: "24.3 (113.4%)" """
     if a.get("cmb_cm"):
         return a
     m = re.match(r"([\d.]+)\s*\(([\d.]+)%\)", str(a.get("cmb", "")))
@@ -46,6 +47,7 @@ def gerar_html(template, nome, avaliacoes, plano, checkin=None, extras=None):
          .replace("__REDS__", json.dumps(extras.get("reds") or {"leafq": [], "energia": []}, ensure_ascii=False))
          .replace("__EXAMES__", json.dumps(extras.get("exames") or {"datas": [], "grupos": []}, ensure_ascii=False))
          .replace("__DESEMPENHO__", json.dumps(extras.get("desempenho") or [], ensure_ascii=False))
+         .replace("__PERFIL__", json.dumps(extras.get("perfil") or {"somatotipo": [], "pvc": [], "z": [], "metas": {}}, ensure_ascii=False))
          .replace("__NOME__", nome.strip())
          .replace("__PROTOCOLO__", protocolo)
          .replace("__PROFISSIONAL__", PROFISSIONAL))
