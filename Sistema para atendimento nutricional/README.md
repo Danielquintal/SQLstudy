@@ -1,4 +1,4 @@
-# Sistema de atendimento nutricional
+# Res Athleticae — Sistema de atendimento nutricional
 
 > **Dados fictícios.** Os pacientes deste repositório têm nomes inventados. CPF, telefone/WhatsApp, e-mail,
 > endereço e código do App Naive foram retirados, e as datas de nascimento são fictícias. As avaliações

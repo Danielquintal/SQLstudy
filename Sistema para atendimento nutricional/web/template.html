@@ -285,7 +285,7 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
 <header class="band">
   <div class="wrap">
     <div>
-      <p class="eyebrow">Evolução antropométrica</p>
+      <p class="eyebrow">Res Athleticae</p>
       <h1>__NOME__</h1>
       <p class="sub" id="sub"></p>
     </div>
@@ -1630,7 +1630,7 @@ document.getElementById('rel-pf').addEventListener('click', () => gerarRelatorio
 if (TEM_PERFIL) document.getElementById('rel-pf').hidden = false;
 document.getElementById('rel-mt').addEventListener('click', () => gerarRelatorio('metas'));
 
-document.getElementById('foot').textContent ='Evolução antropométrica. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
+document.getElementById('foot').textContent ='Res Athleticae. Composição corporal calculada por dobras cutâneas (__PROTOCOLO__).';
 if (PLANOS.length) { document.getElementById('t-plano').hidden = false; drawPlano(); }
 if (CHECKIN) { document.getElementById('ck-card').hidden = false; document.getElementById('ck-link').href = CHECKIN; }
 const TEM_REDS = (REDS.leafq || []).length || (REDS.energia || []).length;

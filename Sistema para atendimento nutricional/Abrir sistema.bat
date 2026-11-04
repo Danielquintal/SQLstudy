@@ -1,5 +1,5 @@
 @echo off
-title Sistema de avaliacoes
+title Res Athleticae
 cd /d "%~dp0"
 python sistema\app.py
 pause
