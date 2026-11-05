@@ -21,6 +21,8 @@ from montar_pagina import gerar_html, montar
 from planilha_paciente import SECTIONS, build, safe_name
 import agenda
 import anamnese
+import cloudflare
+import publicacao
 import resumo
 import checkin
 import reds
@@ -278,7 +280,7 @@ def paciente(pid):
                            rs_ind=resumo.indicadores(avs), rs_comp=resumo.grafico_composicao(avs), rs_met=resumo.metodos(avs),
                            rs_gc=resumo.grafico_gordura(avs, p["meta_gordura_pct"] and float(p["meta_gordura_pct"])),
                            an_ult=an_ult or {}, an_data=an_data, an_rotulos=anamnese.CAMPOS, hoje=date.today(),
-                           codigo_acesso=codigo_acesso,
+                           codigo_acesso=codigo_acesso, cf_ok=cloudflare.configurado(contatos.carregar()),
                            passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,
                            email_ok=checkin.email_valido(p["email"]), lembretes_pac=lembretes_pac, lp=lp_info,
                            quando_lembrete=lembretes.quando_texto,
@@ -395,6 +397,11 @@ def avaliacao(pid, aid=None):
 
 def pedir_atualizacao(pid, nome):
     if links.artefato(pid, nome):
+        cfg = contatos.carregar()
+        if cloudflare.configurado(cfg):
+            # publicação pelo próprio sistema: o link se atualiza sozinho, em segundo plano
+            publicacao.publicar_depois(cfg, pid, nome)
+            return " O link do paciente está sendo atualizado (leva alguns segundos)."
         links.pedir(pid, nome, "atualizar")
         return " O link publicado ficou na fila para atualizar (menu Links)."
     return ""
@@ -691,9 +698,21 @@ def alimentos_proprios():
 def pedir_link(pid):
     with conectar() as con:
         p = buscar_paciente(con.cursor(), pid)
+    cfg = contatos.carregar()
     if request.form.get("cancelar"):
         links.cancelar(pid)
         flash("Pedido de link cancelado.")
+    elif cloudflare.configurado(cfg):
+        # publica na hora, pelo Cloudflare
+        try:
+            feitos = publicacao.publicar(cfg, [pid])
+            if feitos:
+                flash(f"Link publicado: {feitos[0][2]} — já está no ar. Mande ao paciente com o código de acesso.")
+            else:
+                flash("Ainda não há o que mostrar na página (sem avaliação, plano ou check-in).", "aviso")
+        except cloudflare.ErroCloudflare as e:
+            links.pedir(pid, p["nome"], "atualizar" if links.artefato(pid, p["nome"]) else "novo")
+            flash(f"O Cloudflare não aceitou o envio ({e}). O pedido ficou na fila.", "aviso")
     else:
         links.pedir(pid, p["nome"], "atualizar" if links.artefato(pid, p["nome"]) else "novo")
         flash("Pedido anotado. Quando quiser, peça ao Claude: \u201cpublique os links pedidos\u201d.")
@@ -716,7 +735,9 @@ def lista_links():
         publicados.append(dict(id=pid, nome=nomes.get(pid, nome), url=info.get("url"),
                                publicado_em=info.get("publicado_em"), ultima=ultima.get(pid)))
     publicados.sort(key=lambda x: norm(x["nome"]))
-    return render_template("links.html", pedidos=links.pedidos(), publicados=publicados)
+    cfg = contatos.carregar()
+    return render_template("links.html", pedidos=links.pedidos(), publicados=publicados,
+                           cf_ok=cloudflare.configurado(cfg), cf_url=cfg["cloudflare"].get("url"), cf_estado=publicacao.estado())
 
 
 # ---------- WhatsApp ----------
@@ -848,8 +869,13 @@ def excluir_paciente(pid):
         EXCLUIDOS.mkdir(parents=True, exist_ok=True)
         arq = EXCLUIDOS / f"{safe_name(p['nome'])} ({pid}) {datetime.now():%Y-%m-%d %H%M%S}.json"
         arq.write_text(json.dumps(copia, ensure_ascii=False, indent=1, default=_para_json), encoding="utf-8")
+        cur.execute("SELECT pagina_token FROM paciente WHERE id = %s", (pid,))
+        token_site = cur.fetchone()[0]
         cur.execute("DELETE FROM paciente WHERE id = %s", (pid,))   # avaliações, planos, contatos e check-ins vão junto
     pagina.unlink(missing_ok=True)
+    cfg_cf = contatos.carregar()
+    if cloudflare.configurado(cfg_cf):
+        publicacao.remover(cfg_cf, pid, token_site)   # a página sai do site do Cloudflare
     if planilha and planilha.exists():
         destino = PLANILHAS / "Excluídos" / planilha.name
         destino.parent.mkdir(exist_ok=True)
@@ -1142,6 +1168,7 @@ def configuracao():
                     {"hoje": hoje, "desde": hoje - timedelta(days=int(cfg["checkin"].get("ativo_dias", 90)))})
         ativos = [e for e, in cur.fetchall()]
     return render_template("configuracao.html", cfg=cfg, titulos=contatos.TITULOS, variaveis=contatos.VARIAVEIS,
+                           cf_ok=cloudflare.configurado(cfg), cf_estado=publicacao.estado(), cf_ferramenta=cloudflare.WRANGLER.exists(),
                            padrao=contatos.PADRAO["mensagens"], script=checkin.SCRIPT.read_text(encoding="utf-8"),
                            exemplo=checkin.link_formulario(cfg, "Maria da Silva"), estado=estado,
                            versao_atual=checkin.VERSAO_SCRIPT, versao_email=agenda.VERSAO_EMAIL,
@@ -2104,6 +2131,52 @@ def paciente_telegram(pid, acao):
         else:
             abort(400)
     return redirect(url_for("paciente", pid=pid) + "#lembretes-paciente")
+
+
+@app.route("/configuracao/cloudflare", methods=["POST"])
+def configuracao_cloudflare():
+    """conecta o Cloudflare Pages (cria o projeto se preciso) para o sistema publicar os links sozinho"""
+    cfg = contatos.carregar()
+    c = cfg["cloudflare"]
+    if request.form.get("desligar"):
+        c.update(token="", url="")
+        contatos.salvar(cfg)
+        flash("Cloudflare desligado: os links voltam para a fila do Claude.")
+        return redirect(url_for("configuracao") + "#cloudflare")
+    c["account_id"] = request.form.get("account_id", "").strip()
+    c["projeto"] = (request.form.get("projeto", "").strip() or "res-athleticae").lower()
+    if request.form.get("token", "").strip():
+        c["token"] = request.form["token"].strip()        # vazio = mantém a chave guardada
+    if not (c["account_id"] and c["token"]):
+        flash("Preencha o ID da conta e a chave (token) do Cloudflare.", "aviso")
+        return redirect(url_for("configuracao") + "#cloudflare")
+    try:
+        c["url"] = cloudflare.conectar(c)
+    except cloudflare.ErroCloudflare as e:
+        c["url"] = ""
+        contatos.salvar(cfg)
+        flash(f"O Cloudflare recusou: {e}. Confira o ID da conta e a permissão da chave (Cloudflare Pages: Edit).", "aviso")
+        return redirect(url_for("configuracao") + "#cloudflare")
+    contatos.salvar(cfg)
+    flash(f"Cloudflare conectado: {c['url']}. Agora publique os links (menu Links › Publicar todos no Cloudflare).")
+    return redirect(url_for("configuracao") + "#cloudflare")
+
+
+@app.route("/links/cloudflare", methods=["POST"])
+def links_cloudflare():
+    """publica (ou atualiza) no Cloudflare as páginas de todos os pacientes que têm link"""
+    cfg = contatos.carregar()
+    if not cloudflare.configurado(cfg):
+        flash("Conecte o Cloudflare primeiro (Configuração › Publicação dos links).", "aviso")
+        return redirect(url_for("lista_links"))
+    ids = sorted({v["id"] for v in links.todos_artefatos().values() if v.get("id")} | {p["id"] for p in links.pedidos()})
+    try:
+        feitos = publicacao.publicar(cfg, ids)
+        flash(f"{len(feitos)} link(s) publicados no Cloudflare. Os endereços mudaram: mande o link novo a cada paciente "
+              f"(mensagem “Link da evolução” na ficha, que já vai com o código).")
+    except cloudflare.ErroCloudflare as e:
+        flash(f"O envio ao Cloudflare falhou: {e}", "aviso")
+    return redirect(url_for("lista_links"))
 
 
 @app.route("/configuracao/telegram", methods=["POST"])

@@ -30,6 +30,8 @@ PADRAO = {
                               "chamar no WhatsApp.\n\nAté lá!\nDaniel Quintal, nutricionista"},
     # robô do Telegram (lembretes dos pacientes); o assunto vale para os lembretes por e-mail
     "telegram": {"token": "", "bot": "", "email_assunto": "Lembrete do seu nutricionista"},
+    # publicação das páginas dos pacientes pelo próprio sistema (Cloudflare Pages); vazio = fila do Claude
+    "cloudflare": {"account_id": "", "token": "", "projeto": "res-athleticae", "url": ""},
     "mensagens": {
         "confirmacao": "Olá, {primeiro_nome}! Sua consulta está marcada para {dia_semana}, {data_consulta}, às "
                        "{hora_consulta}. {local_consulta} Se precisar remarcar, é só me avisar por aqui. "
@@ -77,8 +79,9 @@ def carregar():
         salvo = json.loads(CONFIG.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         return cfg
-    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k not in ("mensagens", "checkin", "agenda", "telegram")})
+    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k not in ("mensagens", "checkin", "agenda", "telegram", "cloudflare")})
     cfg["telegram"].update(salvo.get("telegram", {}))
+    cfg["cloudflare"].update(salvo.get("cloudflare", {}))
     cfg["checkin"].update(salvo.get("checkin", {}))
     cfg["agenda"].update(salvo.get("agenda", {}))
     cfg["mensagens"].update({k: v for k, v in salvo.get("mensagens", {}).items() if k in TITULOS})

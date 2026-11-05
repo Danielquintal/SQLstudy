@@ -79,6 +79,7 @@
     {% if tem_pagina %}
       <form method="post" action="{{ url_for('pedir_link', pid=p.id) }}">
         {% if pedido %}<button class="btn" name="cancelar" value="1">Cancelar pedido</button>
+        {% elif cf_ok %}<button class="btn pri" onclick="this.disabled=true;this.textContent='Publicando…';this.form.submit()">{{ 'Atualizar o link agora' if url and 'pages.dev' in url else 'Publicar o link agora' }}</button>
         {% else %}<button class="btn pri">{{ 'Pedir atualização do link' if url else 'Pedir link' }}</button>{% endif %}
       </form>
     {% endif %}

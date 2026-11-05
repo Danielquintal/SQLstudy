@@ -8,6 +8,23 @@
 </div>
 {% endblock %}
 {% block corpo %}
+<div class="card" id="cloudflare">
+  <h2>Publicação pelo Cloudflare</h2>
+  {% if cf_ok %}
+    <p style="margin:0">Ligada: os links ficam em <a href="{{ cf_url }}" target="_blank" rel="noopener">{{ cf_url }}</a> e o sistema publica e
+      atualiza sozinho.{% if cf_estado.ultima %} Última publicação: {{ cf_estado.ultima[8:10] }}/{{ cf_estado.ultima[5:7] }} às {{ cf_estado.ultima[11:16] }}.{% endif %}</p>
+    {% if cf_estado.erro %}<p class="msg aviso" style="margin:0">Último erro: {{ cf_estado.erro }}</p>{% endif %}
+    <form method="post" action="{{ url_for('links_cloudflare') }}" class="acoes">
+      <button class="btn pri" onclick="this.disabled=true;this.textContent='Publicando… (pode levar 1 minuto)';this.form.submit()">Publicar todos no Cloudflare</button>
+      <span class="note">Gera e envia de novo as páginas de todos que têm link (e de quem está na fila). Quem tinha link no claude.ai
+        recebe um endereço novo: mande pela ficha (mensagem “Link da evolução”).</span>
+    </form>
+  {% else %}
+    <p class="note" style="margin:0">Hoje os links ficam no claude.ai e só o Claude publica. Para o sistema publicar sozinho, conecte o
+      Cloudflare em <a href="{{ url_for('configuracao') }}#cloudflare">Configuração › Publicação dos links</a>.</p>
+  {% endif %}
+</div>
+
 <div class="card">
   <h2>Fila para publicar</h2>
   {% if pedidos %}

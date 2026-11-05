@@ -85,6 +85,16 @@ def excluir(pid, nome):
     return info
 
 
+def guardar_url_antiga(pid, nome, url):
+    """o link do claude.ai fica guardado em url_claude quando o paciente passa para o Cloudflare"""
+    dados = _ler(ARTEFATOS, {"pacientes": {}})
+    for n, v in dados["pacientes"].items():
+        if v.get("id") == pid or ("id" not in v and norm(n) == norm(nome)):
+            v.setdefault("url_claude", url)
+            _gravar(ARTEFATOS, dados)
+            return
+
+
 def concluir(pid, nome, url):
     """grava o link publicado e tira o pedido da fila"""
     dados = _ler(ARTEFATOS, {"pacientes": {}})

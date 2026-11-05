@@ -207,6 +207,41 @@
   <div class="barra"><div class="acoes"><button class="btn pri">Salvar configuração</button></div></div>
 </form>
 
+<form method="post" action="{{ url_for('configuracao_cloudflare') }}" class="card ficha" id="cloudflare">
+  <h2>Publicação dos links (Cloudflare)</h2>
+  {% if cf_ok %}
+    <p class="msg" style="margin:0">Conectado: <a href="{{ cfg.cloudflare.url }}" target="_blank" rel="noopener">{{ cfg.cloudflare.url }}</a>.
+      O sistema publica e atualiza os links sozinho; não precisa mais pedir ao Claude.
+      {% if cf_estado.ultima %} Última publicação: {{ cf_estado.ultima[8:10] }}/{{ cf_estado.ultima[5:7] }} às {{ cf_estado.ultima[11:16] }}.{% endif %}</p>
+    {% if cf_estado.erro %}<p class="msg aviso" style="margin:0">Último erro: {{ cf_estado.erro }}</p>{% endif %}
+  {% else %}
+    <p class="note" style="margin:0">Com o Cloudflare Pages (gratuito), o botão da ficha publica o link na hora e cada avaliação, plano ou exame
+      novo atualiza o link sozinho. As páginas continuam criptografadas com o login do paciente, em endereços longos e aleatórios.
+      E, fora do claude.ai, os pacientes conseguem baixar os PDFs.</p>
+    <ol class="passos">
+      <li>Crie uma conta gratuita em <a href="https://dash.cloudflare.com/sign-up" target="_blank" rel="noopener">dash.cloudflare.com/sign-up</a> e confirme o e-mail.</li>
+      <li><b>ID da conta:</b> no painel, abra <b>Workers e Pages</b> (menu da esquerda). O <b>Account ID</b> aparece à direita (ou na barra de
+        endereço: é o código longo depois de dash.cloudflare.com/). Copie e cole abaixo.</li>
+      <li><b>Chave:</b> clique no seu perfil (canto de cima) › <b>Perfil</b> › <b>Tokens de API</b> › <b>Criar token</b> › <b>Criar token
+        personalizado</b>. Nome: “Res Athleticae”. Permissões: <b>Conta</b> · <b>Cloudflare Pages</b> · <b>Editar</b>. Recursos da conta: a sua conta.
+        Continue › Criar token › copie a chave (ela só aparece uma vez) e cole abaixo.</li>
+      <li>Clique em <b>Conectar</b>. O sistema cria o projeto e mostra o endereço do site.</li>
+    </ol>
+  {% endif %}
+  {% if not cf_ferramenta %}<p class="msg aviso" style="margin:0">A ferramenta do Cloudflare não está instalada nesta pasta (ferramentas/cloudflare).
+    Peça ao Claude para instalar.</p>{% endif %}
+  <div class="cadastro">
+    <div class="campo" style="grid-column:span 2"><label for="cf-conta">ID da conta (Account ID)</label>
+      <input class="texto" id="cf-conta" name="account_id" value="{{ cfg.cloudflare.account_id }}" autocomplete="off" placeholder="32 letras e números"></div>
+    <div class="campo"><label for="cf-proj">Nome do projeto</label>
+      <input class="texto" id="cf-proj" name="projeto" value="{{ cfg.cloudflare.projeto }}" autocomplete="off"></div>
+    <div class="campo" style="grid-column:span 2"><label for="cf-token">Chave (API token)</label>
+      <input class="texto" id="cf-token" name="token" type="password" autocomplete="off" placeholder="{{ 'guardada — deixe em branco para manter' if cfg.cloudflare.token else 'cole a chave aqui' }}"></div>
+  </div>
+  <div class="acoes"><button class="btn pri">{{ 'Salvar e conferir' if cf_ok else 'Conectar' }}</button>
+    {% if cf_ok %}<button class="btn" name="desligar" value="1" onclick="return confirm('Desligar a publicação pelo Cloudflare? Os links voltam para a fila do Claude.')">Desligar</button>{% endif %}</div>
+</form>
+
 <form method="post" action="{{ url_for('configuracao_telegram') }}" class="card ficha" id="telegram">
   <h2>Lembretes dos pacientes: Telegram e e-mail automáticos</h2>
   <p class="note" style="margin:0">Os lembretes que você cria na ficha de cada paciente saem sozinhos pelo Telegram e pelo e-mail
