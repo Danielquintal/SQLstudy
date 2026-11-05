@@ -322,7 +322,7 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
   <div class="wrap">
     <nav class="tabs" role="tablist">
       <button class="tab" role="tab" id="t-composicao" aria-selected="true" data-view="composicao">Composição corporal</button>
-      <button class="tab" role="tab" id="t-classificacoes" aria-selected="false" data-view="classificacoes">Classificações</button>
+      <button class="tab" role="tab" id="t-classificacoes" aria-selected="false" data-view="classificacoes" hidden>Classificações</button>
       <button class="tab" role="tab" id="t-circunferencias" aria-selected="false" data-view="circunferencias">Circunferências</button>
       <button class="tab" role="tab" id="t-dobras" aria-selected="false" data-view="dobras">Dobras cutâneas</button>
       <button class="tab" role="tab" id="t-plano" aria-selected="false" data-view="plano" hidden>Plano alimentar</button>
@@ -348,7 +348,7 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
       <div class="card w12"><h2>Composição corporal (kg)</h2><div class="chart"><canvas id="ch-comp"></canvas></div></div>
     </section>
 
-    <section class="cls view" data-view="classificacoes" hidden>
+    <section class="cls view" data-view="perfil" id="pf-cls" hidden>
       <div class="cls-cards" id="cls"></div>
       <div class="card w12"><h2>Classificações por avaliação</h2><p class="note">Classificações calculadas na data de cada avaliação.</p><div class="tablebox"><table id="tb-cls"></table></div></div>
     </section>
@@ -1242,6 +1242,7 @@ function render() {
   document.getElementById('sub').textContent = view === 'exames' ? 'Exames e desempenho' : view === 'perfil' ? 'Perfil antropométrico' : view === 'metas' ? 'Metas diárias' : ck ? 'Check-in e rastreios'
     : plano ? (PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Plano alimentar prescrito em ${PLANOS[0].prescrito}`)
     : `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${rows[0].dataAvaliacao} a ${rows[rows.length - 1].dataAvaliacao} · Altura ${fmt(n(rows[rows.length - 1].estatura), 0)} cm`;
+  if (view === 'perfil' && DADOS.length) drawCls(rows);   // classificações ficam na aba Perfil
   if (plano || ck) return;
   drawKpis(rows);
   drawCharts(rows);
@@ -1711,7 +1712,8 @@ if (CHECKIN) { document.getElementById('ck-card').hidden = false; document.getEl
 const TEM_REDS = (REDS.leafq || []).length || (REDS.energia || []).length;
 if (CHECKIN || CHECKINS.length || TEM_REDS) { document.getElementById('t-checkin').hidden = false; desenharCheckins(); }
 if (EXAMES.datas.length || DESEMPENHO.length) { document.getElementById('t-exames').hidden = false; desenharExames(); }
-if (TEM_PERFIL) { document.getElementById('t-perfil').hidden = false; desenharPerfilPag(); }
+if (TEM_PERFIL || DADOS.length) document.getElementById('t-perfil').hidden = false;   // classificações + perfil
+if (TEM_PERFIL) desenharPerfilPag();
 desenharMetas();
 // paciente novo, ainda sem avaliação: a página mostra só o plano e o check-in
 if (!DADOS.length) {
@@ -1727,7 +1729,7 @@ if (!DADOS.length) {
     : 'Suas avaliações e seu plano alimentar vão aparecer aqui depois da consulta.';
   document.getElementById('aviso-novo').hidden = false;
 }
-const inicial = location.hash.slice(1);
+const inicial = location.hash.slice(1) === 'classificacoes' ? 'perfil' : location.hash.slice(1);
 const alvo = document.querySelector(`.tab[data-view="${inicial}"]:not([hidden])`) || document.querySelector('.tab:not([hidden])');
 if (alvo) alvo.click(); else render();
 </script>

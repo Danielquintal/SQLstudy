@@ -88,11 +88,31 @@
   <details class="secao" {{ 'open' if ns.tem }}>
     <summary>{{ titulo }}<span class="preenchidos"></span></summary>
     {% if titulo.startswith('Análise por foto') %}
-    <p class="note" style="margin:0 0 8px">Digite o % de gordura que o aplicativo de foto (ex.: Shaped) deu. Para valer a comparação, siga o
+    <div class="foto-intro">
+    <p class="note" style="margin:0">Digite o % de gordura que o aplicativo de foto (ex.: Shaped) deu. Para valer a comparação, siga o
       protocolo do estudo: roupa de banho ou justa, fundo claro, boa luz, celular reto a uns 2 m, uma foto de frente (braços e pernas
       afastados do corpo, palmas para a frente) e uma de perfil direito. Em estudo com 1.273 adultos, a foto teve a melhor
       concordância com o DXA (CCC 0,98; dobras 0,79), mas não separa gordura visceral e ainda não foi validada em atletas
       (Ferreira et al., npj Digital Medicine, 2025).</p>
+    <div class="foto-ia">
+      <button type="button" class="btn" id="fi-abrir">📷 Estimar pelas fotos aqui no sistema (experimental)</button>
+      <div id="fi-painel" class="fi-painel" hidden>
+        <p class="note" style="margin:0">O sistema acha o contorno do corpo nas fotos, usa a altura (campo “Altura atual”) como régua, mede
+          largura (frente) e profundidade (perfil) do pescoço, cintura, abdômen e quadril, estima as circunferências e calcula o % de gordura
+          pela <b>equação da Marinha americana</b>. É uma estimativa geométrica, <b>não</b> o método validado do artigo: confira as linhas
+          desenhadas e compare com a fita. As fotos são analisadas neste computador e <b>não são guardadas</b>.</p>
+        <div class="fi-entradas">
+          <label>Foto de frente <input type="file" id="fi-frente" accept="image/*"></label>
+          <label>Foto de perfil (lado direito) <input type="file" id="fi-perfil" accept="image/*"></label>
+          <button type="button" class="btn pri" id="fi-analisar">Analisar as fotos</button>
+        </div>
+        <p class="note" id="fi-msg" role="status" style="margin:0"></p>
+        <div class="fi-fotos"><canvas id="fi-c1" aria-label="Foto de frente com as medidas"></canvas><canvas id="fi-c2" aria-label="Foto de perfil com as medidas"></canvas></div>
+        <div class="tablebox"><table class="fi-tab" id="fi-tab" hidden></table></div>
+        <div class="acoes"><button type="button" class="btn pri" id="fi-usar" hidden>Usar este % de gordura</button></div>
+      </div>
+    </div>
+    </div>
     {% endif %}
     <div class="campos">
       {% for col, rotulo in campos %}
@@ -148,6 +168,19 @@
   </div>
 </form>
 <style>
+.foto-intro{padding:0 18px 14px;display:flex;flex-direction:column;gap:10px}
+.foto-ia{margin:0}
+.fi-painel{display:flex;flex-direction:column;gap:10px;margin-top:10px;box-sizing:border-box;padding:12px;border:1px dashed var(--line);border-radius:10px}
+.fi-painel[hidden]{display:none}
+.fi-entradas{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end}
+.fi-entradas label{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.fi-fotos{display:flex;flex-wrap:wrap;gap:10px}
+.fi-fotos canvas{max-height:520px;max-width:100%;border-radius:8px;background:var(--line)}
+.fi-fotos canvas:not([width]){display:none}
+.fi-tab{border-collapse:collapse;font-size:14px;width:100%}
+.fi-tab th,.fi-tab td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.fi-tab th:first-child,.fi-tab td:first-child{text-align:left}
+.fi-tab tfoot td{font-weight:600}
 .troca-av{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:flex-start;
   text-align:left;margin-bottom:12px;padding:12px 16px}
 .troca-av label{font-weight:600}
@@ -167,6 +200,56 @@
 .an-escala input,.an-varias input{width:auto;min-height:0;margin:0;flex:none}
 .an-varias label{white-space:nowrap}
 </style>
+<script type="module">
+// estimativa pelas fotos (experimental): sistema/static/foto_medidas.js
+import * as fm from "{{ url_for('static', filename='foto_medidas.js') }}";
+const SEXO = {{ p.genero|tojson }};
+const $f = id => document.getElementById(id);
+const numero = s => { const v = parseFloat(String(s || '').replace(',', '.')); return isFinite(v) ? v : null; };
+const fmt = (v, c = 1) => v == null ? '–' : v.toFixed(c).replace('.', ',');
+const ROT = { pescoco: 'Pescoço', cintura: 'Cintura', abdomen: 'Abdômen', quadril: 'Quadril' };
+const FITA = { pescoco: 'circ_pescoco', cintura: 'circ_cintura', abdomen: 'circ_abdomen', quadril: 'circ_quadril' };
+let resultado = null;
+$f('fi-abrir')?.addEventListener('click', () => { $f('fi-painel').hidden = !$f('fi-painel').hidden; });
+$f('fi-analisar')?.addEventListener('click', async () => {
+  const msg = $f('fi-msg'), altura = numero($f('altura_cm')?.value);
+  $f('fi-usar').hidden = true; $f('fi-tab').hidden = true; resultado = null;
+  if (!altura) { msg.textContent = 'Preencha a altura (em “Análises básicas”): ela é a régua das fotos.'; return; }
+  if (!SEXO) { msg.textContent = 'O cadastro está sem sexo: a equação da Marinha é diferente para homens e mulheres.'; return; }
+  const a1 = $f('fi-frente').files[0], a2 = $f('fi-perfil').files[0];
+  if (!a1 || !a2) { msg.textContent = 'Escolha as duas fotos: de frente e de perfil.'; return; }
+  try {
+    msg.textContent = 'Carregando o modelo e analisando as fotos (a primeira vez demora mais)…';
+    const [i1, i2] = await Promise.all([fm.abrirFoto(a1), fm.abrirFoto(a2)]);
+    const d1 = await fm.detectar(i1), d2 = await fm.detectar(i2);
+    const fr = fm.medirFrente(d1.mask, d1.w, d1.h, d1.pts), pe = fm.medirPerfil(d2.mask, d2.w, d2.h, d2.pts, fr, fr.ext);
+    fm.desenhar($f('fi-c1'), i1, fr, ROT); fm.desenhar($f('fi-c2'), i2, pe, ROT);
+    resultado = fm.calcular(SEXO, altura, fr, pe);
+    const linhas = Object.entries(resultado.medidas).map(([k, m]) => {
+      const fita = numero($f(FITA[k])?.value);
+      const dif = m && fita ? m.circ - fita : null;
+      return `<tr><td>${ROT[k]}</td><td>${m ? fmt(m.larg) : '–'}</td><td>${m ? fmt(m.prof) : '–'}</td><td><b>${m ? fmt(m.circ) : 'não medido'}</b></td>
+        <td>${fmt(fita)}</td><td>${dif == null ? '–' : (dif > 0 ? '+' : '') + fmt(dif)}</td></tr>`;
+    }).join('');
+    const usa = SEXO === 'M' ? 'abdômen e pescoço' : 'cintura, quadril e pescoço';
+    $f('fi-tab').innerHTML = `<thead><tr><th>Medida (cm)</th><th>Largura</th><th>Profundidade</th><th>Circunferência estimada</th><th>Fita</th><th>Diferença</th></tr></thead>
+      <tbody>${linhas}</tbody><tfoot><tr><td colspan="3">% de gordura (Marinha, ${usa}, altura ${fmt(altura, 0)} cm)</td>
+      <td colspan="3">${resultado.gordura == null ? 'não deu para calcular' : fmt(resultado.gordura) + '%'}</td></tr></tfoot>`;
+    $f('fi-tab').hidden = false;
+    msg.textContent = 'Confira se as linhas coloridas ficaram nos lugares certos. Se ficaram fora, refaça as fotos seguindo o protocolo.';
+    $f('fi-usar').hidden = resultado.gordura == null;
+  } catch (e) {
+    msg.textContent = (e && e.message) || 'Não consegui analisar as fotos. Confira a internet (o modelo é baixado na primeira vez) e tente de novo.';
+  }
+});
+$f('fi-usar')?.addEventListener('click', () => {
+  if (!resultado || resultado.gordura == null) return;
+  const campo = $f('foto_gordura_pct'), app = $f('foto_app');
+  campo.value = fmt(resultado.gordura); app.value = 'Fotos do sistema (Marinha, experimental)';
+  [campo, app].forEach(i => i.dispatchEvent(new Event('input', { bubbles: true })));
+  $f('fi-msg').textContent = 'Pronto: o % de gordura foi para o campo acima. Grave a avaliação para guardar.';
+});
+</script>
 <script>
 // seletor de avaliações: abre a escolhida (o aviso de alterações não gravadas continua valendo)
 document.getElementById('ir-av')?.addEventListener('change', e => { if (e.target.value) location.href = e.target.value; });
