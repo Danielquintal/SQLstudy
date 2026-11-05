@@ -1,0 +1,173 @@
+{# aba Resumo da ficha: painel do paciente (dados vêm de sistema/resumo.py e da rota paciente) #}
+{% macro dif(v, un, tom) %}{% if v is not none %}<span class="rs-dif {{ tom }}">{{ '▲' if v > 0 else '▼' if v < 0 else '=' }} {{ ('%+.1f'|format(v)).replace('.', ',') }}{{ ' ' + un if un }}</span>{% endif %}{% endmacro %}
+<section id="aba-resumo" class="rs" hidden>
+  {% if not avs %}
+  <div class="card"><p class="note" style="margin:0">Ainda não há avaliações. O resumo aparece depois da primeira:
+    <a href="{{ url_for('avaliacao', pid=p.id) }}">fazer a primeira avaliação</a>.</p></div>
+  {% else %}
+  <div class="rs-topo">
+    {% set dias = (hoje - ultima.data_avaliacao).days %}
+    <span>Última avaliação em <b>{{ ultima.data_avaliacao|br }}</b> ({{ 'hoje' if dias == 0 else 'ontem' if dias == 1 else dias ~ ' dias atrás' }}) ·
+      {{ avs|length }} avaliaç{{ 'ão' if avs|length == 1 else 'ões' }}{% if avs|length > 1 %} desde {{ primeira.data_avaliacao|br }}{% endif %}</span>
+    {% if proximas %}<span>Próxima consulta: <b>{{ proximas[0].inicio.strftime('%d/%m/%Y %H:%M') }}</b></span>
+    {% elif p.retorno_em %}<span>Retorno: <b>{{ p.retorno_em|br }}</b></span>{% else %}<span class="falta">Sem próxima consulta marcada</span>{% endif %}
+  </div>
+
+  <div class="rs-kpis">
+    {% for k in rs_ind %}
+    <div class="rs-kpi">
+      <span class="k">{{ k.rotulo }}</span>
+      <span class="v">{{ k.valor|round(1)|num }}<small>{{ k.unidade }}</small></span>
+      {% if k.mini %}<svg viewBox="0 0 120 34" class="rs-mini" aria-hidden="true"><polyline points="{{ k.mini }}"/></svg>{% endif %}
+      <span class="d">{% if k.dif_ant is not none %}{{ dif(k.dif_ant, k.unidade, k.tom_ant) }} <span class="note">vs anterior</span>{% else %}<span class="note">primeira medida</span>{% endif %}</span>
+      {% if k.dif_pri is not none and avs|length > 2 %}<span class="d">{{ dif(k.dif_pri, k.unidade, k.tom_pri) }} <span class="note">desde a 1ª</span></span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="rs-graficos">
+    {% if rs_comp %}
+    <div class="card">
+      <h2>Composição corporal: variação desde a 1ª avaliação (kg)</h2>
+      <svg viewBox="0 0 {{ rs_comp.w }} {{ rs_comp.h }}" class="rs-graf" role="img" aria-label="Variação da composição corporal desde a primeira avaliação">
+        {% for g in rs_comp.grade %}<line x1="{{ rs_comp.esq }}" x2="{{ rs_comp.dir }}" y1="{{ g.y }}" y2="{{ g.y }}" class="grade"/>
+          <text x="{{ rs_comp.esq - 6 }}" y="{{ g.y + 4 }}" class="eixo" text-anchor="end">{{ ('%+.1f'|format(g.v)).replace('.', ',') }}</text>{% endfor %}
+        <line x1="{{ rs_comp.esq }}" x2="{{ rs_comp.dir }}" y1="{{ rs_comp.zero }}" y2="{{ rs_comp.zero }}" class="zero"/>
+        {% for d in rs_comp.datas %}<text x="{{ d.x }}" y="{{ rs_comp.h - 8 }}" class="eixo" text-anchor="{{ 'start' if loop.first else 'end' if loop.last else 'middle' }}">{{ d.d.strftime('%d/%m/%y') }}</text>{% endfor %}
+        {% for l in rs_comp.linhas %}
+          <polyline points="{{ l.pontos }}" class="ln {{ l.cor }}"/>
+          {% for m in l.marcas %}<circle cx="{{ m.x }}" cy="{{ m.y }}" r="3.5" class="pt {{ l.cor }}"><title>{{ l.rotulo }}: {{ m.v|round(1)|num }} kg ({{ ('%+.1f'|format(m.dif)).replace('.', ',') }} kg)</title></circle>{% endfor %}
+        {% endfor %}
+      </svg>
+      <div class="rs-legenda">{% for l in rs_comp.linhas %}<span><i class="{{ l.cor }}"></i>{{ l.rotulo }}{% if l.ultimo is not none %} <b>{{ ('%+.1f'|format(l.ultimo)).replace('.', ',') }} kg</b>{% endif %}</span>{% endfor %}</div>
+    </div>
+    {% endif %}
+    {% if rs_gc %}
+    <div class="card">
+      <h2>% de gordura por avaliação</h2>
+      <svg viewBox="0 0 {{ rs_gc.w }} {{ rs_gc.h }}" class="rs-graf" role="img" aria-label="% de gordura por avaliação">
+        <line x1="{{ rs_gc.esq }}" x2="{{ rs_gc.dir }}" y1="{{ rs_gc.base }}" y2="{{ rs_gc.base }}" class="grade"/>
+        {% for b in rs_gc.barras %}
+          <rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="3" class="barra{{ ' ultima' if loop.last }}"><title>{{ b.d|br }}: {{ b.v|round(1)|num }}%</title></rect>
+          <text x="{{ b.cx }}" y="{{ b.y - 5 }}" class="valor" text-anchor="middle">{{ b.v|round(1)|num }}</text>
+          <text x="{{ b.cx }}" y="{{ rs_gc.h - 8 }}" class="eixo" text-anchor="middle">{{ b.d.strftime('%d/%m/%y') }}</text>
+        {% endfor %}
+        {% if rs_gc.meta %}<line x1="{{ rs_gc.esq }}" x2="{{ rs_gc.dir }}" y1="{{ rs_gc.y_meta }}" y2="{{ rs_gc.y_meta }}" class="meta"/>
+          <text x="{{ rs_gc.dir }}" y="{{ rs_gc.y_meta - 5 }}" class="eixo" text-anchor="end">meta {{ rs_gc.meta|num }}%</text>{% endif %}
+      </svg>
+      {% if not rs_gc.meta %}<p class="note" style="margin:0">Defina o % de gordura alvo no cartão "Perfil antropométrico" da ficha para ver a linha da meta.</p>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="rs-cartoes">
+    <div class="card">
+      <h2>Anamnese</h2>
+      {% if an_ult %}
+        <p class="note" style="margin:0">Da avaliação de {{ an_data|br }}</p>
+        <dl class="rs-dl">
+          {% for k in ['objetivo', 'queixa', 'doencas', 'medicamentos', 'suplementos', 'alergias', 'modalidade', 'treino_vezes', 'nivel', 'restricao', 'observacoes'] if an_ult.get(k) %}
+          <dt>{{ an_rotulos[k][0] }}</dt><dd>{{ an_ult[k] }}</dd>{% endfor %}
+          {% if an_ult.get('familia') %}<dt>Histórico familiar</dt><dd>{{ an_ult.familia|join(', ') }}</dd>{% endif %}
+        </dl>
+      {% else %}<p class="note" style="margin:0">Sem anamnese ainda: ela fica na primeira aba da próxima avaliação.</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Metas</h2>
+      <dl class="rs-dl">
+        {% if perfil.metas and perfil.metas.alvo_gc %}<dt>% de gordura alvo</dt><dd>{{ perfil.metas.alvo_gc|num }}%{% if perfil.metas.peso_sugerido %} · peso sugerido {{ perfil.metas.peso_sugerido|round(1)|num }} kg{% endif %}</dd>{% endif %}
+        {% if perfil.metas and perfil.metas.imo %}<dt>Índice músculo-ósseo</dt><dd>{{ perfil.metas.imo|num }}{% if perfil.metas.alvo_imo %} (alvo {{ perfil.metas.alvo_imo|num }}){% endif %}</dd>{% endif %}
+        <dt>Passos por dia</dt><dd>{{ '{:,}'.format(p.meta_passos).replace(',', '.') if p.meta_passos else 'sem meta' }}</dd>
+        <dt>Check-in semanal</dt><dd>{{ ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][p.checkin_dia] if p.checkin_dia is not none else 'automático' }}{{ ' (pausado)' if p.checkin_pausado }}</dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <h2>Plano alimentar</h2>
+      {% if planos %}
+      <ul class="rs-lista">{% for pl in planos|reverse %}{% if loop.index <= 3 %}
+        <li><b>{{ pl.titulo }}</b>{% if pl.kcal %} · {{ pl.kcal }} kcal{% endif %}<span class="note"> · {{ pl.prescrito|br }}</span></li>{% endif %}{% endfor %}</ul>
+      {% else %}<p class="note" style="margin:0">Nenhum plano ainda.</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Exames</h2>
+      {% if ult_exame %}
+        <p style="margin:0">Último em <b>{{ ult_exame.data|br }}</b> · {{ ult_exame.n }} resultados</p>
+        {% if ult_exame.alertas %}
+        <div class="rs-chips">{% for a in ult_exame.alertas %}{% if loop.index <= 10 %}<span class="chip {{ 'warn' if a.nivel == 'atencao' else 'bad' }}" title="{{ a.valor|round(2)|num }} {{ a.unidade }}">{{ a.nome }} {{ '↑' if a.rotulo == 'Alto' else '↓' if a.rotulo == 'Baixo' else '' }}</span>{% endif %}{% endfor %}
+          {% if ult_exame.alertas|length > 10 %}<span class="note">+{{ ult_exame.alertas|length - 10 }}</span>{% endif %}</div>
+        {% else %}<p class="note" style="margin:0">Tudo dentro da referência.</p>{% endif %}
+      {% else %}<p class="note" style="margin:0">Nenhum exame lançado.</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Check-in</h2>
+      {% if checkins %}
+        {% set ult = checkins[0] %}
+        {% set ultimos = checkins[:4] %}
+        <p style="margin:0">Último em <b>{{ ult.respondido_em.strftime('%d/%m/%Y') }}</b> · {{ checkins|length }} resposta{{ 's' if checkins|length > 1 }}</p>
+        {% set ades = ultimos|selectattr('adesao')|map(attribute='adesao')|list %}
+        {% if ades %}<p style="margin:0">Adesão ao plano (últimos {{ ades|length }}): <b>{{ (ades|sum / ades|length)|round(1)|num }}</b> de 5</p>{% endif %}
+        {% if ult.alertas %}<div class="rs-chips">{% for a in ult.alertas %}<span class="chip warn">{{ a }}</span>{% endfor %}</div>{% endif %}
+      {% else %}<p class="note" style="margin:0">Nenhum check-in respondido.</p>{% endif %}
+    </div>
+
+    {% if reds_leafq or reds_ed or testes %}
+    <div class="card">
+      <h2>RED-S e desempenho</h2>
+      <dl class="rs-dl">
+        {% if reds_leafq %}<dt>LEAF-Q ({{ reds_leafq.data|br }})</dt><dd>{{ reds_leafq.total }} pontos · <span class="chip {{ 'bad' if reds_leafq.risco else 'good' }}">{{ 'em risco' if reds_leafq.risco else 'sem risco' }}</span></dd>{% endif %}
+        {% if reds_ed and reds_ed.ed is not none %}<dt>Energia disponível ({{ reds_ed.data|br }})</dt><dd>{{ reds_ed.ed|round(1)|num }} kcal/kg MLG · {{ reds_ed.classe }}</dd>{% endif %}
+        {% if testes %}<dt>Testes de desempenho</dt><dd>{{ testes|length }} teste{{ 's' if testes|length > 1 }} registrado{{ 's' if testes|length > 1 }}</dd>{% endif %}
+      </dl>
+    </div>
+    {% endif %}
+  </div>
+</section>
+<style>
+.rs{display:flex;flex-direction:column;gap:14px}
+.rs[hidden]{display:none}
+.rs{--r1:#12434F;--r2:#1A9E8F;--r3:#E4572E;--r6:#3F88C5}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .rs{--r1:#7FC4D1;--r2:#3CC4B2;--r3:#FF7A55;--r6:#6FB0E8}}
+:root[data-theme="dark"] .rs{--r1:#7FC4D1;--r2:#3CC4B2;--r3:#FF7A55;--r6:#6FB0E8}
+.rs-topo{display:flex;flex-wrap:wrap;gap:6px 24px;color:var(--muted);font-size:14px}
+.rs-topo b{color:var(--ink)}
+.rs-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.rs-kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.rs-kpi .k{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.rs-kpi .v{font:500 26px var(--mono);font-variant-numeric:tabular-nums}
+.rs-kpi .v small{font-size:13px;color:var(--muted);margin-left:3px}
+.rs-kpi .d{font-size:13px}
+.rs-mini{width:100%;height:34px;margin:2px 0}
+.rs-mini polyline{fill:none;stroke:var(--r2);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.rs-dif{font:500 13px var(--mono)}
+.rs-dif.good{color:var(--good)} .rs-dif.bad{color:var(--bad)} .rs-dif.flat{color:var(--muted)}
+.rs-graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:14px}
+.rs-graf{width:100%;height:auto;display:block}
+.rs-graf .grade{stroke:var(--line);stroke-width:1}
+.rs-graf .eixo{fill:var(--muted);font:11px var(--mono)}
+.rs-graf .valor{fill:var(--ink);font:600 12px var(--mono)}
+.rs-graf .ln{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.rs-graf .pt{stroke:var(--surface);stroke-width:1.5}
+.rs-graf .ln.c1{stroke:var(--r1)} .rs-graf .pt.c1{fill:var(--r1)}
+.rs-graf .ln.c2{stroke:var(--r2)} .rs-graf .pt.c2{fill:var(--r2)}
+.rs-graf .ln.c3{stroke:var(--r3)} .rs-graf .pt.c3{fill:var(--r3)}
+.rs-graf .ln.c6{stroke:var(--r6)} .rs-graf .pt.c6{fill:var(--r6)}
+.rs-graf .barra{fill:var(--r2);opacity:.45} .rs-graf .barra.ultima{opacity:1}
+.rs-graf .meta{stroke:var(--r3);stroke-width:1.5;stroke-dasharray:5 4}
+.rs-legenda{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted)}
+.rs-legenda i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.rs-legenda i.c1{background:var(--r1)} .rs-legenda i.c2{background:var(--r2)} .rs-legenda i.c3{background:var(--r3)} .rs-legenda i.c6{background:var(--r6)}
+.rs-legenda b{color:var(--ink);font:500 13px var(--mono)}
+.rs-cartoes{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px;align-items:start}
+.rs-cartoes .card{gap:8px}
+.rs-dl{display:flex;flex-direction:column;margin:0;font-size:14px}
+.rs-dl dt{color:var(--muted);font-size:12px;margin-top:8px} .rs-dl dt:first-child{margin-top:0}
+.rs-dl dd{margin:0;white-space:pre-line}
+.rs-graf .zero{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+.rs-lista{margin:0;padding-left:18px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+.rs-chips{display:flex;flex-wrap:wrap;gap:6px}
+</style>

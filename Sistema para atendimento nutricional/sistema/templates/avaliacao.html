@@ -9,6 +9,21 @@
 {% endblock %}
 {% block corpo %}
 {% if erros %}<div class="msg erro" role="alert">Nada foi gravado. Confira:<ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+{% if lista_avs %}
+{% set ids = lista_avs|map('first')|list %}
+{% set pos = ids.index(aid) if aid in ids else none %}
+<nav class="card troca-av" aria-label="Avaliações do paciente">
+  <label for="ir-av">Avaliação</label>
+  <select id="ir-av">
+    {% if aid is none %}<option value="" selected>Nova avaliação</option>{% endif %}
+    {% for i, d in lista_avs|reverse %}<option value="{{ url_for('avaliacao', pid=p.id, aid=i) }}" {{ 'selected' if i == aid }}>{{ d|br }}{{ ' (última)' if loop.first }}</option>{% endfor %}
+  </select>
+  {% if pos is not none and pos > 0 %}<a class="btn mini" href="{{ url_for('avaliacao', pid=p.id, aid=ids[pos - 1]) }}">‹ Anterior ({{ lista_avs[pos - 1][1]|br }})</a>{% endif %}
+  {% if pos is not none and pos < ids|length - 1 %}<a class="btn mini" href="{{ url_for('avaliacao', pid=p.id, aid=ids[pos + 1]) }}">Próxima ({{ lista_avs[pos + 1][1]|br }}) ›</a>{% endif %}
+  {% if aid is not none %}<a class="btn mini" href="{{ url_for('avaliacao', pid=p.id) }}">+ Nova avaliação</a>{% endif %}
+  <span class="note">{{ lista_avs|length }} {{ 'avaliações' if lista_avs|length != 1 else 'avaliação' }}</span>
+</nav>
+{% endif %}
 <form method="post" class="ficha" id="ficha">
   <div class="card">
     <div class="cadastro">
@@ -126,6 +141,12 @@
   </div>
 </form>
 <style>
+.troca-av{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:flex-start;
+  text-align:left;margin-bottom:12px;padding:12px 16px}
+.troca-av label{font-weight:600}
+.troca-av select{min-width:200px;font:15px var(--sans);padding:8px 10px;border-radius:8px;border:1px solid var(--line);
+  background:var(--field, var(--surface));color:var(--ink)}
+.troca-av .note{margin-left:auto}
 .abas-av{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-top:4px}
 .abas-av button{appearance:none;border:1px solid transparent;border-bottom:0;background:none;color:var(--muted);font:600 15px var(--sans);
   padding:10px 16px;border-radius:10px 10px 0 0;cursor:pointer}
@@ -140,6 +161,8 @@
 .an-varias label{white-space:nowrap}
 </style>
 <script>
+// seletor de avaliações: abre a escolhida (o aviso de alterações não gravadas continua valendo)
+document.getElementById('ir-av')?.addEventListener('change', e => { if (e.target.value) location.href = e.target.value; });
 // abas: Anamnese / Avaliação antropométrica (as duas estão no mesmo formulário e são gravadas juntas)
 (() => {
   const botoes = [...document.querySelectorAll('.abas-av [data-aba]')];

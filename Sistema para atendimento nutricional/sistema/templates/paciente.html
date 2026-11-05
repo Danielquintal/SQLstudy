@@ -26,11 +26,13 @@
 </div>
 {% endblock %}
 {% block corpo %}
-{% if tem_pagina %}
 <nav class="abas" role="tablist" aria-label="Ficha do paciente">
   <a class="aba" role="tab" href="#ficha" data-aba="ficha" aria-selected="true">Ficha</a>
-  <a class="aba" role="tab" href="#evolucao" data-aba="evolucao" aria-selected="false">Evolução (página do paciente)</a>
+  <a class="aba" role="tab" href="#resumo" data-aba="resumo" aria-selected="false">Resumo</a>
+  {% if tem_pagina %}<a class="aba" role="tab" href="#evolucao" data-aba="evolucao" aria-selected="false">Evolução (página do paciente)</a>{% endif %}
 </nav>
+{% include "_resumo.html" %}
+{% if tem_pagina %}
 <section id="aba-evolucao" class="painel-evolucao" hidden>
   <iframe id="quadro" title="Página de evolução de {{ p.nome }}" data-src="{{ url_for('evolucao', pid=p.id) }}"></iframe>
   <p class="note">É a mesma página do link do paciente, gerada agora com os dados do banco.
@@ -452,11 +454,15 @@ document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('clic
 // abas Ficha / Evolução; a página de evolução só carrega na primeira vez que a aba abre
 const quadro = document.getElementById('quadro');
 function mostrar() {
+  // #resumo e #evolucao abrem essas abas; qualquer outro endereço (ou âncora da ficha) fica na Ficha
   const ev = location.hash === '#evolucao' && quadro;
-  document.getElementById('aba-ficha').hidden = !!ev;
+  const rs = location.hash === '#resumo';
+  const aba = ev ? 'evolucao' : rs ? 'resumo' : 'ficha';
+  document.getElementById('aba-ficha').hidden = aba !== 'ficha';
+  document.getElementById('aba-resumo').hidden = aba !== 'resumo';
   const sec = document.getElementById('aba-evolucao');
-  if (sec) sec.hidden = !ev;
-  document.querySelectorAll('.aba').forEach(a => a.setAttribute('aria-selected', String((a.dataset.aba === 'evolucao') === !!ev)));
+  if (sec) sec.hidden = aba !== 'evolucao';
+  document.querySelectorAll('.aba').forEach(a => a.setAttribute('aria-selected', String(a.dataset.aba === aba)));
   if (ev && !quadro.src) quadro.src = quadro.dataset.src;
 }
 if (quadro) {

@@ -21,6 +21,7 @@ from montar_pagina import gerar_html, montar
 from planilha_paciente import SECTIONS, build, safe_name
 import agenda
 import anamnese
+import resumo
 import checkin
 import reds
 import exames
@@ -234,6 +235,7 @@ def paciente(pid):
         avs = avaliacoes_do_banco(cur, pid)
         perfil_pac = antropo.para_pagina(avs, p["genero"], p["data_nascimento"],
                                         p["meta_gordura_pct"] and float(p["meta_gordura_pct"]), p["meta_imo"] and float(p["meta_imo"]))
+        an_ult, an_data = anamnese.ultima(cur, pid)   # para a aba Resumo
         cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s ORDER BY feito_em DESC LIMIT 6", (pid,))
         historico = cur.fetchall()
         cur.execute("SELECT id, titulo, prescrito, nome_arquivo, enviado_em, jsonb_array_length(plano->'paginas'), "
@@ -264,6 +266,10 @@ def paciente(pid):
                            reds_ed=ult_ed and (lambda ed: {"data": ult_ed[0], "ed": ed, "classe": reds.classe_ed(ed)})(
                                reds.energia_disponivel(*ult_ed[1:])),
                            ult_exame=ult_exame, testes=testes, perfil=perfil_pac,
+                           # aba Resumo (painel do paciente)
+                           rs_ind=resumo.indicadores(avs), rs_comp=resumo.grafico_composicao(avs),
+                           rs_gc=resumo.grafico_gordura(avs, p["meta_gordura_pct"] and float(p["meta_gordura_pct"])),
+                           an_ult=an_ult or {}, an_data=an_data, an_rotulos=anamnese.CAMPOS, hoje=date.today(),
                            passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,
                            email_ok=checkin.email_valido(p["email"]), lembretes_pac=lembretes_pac, lp=lp_info,
                            quando_lembrete=lembretes.quando_texto,
@@ -374,6 +380,7 @@ def avaliacao(pid, aid=None):
     rotulos.update(siri="Siri", brozek="Brozek")
     return render_template("avaliacao.html", p=p, aid=aid, form=form, erros=erros, secoes=SECOES, texto=TEXTO,
                            ops=ops, calculados=CALCULADOS, rotulos=rotulos,
+                           lista_avs=[(a["id"], a["data_avaliacao"]) for a in avs],   # seletor de avaliações no topo
                            an=an, an_origem=an_origem, an_secoes=[s for s in anamnese.SECOES if not s[1] or s[1] == p["genero"]])
 
 
