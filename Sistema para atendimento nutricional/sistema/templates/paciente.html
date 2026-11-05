@@ -299,6 +299,12 @@ document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('clic
         <input class="texto" id="email" name="email" type="email" value="{{ p.email or '' }}"></div>
       <div class="campo"><label for="passos">Meta de passos por dia <span class="note">(aba Metas diárias do link)</span></label>
         <input class="texto" id="passos" name="meta_passos" inputmode="numeric" value="{{ '{:,}'.format(p.meta_passos).replace(',', '.') if p.meta_passos }}" placeholder="ex.: 8.000 (vazio = sem meta)"></div>
+      <div class="campo"><label for="ck-dia">Dia do check-in semanal <span class="note">(e-mail e lembrete do WhatsApp)</span></label>
+        <select id="ck-dia" name="checkin_dia">
+          <option value="" {{ 'selected' if p.checkin_dia is none }}>Automático (7 dias após o último)</option>
+          {% for d in ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'] %}
+          <option value="{{ loop.index0 }}" {{ 'selected' if p.checkin_dia == loop.index0 }}>{{ d }}</option>{% endfor %}
+        </select></div>
     </div>
     <label class="note" style="display:flex;gap:8px;align-items:center">
       <input type="checkbox" name="whatsapp_bloqueado" value="1" {{ 'checked' if p.whatsapp_bloqueado }}>

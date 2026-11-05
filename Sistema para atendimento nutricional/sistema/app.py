@@ -79,7 +79,7 @@ def idade(nasc, ref=None):
 
 
 CAMPOS_PACIENTE = ["id", "nome", "genero", "data_nascimento", "telefone", "email", "retorno_em",
-                   "whatsapp_bloqueado", "checkin_pausado", "meta_gordura_pct", "meta_imo", "meta_passos"]
+                   "whatsapp_bloqueado", "checkin_pausado", "meta_gordura_pct", "meta_imo", "meta_passos", "checkin_dia"]
 
 
 def buscar_paciente(cur, pid):
@@ -930,10 +930,19 @@ def acompanhamento(pid):
             flash("Meta de passos: use um número entre 500 e 50.000 por dia. Ela não foi salva.", "aviso")
             passos = atual["meta_passos"]
         aviso_link = pedir_atualizacao(pid, atual["nome"]) if (passos and int(passos)) != atual["meta_passos"] else ""
+        ck_dia = int(f["checkin_dia"]) if f.get("checkin_dia", "") in [str(i) for i in range(7)] else None
         cur.execute("UPDATE paciente SET retorno_em = %s, whatsapp_bloqueado = %s, checkin_pausado = %s, telefone = %s, "
-                    "email = %s, meta_passos = %s WHERE id = %s",
+                    "email = %s, meta_passos = %s, checkin_dia = %s WHERE id = %s",
                     (retorno, bool(f.get("whatsapp_bloqueado")), bool(f.get("checkin_pausado")),
-                     " ".join(f.get("telefone", "").split()) or None, email, passos and int(passos), pid))
+                     " ".join(f.get("telefone", "").split()) or None, email, passos and int(passos), ck_dia, pid))
+        if ck_dia != atual["checkin_dia"] or email != atual["email"]:
+            # o script do Google precisa saber já (o e-mail sai às 9h, mesmo com este computador desligado)
+            cfg = contatos.carregar()
+            if checkin.usa_email(cfg):
+                try:
+                    checkin.enviar_lista(cur, cfg)
+                except Exception:
+                    aviso_link += " (Não consegui avisar o Google agora; ele recebe a mudança na próxima sincronização.)"
     flash("Acompanhamento salvo." + aviso_link)
     return redirect(url_for("paciente", pid=pid) + "#acompanhamento")
 
@@ -1016,9 +1025,10 @@ def configuracao():
                 ag[k] = request.form[k].strip()
         if "whatsapp" in request.form:     # só os números (DDD + celular); vai no botão "peça pelo WhatsApp" das páginas
             ag["whatsapp"] = re.sub(r"\D", "", request.form["whatsapp"])
+        # nomes próprios no formulário: "email_assunto"/"email_texto" são os do check-in, no mesmo formulário
         for k in ("email_assunto", "email_texto"):                          # vazio = mantém o texto atual
-            if request.form.get(k, "").strip():
-                ag[k] = request.form[k].strip().replace("\r\n", "\n")
+            if request.form.get(f"agenda_{k}", "").strip():
+                ag[k] = request.form[f"agenda_{k}"].strip().replace("\r\n", "\n")
         if "agenda_duracao" in request.form:   # o cartão da agenda veio no formulário
             for k in ("google", "google_convidar", "google_mostrar"):
                 ag[k] = bool(request.form.get(k))

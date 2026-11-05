@@ -126,9 +126,9 @@
       <p class="note" style="margin:0">Pronto para enviar: o e-mail sai da sua conta Google com o convite (.ics) anexo.</p>
     {% endif %}
     <div class="campo"><label for="ag-ass">Assunto</label>
-      <input class="texto" id="ag-ass" name="email_assunto" value="{{ cfg.agenda.email_assunto }}"></div>
+      <input class="texto" id="ag-ass" name="agenda_email_assunto" value="{{ cfg.agenda.email_assunto }}"></div>
     <div class="campo"><label for="ag-txt">Texto do e-mail</label>
-      <textarea id="ag-txt" name="email_texto" rows="7">{{ cfg.agenda.email_texto }}</textarea>
+      <textarea id="ag-txt" name="agenda_email_texto" rows="7">{{ cfg.agenda.email_texto }}</textarea>
       <span class="note">Use <code>{primeiro_nome}</code>, <code>{data_consulta}</code>, <code>{hora_consulta}</code>, <code>{dia_semana}</code> e <code>{local_consulta}</code>.</span></div>
   </div>
 

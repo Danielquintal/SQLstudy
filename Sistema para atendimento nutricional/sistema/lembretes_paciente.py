@@ -256,6 +256,7 @@ def sincronizar(con, cfg, desvincular=None):
     corpo = {"chave": ck["chave"], "acao": "lembretes", "itens": itens,
              "telegram_token": cfg.get("telegram", {}).get("token", ""),
              "remetente": cfg["agenda"].get("profissional") or "",
+             "whatsapp": checkin.whatsapp_prof(cfg),
              "assunto": cfg.get("telegram", {}).get("email_assunto") or "Lembrete do seu nutricionista"}
     if desvincular:
         corpo["desvincular"] = desvincular

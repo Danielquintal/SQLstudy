@@ -46,7 +46,7 @@ const PERGUNTAS = [
   ['comentario', 'paragrafo', 'Quer me contar mais alguma coisa? (opcional)', '', false],
 ];
 const MARCA_NOME = 'NOME_DO_PACIENTE';   // o sistema troca pelo nome de cada paciente no link
-const VERSAO = 7;                        // o sistema confere para saber se o código está atualizado
+const VERSAO = 8;                        // o sistema confere para saber se o código está atualizado
 const TAG = 'sistemaConsulta';           // marca os eventos criados pelo sistema (não voltam como "outros compromissos")
 
 function criar() {
@@ -151,6 +151,17 @@ function linkPreenchido(f, campos) {
 // ---------- e-mail automático ----------
 // O sistema manda (POST) a lista de quem pode receber e o texto; o gatilho diário envia a quem está na vez.
 
+// texto do e-mail -> HTML: protege os caracteres, mantém as quebras de linha e transforma a palavra "WhatsApp"
+// num link que abre a conversa com o nutricionista (número vindo do sistema; sem número, fica só o texto)
+function htmlTexto(texto, whats) {
+  const num = String(whats || '').replace(/\D/g, '');
+  return String(texto || '').split('\n').map(l => {
+    if (!l) return '&nbsp;';
+    l = l.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    return num ? l.replace(/\bWhatsApp\b/g, '<a href="https://wa.me/' + num + '" style="color:#1A9E8F;font-weight:600">WhatsApp</a>') : l;
+  }).join('<br>');
+}
+
 function doPost(e) {
   const props = PropertiesService.getScriptProperties();
   let d;
@@ -160,7 +171,7 @@ function doPost(e) {
     // e-mail avulso do sistema (ex.: confirmação de consulta), com convite de calendário (.ics) se vier
     if (!d.para) return json({ erro: 'sem_email' });
     const opcoes = { to: d.para, subject: d.assunto || '', name: d.remetente || '', body: d.texto || '',
-                     htmlBody: String(d.texto || '').split('\n').map(l => l ? l.replace(/&/g, '&amp;').replace(/</g, '&lt;') : '&nbsp;').join('<br>') };
+                     htmlBody: htmlTexto(d.texto, d.whatsapp) };
     if (d.ics) opcoes.attachments = [Utilities.newBlob(d.ics, 'text/calendar', 'consulta.ics')];
     try {
       MailApp.sendEmail(opcoes);
@@ -254,7 +265,7 @@ function doPost(e) {
   if (d.acao === 'pacientes') {
     props.setProperty('EMAIL_CFG', JSON.stringify(d.config || {}));
     const novos = {};
-    for (const pac of d.lista || []) novos['P_' + pac.id] = JSON.stringify({ nome: pac.nome, email: pac.email });
+    for (const pac of d.lista || []) novos['P_' + pac.id] = JSON.stringify({ nome: pac.nome, email: pac.email, dia: pac.dia });
     for (const k of props.getKeys()) if (k.indexOf('P_') === 0 && !(k in novos)) props.deleteProperty(k);
     props.setProperties(novos);
     return json({ ok: true, versao: VERSAO, pacientes: Object.keys(novos).length, emails: estadoEmails() });
@@ -272,7 +283,7 @@ const LEMB_JANELA = 6 * 3600 * 1000;   // vez atrasada mais de 6 h (script parad
 function lembretesReceber(d) {
   const props = PropertiesService.getScriptProperties();
   if (d.telegram_token !== undefined) props.setProperty('TG_TOKEN', d.telegram_token || '');
-  props.setProperty('LP_CFG', JSON.stringify({ remetente: d.remetente || '', assunto: d.assunto || 'Lembrete' }));
+  props.setProperty('LP_CFG', JSON.stringify({ remetente: d.remetente || '', assunto: d.assunto || 'Lembrete', whatsapp: d.whatsapp || '' }));
   const novos = {}, google = {};
   for (const it of d.itens || []) {
     novos['LI_' + it.id] = JSON.stringify({ id: it.id, texto: it.texto, telegram: it.telegram || '', email: it.email || '',
@@ -415,7 +426,7 @@ function rodarLembretes() {
         try {
           if (MailApp.getRemainingDailyQuota() < 1) throw new Error('acabou a cota de e-mails de hoje');
           MailApp.sendEmail({ to: it.email, subject: cfg.assunto || 'Lembrete', name: cfg.remetente || '', body: it.texto,
-            htmlBody: String(it.texto).split('\n').map(l => l ? l.replace(/&/g, '&amp;').replace(/</g, '&lt;') : '&nbsp;').join('<br>') });
+            htmlBody: htmlTexto(it.texto, cfg.whatsapp) });
           log.unshift({ id: it.id, vez: vez, canal: 'email', erro: '' });
         } catch (err) {
           log.unshift({ id: it.id, vez: vez, canal: 'email', erro: String(err).slice(0, 120) });
@@ -458,9 +469,12 @@ function enviarEmails() {
   const link = linkPreenchido(f, campos);
   const enviados = JSON.parse(props.getProperty('EMAIL_ENVIOS') || '{}');   // id do paciente -> último envio
   const log = JSON.parse(props.getProperty('EMAIL_LOG') || '[]');
+  // dia da semana de hoje no fuso do script: 0 = domingo ... 6 = sábado
+  const hojeSemana = Number(Utilities.formatDate(new Date(agora), Session.getScriptTimeZone(), 'u')) % 7;
   for (const k of props.getKeys()) {
     if (k.indexOf('P_') !== 0) continue;
     const id = k.slice(2), pac = JSON.parse(props.getProperty(k));
+    if (pac.dia !== null && pac.dia !== undefined && pac.dia !== '' && Number(pac.dia) !== hojeSemana) continue;   // dia escolhido na ficha
     if (respondeu[normalizar(pac.nome)] || (enviados[id] && agora - enviados[id] < intervalo - dia / 2)) continue;
     if (MailApp.getRemainingDailyQuota() < 1) break;
     const primeiro = pac.nome.trim().split(/\s+/)[0];
@@ -468,7 +482,7 @@ function enviarEmails() {
     const url = link.replace(MARCA_NOME, encodeURIComponent(pac.nome.trim()));
     const troca = t => String(t || '').split('{primeiro_nome}').join(nomeFmt).split('{nome}').join(pac.nome);
     const texto = troca(cfg.texto);
-    const html = texto.split('\n').map(l => l ? l.replace(/&/g, '&amp;').replace(/</g, '&lt;') : '&nbsp;').join('<br>') +
+    const html = htmlTexto(texto, cfg.whatsapp) +
       '<p style="margin:24px 0"><a href="' + url + '" style="background:#12434F;color:#fff;padding:12px 22px;' +
       'border-radius:8px;text-decoration:none;font-weight:600">Responder o check-in</a></p>' +
       '<p style="color:#5E7178;font-size:12px">Se o botão não abrir, copie este endereço: ' + url + '</p>';

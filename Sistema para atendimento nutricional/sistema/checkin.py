@@ -26,6 +26,15 @@ _ultima_busca = 0.0
 aviso_email = None   # último problema do e-mail automático, mostrado na tela Check-ins
 VERSAO_SCRIPT = 2    # versão do checkin_google.gs que tem o e-mail automático
 
+
+def whatsapp_prof(cfg):
+    """WhatsApp do nutricionista (Configuração) no formato do wa.me, para a palavra "WhatsApp" dos e-mails virar link
+    (script do Google versão 8 em diante; os anteriores ignoram)"""
+    d = re.sub(r"\D", "", (cfg.get("agenda") or {}).get("whatsapp") or "")
+    if len(d) in (10, 11):
+        d = "55" + d
+    return d if len(d) in (12, 13) and d.startswith("55") else ""
+
 # pacientes que recebem o pedido de check-in: consulta nos últimos N dias ou retorno marcado, sem pausa nem bloqueio
 ATIVOS = """NOT p.whatsapp_bloqueado AND NOT p.checkin_pausado
     AND (p.retorno_em >= %(hoje)s OR EXISTS (SELECT 1 FROM avaliacao a WHERE a.paciente_id = p.id
@@ -194,11 +203,12 @@ def enviar_lista(cur, cfg, hoje=None):
     hoje = hoje or datetime.now().date()
     lista = []
     if usa_email(cfg):
-        cur.execute(f"SELECT p.id, p.nome, p.email FROM paciente p WHERE {ATIVOS} ORDER BY p.nome",
+        cur.execute(f"SELECT p.id, p.nome, p.email, p.checkin_dia FROM paciente p WHERE {ATIVOS} ORDER BY p.nome",
                     {"hoje": hoje, "desde": hoje - timedelta(days=int(c.get("ativo_dias", 90)))})
-        lista = [{"id": i, "nome": n, "email": e.strip()} for i, n, e in cur.fetchall() if email_valido(e)]
+        # dia: 0 = domingo ... 6 = sábado, ou None (automático); o script versão 8 em diante respeita
+        lista = [{"id": i, "nome": n, "email": e.strip(), "dia": d} for i, n, e, d in cur.fetchall() if email_valido(e)]
     config = {"ativo": usa_email(cfg), "dias": int(c.get("dias", 7)), "assunto": c.get("email_assunto", ""),
-              "texto": c.get("email_texto", ""), "remetente": c.get("email_remetente", "")}
+              "texto": c.get("email_texto", ""), "remetente": c.get("email_remetente", ""), "whatsapp": whatsapp_prof(cfg)}
     r = _postar(c["url"], {"chave": c["chave"], "acao": "pacientes", "lista": lista, "config": config})
     return len(lista), r.get("emails", {})
 

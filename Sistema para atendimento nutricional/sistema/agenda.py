@@ -161,7 +161,8 @@ def enviar_email(c, cfg, assunto, corpo):
     ck = cfg["checkin"]
     r = checkin._postar(ck["url"], {"chave": ck["chave"], "acao": "email", "para": c["email"].strip(),
                                     "assunto": assunto, "texto": corpo, "ics": ics(c, cfg),
-                                    "remetente": cfg["agenda"].get("profissional") or ""})
+                                    "remetente": cfg["agenda"].get("profissional") or "",
+                                    "whatsapp": checkin.whatsapp_prof(cfg)})
     if r.get("erro"):
         detalhe = {"sem_email": "o e-mail do paciente está vazio", "acao": "o script do Google está desatualizado",
                    "envio": r.get("detalhe", "o Gmail recusou o envio")}.get(r["erro"], r["erro"])

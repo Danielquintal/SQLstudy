@@ -161,7 +161,7 @@ def pendencias(cur, cfg, hoje=None):
     if checkin.configurado(cfg):
         ck = cfg["checkin"]
         dias, espera, por_email = int(ck.get("dias", 7)), int(ck.get("email_espera", 2)), checkin.usa_email(cfg)
-        cur.execute(f"""SELECT {campos}, p.email,
+        cur.execute(f"""SELECT {campos}, p.email, p.checkin_dia,
                 (SELECT max(respondido_em)::date FROM checkin k WHERE k.paciente_id = p.id AND NOT k.excluido),
                 (SELECT max(feito_em)::date FROM contato c WHERE c.paciente_id = p.id AND c.tipo = 'checkin'),
                 (SELECT max(feito_em)::date FROM contato c WHERE c.paciente_id = p.id AND c.tipo = 'checkin_email')
@@ -169,9 +169,14 @@ def pendencias(cur, cfg, hoje=None):
                     {"hoje": hoje, "desde": hoje - timedelta(days=int(ck.get("ativo_dias", 90)))})
         for r in cur.fetchall():
             p = dict(zip(nomes, r[:len(nomes)]))
-            email, respondeu, pedido, enviado = r[len(nomes):]
+            email, ck_dia, respondeu, pedido, enviado = r[len(nomes):]
             ultimo = max([d for d in (respondeu, pedido) if d], default=None)
-            if ultimo is not None and (hoje - ultimo).days < dias:
+            if ck_dia is not None:
+                # dia da semana escolhido: vale a partir do último desse dia (0 = domingo); igual ao script do Google
+                marco = hoje - timedelta(days=((hoje.weekday() + 1) % 7 - ck_dia) % 7)
+                if ultimo is not None and (marco - ultimo).days < dias:
+                    continue   # respondeu ou recebeu o WhatsApp perto do dia marcado
+            elif ultimo is not None and (hoje - ultimo).days < dias:
                 continue   # respondeu ou recebeu o WhatsApp nesta semana
             if por_email and checkin.email_valido(email):
                 # e-mail desta semana, depois da última resposta, há N dias ou mais: lembrar no WhatsApp
