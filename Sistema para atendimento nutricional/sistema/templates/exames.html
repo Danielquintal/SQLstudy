@@ -23,6 +23,52 @@
 </div>
 {% endif %}
 
+{% if comp %}
+{% set r = comp.resumo %}
+<div class="card" id="comparativo">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div><h2>Comparativo: {{ comp.de.data|br }} → {{ comp.para.data|br }}</h2>
+      <p class="note" style="margin:0">{{ comp.dias }} dias entre as coletas · {{ r.comparados }} exames nas duas datas</p></div>
+    <form method="get" action="#comparativo" class="cmp-datas">
+      <label>De <select name="de">{% for e in exames %}<option value="{{ e.id }}" {{ 'selected' if e.id == comp.de.id }}>{{ e.data|br }}</option>{% endfor %}</select></label>
+      <label>Para <select name="para">{% for e in exames %}<option value="{{ e.id }}" {{ 'selected' if e.id == comp.para.id }}>{{ e.data|br }}</option>{% endfor %}</select></label>
+      <button class="btn mini">Comparar</button>
+      {% if exames|length > 2 %}<a class="btn mini" href="?de={{ exames[0].id }}&para={{ exames[-1].id }}#comparativo">1ª × última</a>
+        <a class="btn mini" href="?de={{ exames[-2].id }}&para={{ exames[-1].id }}#comparativo">Anterior × última</a>{% endif %}
+    </form>
+  </div>
+  <div class="cmp-resumo">
+    <span class="chip good">{{ r.melhorou }} melhoraram</span>
+    <span class="chip bad">{{ r.piorou }} pioraram</span>
+    {% if r.entrou %}<span class="chip good">{{ r.entrou }} voltaram para a referência</span>{% endif %}
+    {% if r.saiu %}<span class="chip bad">{{ r.saiu }} saíram da referência</span>{% endif %}
+    <span class="chip">{{ r.estavel }} sem mudança de faixa</span>
+    <label class="note" style="display:flex;gap:6px;align-items:center;margin-left:auto"><input type="checkbox" id="cmp-mudou"> Só o que melhorou ou piorou</label>
+  </div>
+  <div class="tablebox"><table class="ex cmp">
+    <thead><tr><th class="t">Exame</th><th class="t">Referência</th><th>{{ comp.de.data|br }}</th><th>{{ comp.para.data|br }}</th><th>Variação</th><th class="t">Evolução</th></tr></thead>
+    <tbody>
+    {% for g in comp.grupos %}
+      <tr class="gr-linha"><td class="gr" colspan="6">{{ g.nome }}</td></tr>
+      {% for l in g.linhas %}
+      <tr class="cmp-l" data-tend="{{ l.tend }}">
+        <td class="t">{{ l.item.nome }}{% if l.item.unidade %} <span class="note">{{ l.item.unidade }}</span>{% endif %}</td>
+        <td class="t note">{{ (l.b or l.a).ref }}</td>
+        {% for x in [l.a, l.b] %}{% if x %}<td class="n v-{{ x.nivel }}" title="{{ x.rotulo }}">{{ x.valor|exnum }}{% if x.nivel in ('alto', 'baixo', 'atencao') %}<span class="seta">{{ '↓' if x.nivel == 'baixo' else '↑' }}</span>{% endif %}</td>
+        {% else %}<td class="n note">–</td>{% endif %}{% endfor %}
+        <td class="n">{% if l.dif is not none %}{{ '+' if l.dif > 0 else '−' if l.dif < 0 else '' }}{{ l.dif|abs|exnum }}{% if l.pct is not none %} <span class="note">({{ '%+.0f'|format(l.pct) }}%)</span>{% endif %}{% else %}<span class="note">só numa data</span>{% endif %}</td>
+        <td class="t">{% if l.tend == 'melhorou' %}<span class="chip good">▲ melhorou</span>{% elif l.tend == 'piorou' %}<span class="chip bad">▼ piorou</span>{% elif l.tend == 'estavel' %}<span class="note">{{ 'segue na referência' if l.b.nivel == 'ok' else 'sem mudança' }}</span>{% endif %}
+          {% if l.a and l.b and l.a.nivel != l.b.nivel and l.a.rotulo and l.b.rotulo %}<span class="note">{{ l.a.rotulo }} → {{ l.b.rotulo }}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="note" style="margin:0">“Melhorou” = o valor entrou na referência ou chegou mais perto dela; “piorou” = saiu ou se afastou.
+    Dentro da referência nas duas datas = segue na referência (a variação aparece ao lado). Exames sem referência mostram só a variação.</p>
+</div>
+{% endif %}
+
 {% if exames %}
 <div class="card" id="historico">
   <h2>Histórico</h2>
@@ -118,7 +164,28 @@
 .laudo-pdf{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;padding:12px;border:1px dashed var(--line);border-radius:10px}
 .laudo-pdf .campo{min-width:220px}
 input.val.do-laudo{border-color:var(--c2, #1A9E8F);background:color-mix(in srgb, var(--c2, #1A9E8F) 10%, transparent)}
+.cmp-datas{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cmp-datas label{display:flex;gap:6px;align-items:center;font-size:14px}
+.cmp-datas select{font:14px var(--sans);padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--field, var(--surface));color:var(--ink)}
+.cmp-resumo{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cmp-resumo .chip{font-size:13px;padding:2px 10px}
+table.cmp td .chip{font-size:12px;margin-right:6px}
 </style>
+<script>
+// comparativo: esconder o que ficou estável
+document.getElementById('cmp-mudou')?.addEventListener('change', e => {
+  const so = e.target.checked;
+  document.querySelectorAll('tr.cmp-l').forEach(tr => { tr.hidden = so && !['melhorou', 'piorou'].includes(tr.dataset.tend); });
+  document.querySelectorAll('table.cmp tbody').forEach(tb => {
+    let grupo = null, visiveis = 0;
+    [...tb.rows].forEach(tr => {
+      if (tr.classList.contains('gr-linha')) { if (grupo) grupo.hidden = !visiveis; grupo = tr; visiveis = 0; }
+      else if (!tr.hidden) visiveis++;
+    });
+    if (grupo) grupo.hidden = !visiveis;
+  });
+});
+</script>
 <script>
 const ITENS = {{ catalogo|tojson }}.flatMap(g => g.itens);
 const POR_ID = Object.fromEntries(ITENS.map(i => [i.id, i]));

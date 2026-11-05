@@ -68,6 +68,12 @@ def data_br(d):
     return d.strftime("%d/%m/%Y") if d else ""
 
 
+@app.template_filter("exnum")
+def exame_numero(v):
+    """número de exame no formato do laudo: 268.000 · 12,9 · 0,8"""
+    return exames.fmt(float(v)) if v is not None else ""
+
+
 @app.template_filter("num")
 def numero(v):
     return "" if v is None else mostrar(v).replace(".", ",")
@@ -1165,6 +1171,19 @@ def exames_paciente(pid, erros=(), form=None, lido=None):
         p = buscar_paciente(cur, pid)
         lista, grupos = exames.historico(cur, pid, p["genero"])
     p["idade"] = idade(p["data_nascimento"])
+    # comparativo: por padrão o exame mais recente contra o anterior (?de=<id>&para=<id> escolhe outras datas)
+    comp = None
+    if len(lista) >= 2:
+        ids = [str(e["id"]) for e in lista]
+        ib = ids.index(request.args["para"]) if request.args.get("para") in ids else len(lista) - 1
+        ia = ids.index(request.args["de"]) if request.args.get("de") in ids else max(0, ib - 1)
+        if ia == ib:
+            ia = max(0, ib - 1) if ib else 1
+        if ia > ib:
+            ia, ib = ib, ia
+        grupos_c, resumo_c = exames.comparar(grupos, ia, ib, p["genero"])
+        comp = {"de": lista[ia], "para": lista[ib], "grupos": grupos_c, "resumo": resumo_c,
+                "dias": (lista[ib]["data"] - lista[ia]["data"]).days}
     editar = next((e for e in lista if str(e["id"]) == request.args.get("editar", "")), None)
     if form is None:
         form = {"data": editar["data"].isoformat() if editar else date.today().isoformat(),
@@ -1172,7 +1191,7 @@ def exames_paciente(pid, erros=(), form=None, lido=None):
         for k, (v, ref) in (editar["valores"] if editar else {}).items():
             form["v_" + k], form["r_" + k] = exames.fmt(v), ref or ""
     return render_template("exames.html", p=p, exames=lista, grupos=grupos, alertas=exames.alertas(grupos),
-                           catalogo=exames.carregar()["grupos"], editar=editar, form=form, erros=erros, lido=lido,
+                           catalogo=exames.carregar()["grupos"], editar=editar, form=form, erros=erros, lido=lido, comp=comp,
                            ja_existe=lido and next((e for e in lista if e["data"].isoformat() == form["data"]), None),
                            ref=lambda it: exames.texto_ref(exames.ref_padrao(it, p["genero"])))
 

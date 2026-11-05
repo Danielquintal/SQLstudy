@@ -164,6 +164,63 @@ def historico(cur, pid, genero, limite=None):
     return exames, grupos
 
 
+_GRAVIDADE = {"ok": 0, "atencao": 1, "baixo": 2, "alto": 2}
+
+
+def _fora(item, x, genero):
+    """quanto o valor está fora da referência (0 = dentro), relativo ao tamanho da faixa"""
+    r = ler_ref(x.get("ref_laudo")) or ref_padrao(item, genero)
+    if not r:
+        return 0
+    lo, hi = r
+    escala = (hi - lo) if lo is not None and hi is not None and hi > lo else (hi or lo or 1)
+    if lo is not None and x["valor"] < lo:
+        return (lo - x["valor"]) / escala
+    if hi is not None and x["valor"] > hi:
+        return (x["valor"] - hi) / escala
+    return 0
+
+
+def comparar(grupos, ia, ib, genero):
+    """compara a coleta ia (antes) com a ib (depois) em cada exame: valores, variação e se melhorou em relação
+    à referência ("melhorou" = chegou mais perto ou entrou na faixa; dentro da faixa nas duas = "estavel")"""
+    saida, resumo = [], {"melhorou": 0, "piorou": 0, "entrou": 0, "saiu": 0, "estavel": 0, "comparados": 0}
+    for g in grupos:
+        linhas = []
+        for l in g["linhas"]:
+            a, b = l["valores"][ia], l["valores"][ib]
+            if not a and not b:
+                continue
+            linha = {"item": l["item"], "a": a, "b": b, "dif": None, "pct": None, "tend": ""}
+            if a and b:
+                resumo["comparados"] += 1
+                linha["dif"] = b["valor"] - a["valor"]
+                linha["pct"] = linha["dif"] / a["valor"] * 100 if a["valor"] else None
+                ga, gb = _GRAVIDADE.get(a["nivel"]), _GRAVIDADE.get(b["nivel"])
+                if ga is None or gb is None:
+                    tend = ""                                   # sem referência: só a variação
+                elif gb < ga:
+                    tend = "melhorou"
+                elif gb > ga:
+                    tend = "piorou"
+                elif ga == 0:
+                    tend = "estavel"
+                else:
+                    fa, fb = _fora(l["item"], a, genero), _fora(l["item"], b, genero)
+                    tend = "melhorou" if fb < fa - 1e-9 else "piorou" if fb > fa + 1e-9 else "estavel"
+                linha["tend"] = tend
+                if tend:
+                    resumo[tend] += 1
+                if a["nivel"] in ("alto", "baixo", "atencao") and b["nivel"] == "ok":
+                    resumo["entrou"] += 1
+                if a["nivel"] == "ok" and b["nivel"] in ("alto", "baixo", "atencao"):
+                    resumo["saiu"] += 1
+            linhas.append(linha)
+        if linhas:
+            saida.append({"nome": g["nome"], "linhas": linhas})
+    return saida, resumo
+
+
 def alertas(grupos):
     """o que ficou fora da referência no exame mais recente, com as possíveis causas"""
     saida = []
