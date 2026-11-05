@@ -1115,8 +1115,33 @@ def _numero_form(v):
 
 
 # ---------- exames laboratoriais ----------
+@app.route("/paciente/<int:pid>/exames/laudo", methods=["POST"])
+def exames_laudo(pid):
+    """lê o PDF do laudo do laboratório e abre o formulário de lançamento já preenchido, para conferir e salvar"""
+    import laudo_pdf
+    arq = request.files.get("laudo")
+    if not arq or not arq.filename:
+        flash("Escolha o PDF do laudo.", "aviso")
+        return redirect(url_for("exames_paciente", pid=pid) + "#lancar")
+    r = laudo_pdf.ler(arq.read(), request.form.get("senha", "").strip(), exames.itens())
+    if r["erro"]:
+        flash({"senha": "Este PDF tem senha. Digite a senha do laudo (costuma ser a data de nascimento ou o CPF do paciente) "
+                        "no campo ao lado e envie de novo.",
+               "sem_texto": "Este PDF é uma imagem (laudo escaneado ou foto): o sistema não consegue ler o texto. "
+                            "Peça ao paciente o PDF original do site do laboratório, ou digite os valores abaixo.",
+               "pdf": "Não consegui abrir este arquivo como PDF."}[r["erro"]], "aviso")
+        return redirect(url_for("exames_paciente", pid=pid) + "#lancar")
+    form = {"data": (r["data"] or date.today()).isoformat(), "laboratorio": r["laboratorio"], "observacao": ""}
+    for k, v in r["valores"].items():
+        form["v_" + k], form["r_" + k] = exames.fmt(v["valor"]), v["ref"] or ""
+    lido = {"arquivo": arq.filename, "n": len(r["valores"]), "data_achada": bool(r["data"]),
+            "itens": [(exames.itens()[k]["nome"], v["linha"]) for k, v in r["valores"].items()],
+            "ids": list(r["valores"])}
+    return exames_paciente(pid, (), form, lido)
+
+
 @app.route("/paciente/<int:pid>/exames")
-def exames_paciente(pid, erros=(), form=None):
+def exames_paciente(pid, erros=(), form=None, lido=None):
     with conectar() as con:
         cur = con.cursor()
         p = buscar_paciente(cur, pid)
@@ -1129,7 +1154,8 @@ def exames_paciente(pid, erros=(), form=None):
         for k, (v, ref) in (editar["valores"] if editar else {}).items():
             form["v_" + k], form["r_" + k] = exames.fmt(v), ref or ""
     return render_template("exames.html", p=p, exames=lista, grupos=grupos, alertas=exames.alertas(grupos),
-                           catalogo=exames.carregar()["grupos"], editar=editar, form=form, erros=erros,
+                           catalogo=exames.carregar()["grupos"], editar=editar, form=form, erros=erros, lido=lido,
+                           ja_existe=lido and next((e for e in lista if e["data"].isoformat() == form["data"]), None),
                            ref=lambda it: exames.texto_ref(exames.ref_padrao(it, p["genero"])))
 
 

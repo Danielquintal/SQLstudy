@@ -58,6 +58,29 @@
   <p class="note" style="margin:0">Preencha só o que veio no laudo. Contagens podem ir como no laudo (4,52 milhões ou 4.520.000; 6,5 mil ou 6.500):
     o sistema converte. Se o laboratório usa outra referência, digite em "ref. do laudo" (ex.: 0,4 a 4,5 · até 190 · acima de 40).
     Os índices (HOMA-IR, TyG, não HDL, NLR, MLR, PLR) são calculados sozinhos.</p>
+  {% if not editar %}
+  <form method="post" action="{{ url_for('exames_laudo', pid=p.id) }}" enctype="multipart/form-data" class="laudo-pdf">
+    <div class="campo"><label for="lp-arq">Ler o laudo em PDF <span class="note">(de qualquer laboratório)</span></label>
+      <input id="lp-arq" type="file" name="laudo" accept="application/pdf,.pdf" required></div>
+    <div class="campo"><label for="lp-senha">Senha do PDF <span class="note">(se tiver)</span></label>
+      <input class="texto" id="lp-senha" name="senha" autocomplete="off" placeholder="ex.: data de nascimento ou CPF"></div>
+    <button class="btn pri">Ler o laudo</button>
+  </form>
+  {% endif %}
+  {% if lido %}
+  <div class="msg {{ 'ok' if lido.n else 'aviso' }}" role="status">
+    {% if lido.n %}
+      <b>{{ lido.n }} resultado{{ 's' if lido.n > 1 }} lido{{ 's' if lido.n > 1 }} de “{{ lido.arquivo }}”.</b>
+      Os campos em destaque vieram do laudo: <b>confira os valores e a data da coleta</b> e clique em Salvar exame. Nada foi salvo ainda.
+      {% if not lido.data_achada %}<br>Não achei a data da coleta no laudo: preencha a data.{% endif %}
+      {% if ja_existe %}<br>Já existe um exame em {{ ja_existe.data|br }}: ao salvar, estes resultados completam e atualizam aquele.{% endif %}
+      <details style="margin-top:6px"><summary class="note">Ver de onde saiu cada valor</summary>
+        <ul class="note" style="margin:4px 0 0">{% for nome, linha in lido.itens %}<li><b>{{ nome }}</b>: {{ linha }}</li>{% endfor %}</ul></details>
+    {% else %}
+      Não encontrei no laudo “{{ lido.arquivo }}” nenhum exame da tabela. Digite os valores abaixo{% if lido %} ou confira se é um laudo de exames de sangue{% endif %}.
+    {% endif %}
+  </div>
+  {% endif %}
   <form method="post" action="{{ url_for('exames_salvar', pid=p.id) }}" class="ficha ex-form" style="gap:12px">
     {% if editar %}<input type="hidden" name="exame_id" value="{{ editar.id }}">{% endif %}
     <div class="cadastro">
@@ -74,7 +97,7 @@
         <div class="ex-item">
           <label for="v-{{ it.id }}">{{ it.nome }}{% if it.unidade %} <span class="note" style="font-weight:400">({{ it.unidade }})</span>{% endif %}</label>
           <div class="linha-in campo">
-            <input class="val" id="v-{{ it.id }}" name="v_{{ it.id }}" inputmode="decimal" value="{{ form.get('v_' + it.id, '') }}" data-item="{{ it.id }}" autocomplete="off">
+            <input class="val{{ ' do-laudo' if lido and it.id in lido.ids }}" id="v-{{ it.id }}" name="v_{{ it.id }}" inputmode="decimal" value="{{ form.get('v_' + it.id, '') }}" data-item="{{ it.id }}" autocomplete="off">
             <input class="rl texto" name="r_{{ it.id }}" value="{{ form.get('r_' + it.id, '') }}" placeholder="ref. do laudo" aria-label="Referência do laudo para {{ it.nome }}" data-item="{{ it.id }}">
           </div>
           <span class="ref">{% if ref(it) %}Referência: {{ ref(it) }}{% elif it.nota %}{{ it.nota }}{% else %}Sem referência padrão{% endif %}
@@ -91,6 +114,11 @@
   </form>
 </div>
 
+<style>
+.laudo-pdf{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;padding:12px;border:1px dashed var(--line);border-radius:10px}
+.laudo-pdf .campo{min-width:220px}
+input.val.do-laudo{border-color:var(--c2, #1A9E8F);background:color-mix(in srgb, var(--c2, #1A9E8F) 10%, transparent)}
+</style>
 <script>
 const ITENS = {{ catalogo|tojson }}.flatMap(g => g.itens);
 const POR_ID = Object.fromEntries(ITENS.map(i => [i.id, i]));
