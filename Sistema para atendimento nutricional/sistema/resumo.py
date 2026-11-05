@@ -98,6 +98,42 @@ def grafico_composicao(avs, w=640, h=220):
             "zero": round(y(0), 1)}
 
 
+METODOS = [("gordura_pct", "Dobras cutâneas", "c1"), ("bia_gordura_pct", "Bioimpedância", "c6"),
+           ("foto_gordura_pct", "Foto (IA)", "c3")]
+
+
+def metodos(avs, w=640, h=200):
+    """% de gordura de cada método (dobras, bioimpedância, foto) por avaliação: tabela + gráfico.
+    Só aparece quando há pelo menos dois métodos em alguma avaliação."""
+    linhas = [{"data": a["data_avaliacao"], "protocolo": a.get("protocolo_dobras"), "app": a.get("foto_app"),
+               "v": {col: _f(a.get(col)) for col, _, _ in METODOS}} for a in avs]
+    linhas = [l for l in linhas if any(v is not None for v in l["v"].values())]
+    if not any(sum(v is not None for v in l["v"].values()) >= 2 for l in linhas):
+        return None
+    for l in linhas:
+        f = l["v"]["foto_gordura_pct"]
+        l["dif"] = {col: (None if f is None or l["v"][col] is None else l["v"][col] - f) for col, _, _ in METODOS[:2]}
+    todos = [v for l in linhas for v in l["v"].values() if v is not None]
+    lo, hi = min(todos), max(todos)
+    pad = (hi - lo) * 0.15 or 2
+    lo, hi = max(0, lo - pad), hi + pad
+    esq, dir_, top, base = 44, 12, 12, 28
+    n = max(len(linhas) - 1, 1)
+    x = lambda i: esq + (i / n if len(linhas) > 1 else 0.5) * (w - esq - dir_)
+    y = lambda v: top + (hi - v) / (hi - lo) * (h - top - base)
+    series = []
+    for col, rot, cor in METODOS:
+        pts = [(x(i), y(l["v"][col]), l["v"][col]) for i, l in enumerate(linhas) if l["v"][col] is not None]
+        if pts:
+            series.append({"rotulo": rot, "cor": cor, "pontos": " ".join(f"{a:.1f},{b:.1f}" for a, b, _ in pts),
+                           "marcas": [{"x": round(a, 1), "y": round(b, 1), "v": v} for a, b, v in pts]})
+    passo = (hi - lo) / 4
+    grafico = {"w": w, "h": h, "series": series, "esq": esq, "dir": w - dir_,
+               "grade": [{"y": round(y(lo + k * passo), 1), "v": lo + k * passo} for k in range(5)],
+               "datas": [{"x": round(x(i), 1), "d": l["data"]} for i, l in enumerate(linhas)]}
+    return {"linhas": linhas, "grafico": grafico, "tem_foto": any(l["v"]["foto_gordura_pct"] is not None for l in linhas)}
+
+
 def grafico_gordura(avs, meta=None, w=640, h=160):
     """% de gordura por avaliação, em barras, com a linha da meta (se houver)"""
     vals = [(a["data_avaliacao"], _f(a.get("gordura_pct"))) for a in avs]

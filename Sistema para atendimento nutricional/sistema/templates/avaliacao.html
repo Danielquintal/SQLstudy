@@ -87,6 +87,13 @@
   {% for col, _ in campos %}{% if form.get(col) and col not in ['protocolo_dobras', 'equacao_gordura'] %}{% set ns.tem = true %}{% endif %}{% endfor %}
   <details class="secao" {{ 'open' if ns.tem }}>
     <summary>{{ titulo }}<span class="preenchidos"></span></summary>
+    {% if titulo.startswith('Análise por foto') %}
+    <p class="note" style="margin:0 0 8px">Digite o % de gordura que o aplicativo de foto (ex.: Shaped) deu. Para valer a comparação, siga o
+      protocolo do estudo: roupa de banho ou justa, fundo claro, boa luz, celular reto a uns 2 m, uma foto de frente (braços e pernas
+      afastados do corpo, palmas para a frente) e uma de perfil direito. Em estudo com 1.273 adultos, a foto teve a melhor
+      concordância com o DXA (CCC 0,98; dobras 0,79), mas não separa gordura visceral e ainda não foi validada em atletas
+      (Ferreira et al., npj Digital Medicine, 2025).</p>
+    {% endif %}
     <div class="campos">
       {% for col, rotulo in campos %}
       <div class="campo {{ 'calc' if col in calculados }}">

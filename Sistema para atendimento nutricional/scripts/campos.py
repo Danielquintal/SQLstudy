@@ -14,6 +14,7 @@ CAMPOS = {
     "bia_agua_kg": "bioimpedancia_agua", "bia_massa_ossea_kg": "bioimpedancia_osseo",
     "bia_massa_gordura_kg": "bioimpedancia_massaGordura", "bia_mlg_kg": "bioimpedancia_massalivre",
     "bia_gordura_visceral": "bioimpedancia_visceral", "bia_idade_metabolica": "bioimpedancia_idade",
+    "foto_gordura_pct": "foto_gordura", "foto_app": "foto_app",
     "altura_sentado_cm": "estatura_sentado", "altura_joelho_cm": "altura_joelho",
     "dobra_tricipital": "dobra_triceptal", "dobra_bicipital": "dobra_biciptal",
     "dobra_subescapular": "dobra_subescapular", "dobra_toracica": "dobra_toraxica",
@@ -32,4 +33,4 @@ CAMPOS = {
     "diametro_umero": "diametro_umero", "diametro_punho": "diametro_punho", "diametro_femur": "diametro_femur",
 }
 TEXTO = {"classificacao_imc", "peso_ideal", "risco_rcq", "classificacao_cmb", "classificacao_gordura",
-         "protocolo_dobras", "equacao_gordura", "bia_classificacao_gordura"}
+         "protocolo_dobras", "equacao_gordura", "bia_classificacao_gordura", "foto_app"}

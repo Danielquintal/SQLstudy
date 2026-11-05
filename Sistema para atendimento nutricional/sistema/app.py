@@ -273,7 +273,7 @@ def paciente(pid):
                                reds.energia_disponivel(*ult_ed[1:])),
                            ult_exame=ult_exame, testes=testes, perfil=perfil_pac,
                            # aba Resumo (painel do paciente)
-                           rs_ind=resumo.indicadores(avs), rs_comp=resumo.grafico_composicao(avs),
+                           rs_ind=resumo.indicadores(avs), rs_comp=resumo.grafico_composicao(avs), rs_met=resumo.metodos(avs),
                            rs_gc=resumo.grafico_gordura(avs, p["meta_gordura_pct"] and float(p["meta_gordura_pct"])),
                            an_ult=an_ult or {}, an_data=an_data, an_rotulos=anamnese.CAMPOS, hoje=date.today(),
                            passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,

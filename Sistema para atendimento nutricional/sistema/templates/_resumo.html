@@ -59,6 +59,37 @@
     </div>
     {% endif %}
   </div>
+  {% if rs_met %}
+  {% set g = rs_met.grafico %}
+  <div class="card">
+    <h2>% de gordura: comparação de métodos</h2>
+    <div class="rs-graficos" style="align-items:start">
+      <div>
+        <svg viewBox="0 0 {{ g.w }} {{ g.h }}" class="rs-graf" role="img" aria-label="% de gordura por método e por avaliação">
+          {% for gr in g.grade %}<line x1="{{ g.esq }}" x2="{{ g.dir }}" y1="{{ gr.y }}" y2="{{ gr.y }}" class="grade"/>
+            <text x="{{ g.esq - 6 }}" y="{{ gr.y + 4 }}" class="eixo" text-anchor="end">{{ gr.v|round(0)|int }}%</text>{% endfor %}
+          {% for d in g.datas %}<text x="{{ d.x }}" y="{{ g.h - 8 }}" class="eixo" text-anchor="{{ 'start' if loop.first and g.datas|length > 1 else 'end' if loop.last and g.datas|length > 1 else 'middle' }}">{{ d.d.strftime('%d/%m/%y') }}</text>{% endfor %}
+          {% for s in g.series %}<polyline points="{{ s.pontos }}" class="ln {{ s.cor }}"/>
+            {% for m in s.marcas %}<circle cx="{{ m.x }}" cy="{{ m.y }}" r="3.5" class="pt {{ s.cor }}"><title>{{ s.rotulo }}: {{ m.v|round(1)|num }}%</title></circle>{% endfor %}{% endfor %}
+        </svg>
+        <div class="rs-legenda">{% for s in g.series %}<span><i class="{{ s.cor }}"></i>{{ s.rotulo }}</span>{% endfor %}</div>
+      </div>
+      <div class="tablebox"><table class="rs-tab">
+        <thead><tr><th>Data</th><th>Dobras</th><th>Bioimpedância</th><th>Foto (IA)</th></tr></thead>
+        <tbody>{% for l in rs_met.linhas|reverse %}<tr>
+          <td>{{ l.data|br }}</td>
+          <td>{% if l.v.gordura_pct is not none %}{{ l.v.gordura_pct|round(1)|num }}%{% if l.dif.gordura_pct is not none %} <span class="note">({{ ('%+.1f'|format(l.dif.gordura_pct)).replace('.', ',') }})</span>{% endif %}{% else %}–{% endif %}</td>
+          <td>{% if l.v.bia_gordura_pct is not none %}{{ l.v.bia_gordura_pct|round(1)|num }}%{% if l.dif.bia_gordura_pct is not none %} <span class="note">({{ ('%+.1f'|format(l.dif.bia_gordura_pct)).replace('.', ',') }})</span>{% endif %}{% else %}–{% endif %}</td>
+          <td>{% if l.v.foto_gordura_pct is not none %}<b>{{ l.v.foto_gordura_pct|round(1)|num }}%</b>{% if l.app %} <span class="note">{{ l.app }}</span>{% endif %}{% else %}–{% endif %}</td>
+        </tr>{% endfor %}</tbody>
+      </table>
+      <p class="note" style="margin:6px 0 0">{% if rs_met.tem_foto %}Entre parênteses, a diferença em pontos para a foto.{% endif %}
+        Num estudo com 1.273 adultos comparados ao DXA, a foto com IA teve a melhor concordância (CCC 0,98), a bioimpedância
+        tendeu a subestimar a gordura e as dobras tiveram concordância ruim, sobretudo em mulheres (Ferreira et al., 2025).
+        Para acompanhar a evolução, compare sempre o mesmo método.</p></div>
+    </div>
+  </div>
+  {% endif %}
   {% endif %}
 
   <div class="rs-cartoes">
@@ -170,4 +201,8 @@
 .rs-graf .zero{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
 .rs-lista{margin:0;padding-left:18px;font-size:14px;display:flex;flex-direction:column;gap:4px}
 .rs-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rs-tab{width:100%;border-collapse:collapse;font-size:14px}
+.rs-tab th,.rs-tab td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.rs-tab th:first-child,.rs-tab td:first-child{text-align:left}
+.rs-tab th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 </style>

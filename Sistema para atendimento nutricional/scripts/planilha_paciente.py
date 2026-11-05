@@ -36,6 +36,9 @@ SECTIONS = [
         ("Índice de Gordura Visceral", "bioimpedancia_visceral"),
         ("Idade Metabólica (anos)", "bioimpedancia_idade"),
     ]),
+    ("Análise por foto (inteligência artificial)", [
+        ("Percentual de Gordura (%)", "foto_gordura"), ("Aplicativo usado", "foto_app"),
+    ]),
     ("Medidas complementares (cm)", [
         ("Altura sentado", "estatura_sentado"), ("Altura do joelho", "altura_joelho"),
     ]),
