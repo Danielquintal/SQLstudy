@@ -61,6 +61,16 @@
   {% else %}
   <p class="note">O link fica disponível quando o paciente tiver uma avaliação ou um plano alimentar.</p>
   {% endif %}
+  {% if tem_pagina %}
+  <div class="acesso-pag">
+    <span>Acesso à página: <b>{{ 'data de nascimento' if p.data_nascimento else 'só o código (sem data de nascimento no cadastro)' }}</b>
+      + código <b class="codigo">{{ codigo_acesso }}</b></span>
+    <form method="post" action="{{ url_for('trocar_codigo', pid=p.id) }}">
+      <button type="button" class="btn mini" onclick="if(this.dataset.ok){this.form.submit()} else {this.dataset.ok=1; this.textContent='Trocar mesmo? (o paciente precisará do novo)'}">Gerar outro código</button></form>
+  </div>
+  <p class="note" style="margin:0">A página publicada vai criptografada: só abre com a data de nascimento e este código. Eles vão juntos
+    na mensagem “Link da evolução” do WhatsApp. Troque o código se ele vazar (o link entra na fila para atualizar).</p>
+  {% endif %}
   {% if pedido %}
   <p class="msg aviso" style="margin:0">Na fila para {{ 'atualizar o link' if pedido.motivo == 'atualizar' else 'ganhar o link' }}.
     Peça ao Claude: “publique os links pedidos”.</p>

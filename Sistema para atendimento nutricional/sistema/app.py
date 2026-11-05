@@ -242,6 +242,8 @@ def paciente(pid):
         perfil_pac = antropo.para_pagina(avs, p["genero"], p["data_nascimento"],
                                         p["meta_gordura_pct"] and float(p["meta_gordura_pct"]), p["meta_imo"] and float(p["meta_imo"]))
         an_ult, an_data = anamnese.ultima(cur, pid)   # para a aba Resumo
+        import acesso_pagina
+        codigo_acesso = acesso_pagina.codigo(cur, pid)   # login da página publicada (cria na primeira vez)
         cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s ORDER BY feito_em DESC LIMIT 6", (pid,))
         historico = cur.fetchall()
         cur.execute("SELECT id, titulo, prescrito, nome_arquivo, enviado_em, jsonb_array_length(plano->'paginas'), "
@@ -253,7 +255,7 @@ def paciente(pid):
     art = links.artefato(pid, p["nome"])
     url = art and art.get("url")
     primeira, ultima = (avs[0], avs[-1]) if avs else (None, None)
-    extra = {"{link_evolucao}": url,
+    extra = {"{link_evolucao}": url, "{codigo_acesso}": codigo_acesso,
              "{data_avaliacao}": ultima["data_avaliacao"].strftime("%d/%m/%Y") if ultima else None}
     # mensagens que fazem sentido para este paciente agora
     tipos = (["livre"] + (["evolucao"] if url and ultima else [])
@@ -276,6 +278,7 @@ def paciente(pid):
                            rs_ind=resumo.indicadores(avs), rs_comp=resumo.grafico_composicao(avs), rs_met=resumo.metodos(avs),
                            rs_gc=resumo.grafico_gordura(avs, p["meta_gordura_pct"] and float(p["meta_gordura_pct"])),
                            an_ult=an_ult or {}, an_data=an_data, an_rotulos=anamnese.CAMPOS, hoje=date.today(),
+                           codigo_acesso=codigo_acesso,
                            passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,
                            email_ok=checkin.email_valido(p["email"]), lembretes_pac=lembretes_pac, lp=lp_info,
                            quando_lembrete=lembretes.quando_texto,
@@ -797,8 +800,11 @@ def perfil(pid):
         cur.execute("""SELECT (SELECT count(*) FROM plano_alimentar WHERE paciente_id = %(p)s),
                               (SELECT count(*) FROM checkin WHERE paciente_id = %(p)s AND NOT excluido)""", {"p": pid})
         n_planos, n_checkins = cur.fetchone()
+        import acesso_pagina
+        codigo_acesso = acesso_pagina.codigo(cur, pid)   # login da página do paciente (data de nascimento + código)
     return render_template("perfil.html", p={"id": pid, "nome": atual["nome"]}, form=form, erros=erros, ufs=UFS,
-                           n_avs=n_avs, n_planos=n_planos, n_checkins=n_checkins, art=links.artefato(pid, atual["nome"]))
+                           n_avs=n_avs, n_planos=n_planos, n_checkins=n_checkins, art=links.artefato(pid, atual["nome"]),
+                           codigo_acesso=codigo_acesso, nasc_cadastro=atual.get("data_nascimento"))
 
 
 # ---------- excluir paciente ----------
@@ -969,6 +975,20 @@ def acompanhamento(pid):
                     aviso_link += " (Não consegui avisar o Google agora; ele recebe a mudança na próxima sincronização.)"
     flash("Acompanhamento salvo." + aviso_link)
     return redirect(url_for("paciente", pid=pid) + "#acompanhamento")
+
+
+@app.route("/paciente/<int:pid>/codigo", methods=["POST"])
+def trocar_codigo(pid):
+    """novo código de acesso da página: o antigo deixa de abrir depois que o link for atualizado"""
+    import acesso_pagina
+    with conectar() as con:
+        cur = con.cursor()
+        p = buscar_paciente(cur, pid)
+        novo = acesso_pagina.codigo(cur, pid, novo=True)
+    flash(f"Novo código de acesso: {novo}. Mande ao paciente." + pedir_atualizacao(pid, p["nome"]))
+    if request.form.get("volta") == "perfil":
+        return redirect(url_for("perfil", pid=pid) + "#acesso")
+    return redirect(url_for("paciente", pid=pid))
 
 
 @app.route("/paciente/<int:pid>/metas", methods=["POST"])

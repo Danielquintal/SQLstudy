@@ -39,7 +39,8 @@ PADRAO = {
         "retorno": "Olá, {primeiro_nome}! Passando para lembrar da sua consulta {quando} ({data_retorno}). "
                    "Se precisar remarcar, é só me avisar por aqui. Daniel Quintal, nutricionista",
         "evolucao": "Olá, {primeiro_nome}! Sua avaliação de {data_avaliacao} já está na sua página de evolução, "
-                    "com os gráficos atualizados: {link_evolucao}",
+                    "com os gráficos atualizados: {link_evolucao} . Para entrar: sua data de nascimento e o código "
+                    "{codigo_acesso}.",
         "aniversario": "Feliz aniversário, {primeiro_nome}! Desejo um ano cheio de saúde e conquistas. "
                        "Um abraço, Daniel Quintal",
         "checkin": "Oi, {primeiro_nome}! Hora do check-in da semana: são 2 minutinhos e me ajudam muito a "
@@ -59,6 +60,7 @@ VARIAVEIS = {
     "{quando}": "hoje, amanhã ou o dia da semana da consulta",
     "{data_avaliacao}": "data da última avaliação",
     "{link_evolucao}": "link publicado da página de evolução",
+    "{codigo_acesso}": "código de acesso da página (o login é a data de nascimento)",
     "{link_checkin}": "link do formulário de check-in, já com o nome do paciente",
     "{link_leafq}": "link do questionário LEAF-Q, já com o nome da paciente",
     "{data_consulta}": "data da consulta agendada",

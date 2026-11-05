@@ -318,7 +318,9 @@ def extras_pagina(cur, pid):
     from atualizar_paciente import avaliacoes_do_banco
     cur.execute("SELECT data_nascimento, meta_gordura_pct, meta_imo, meta_passos FROM paciente WHERE id = %s", (pid,))
     nasc, alvo_gc, alvo_imo, passos = cur.fetchone() or (None, None, None, None)
-    return {"passos": passos, "checkins": checkin.para_pagina(cur, pid), "reds": reds.para_pagina(cur, pid),
+    import acesso_pagina
+    return {"acesso": acesso_pagina.credenciais(cur, pid),   # login da página publicada (data de nascimento + código)
+            "passos": passos, "checkins": checkin.para_pagina(cur, pid), "reds": reds.para_pagina(cur, pid),
             "exames": para_pagina(cur, pid, genero), "desempenho": desempenho_pagina(cur, pid),
             "perfil": perfil.para_pagina(avaliacoes_do_banco(cur, pid), genero, nasc,
                                          alvo_gc and float(alvo_gc), alvo_imo and float(alvo_imo))}

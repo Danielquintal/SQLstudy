@@ -36,7 +36,13 @@ def _whatsapp():
 
 
 def montar(template, nome, avaliacoes, plano, out, checkin=None, extras=None):
+    """grava a página que vai ser publicada; com extras["acesso"] (data de nascimento + código), sai criptografada
+    com a tela de login (acesso_pagina.py). A prévia do sistema usa gerar_html e fica aberta."""
     t = gerar_html(template, nome, avaliacoes, plano, checkin, extras)
+    acesso = (extras or {}).get("acesso")
+    if acesso and acesso.get("codigo"):
+        from acesso_pagina import proteger
+        t = proteger(t, nome, acesso["nasc"], acesso["codigo"], _whatsapp(), acesso.get("sal"))
     open(out, "w", encoding="utf-8").write(t)
     return len(avaliacoes), len(t)
 

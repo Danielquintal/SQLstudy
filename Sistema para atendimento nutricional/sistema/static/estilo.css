@@ -444,3 +444,8 @@ table.ref-tab input.un{width:110px}
 .canais-escolha .check.indisponivel{opacity:.6;cursor:default}
 .canais-pac .item{display:flex;flex-direction:column;gap:8px}
 .canais-pac .quem{display:flex;flex-direction:column;gap:4px}
+
+/* ficha: acesso à página do paciente (data de nascimento + código) */
+.acesso-pag{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--good) 8%,var(--surface));border:1px solid var(--line)}
+.acesso-pag .codigo{font:600 18px var(--mono);letter-spacing:.12em}
+.acesso-item{display:flex;flex-direction:column;gap:2px}

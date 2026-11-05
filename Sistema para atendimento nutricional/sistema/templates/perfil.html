@@ -72,6 +72,29 @@
     <a class="btn" href="{{ url_for('paciente', pid=p.id) }}">Cancelar</a>
   </div></div>
 </form>
+<div class="card" id="acesso">
+  <h2>Acesso à página do paciente</h2>
+  <p class="note" style="margin:0">O link do paciente abre com uma tela de login. A página vai criptografada: só abre com estes dados.</p>
+  <div class="acesso-pag">
+    <div class="acesso-item"><span class="note">Login (data de nascimento)</span>
+      <b class="codigo">{{ nasc_cadastro.strftime('%d/%m/%Y') if nasc_cadastro else '—' }}</b></div>
+    <div class="acesso-item"><span class="note">Código de acesso</span><b class="codigo" id="cod-acesso">{{ codigo_acesso }}</b></div>
+    <button type="button" class="btn mini" id="copiar-acesso">Copiar para mandar ao paciente</button>
+    <form method="post" action="{{ url_for('trocar_codigo', pid=p.id) }}"><input type="hidden" name="volta" value="perfil">
+      <button type="button" class="btn mini" onclick="if(this.dataset.ok){this.form.submit()} else {this.dataset.ok=1; this.textContent='Trocar mesmo? (o paciente precisará do novo)'}">Gerar outro código</button></form>
+  </div>
+  {% if not nasc_cadastro %}<p class="msg aviso" style="margin:0">Sem data de nascimento no cadastro: o paciente entra só com o código.
+    Preencha a data acima para pedir os dois.</p>{% endif %}
+  <p class="note" style="margin:0">{% if art %}O código vale depois que o link for atualizado com o login.{% else %}O paciente ainda não tem link publicado.{% endif %}
+    Mudou a data de nascimento ou gerou outro código? O link precisa ser atualizado (ele entra na fila sozinho ao gerar outro código).</p>
+</div>
+<script>
+document.getElementById('copiar-acesso').addEventListener('click', async e => {
+  const t = `Para abrir sua página de acompanhamento: data de nascimento {{ nasc_cadastro.strftime('%d/%m/%Y') if nasc_cadastro else '' }} e código {{ codigo_acesso }}.`;
+  try { await navigator.clipboard.writeText(t); e.target.textContent = 'Copiado'; } catch (err) { prompt('Copie:', t); }
+});
+</script>
+
 <form method="post" action="{{ url_for('excluir_paciente', pid=p.id) }}" class="card zona-perigo" id="excluir">
   <h2>Excluir paciente</h2>
   <p style="margin:0">Apaga {{ p.nome }} do sistema, com {{ n_avs }} avaliação(ões), {{ n_planos }} plano(s) alimentar(es),
