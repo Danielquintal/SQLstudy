@@ -1,0 +1,211 @@
+table Consultas
+	lineageTag: 11937d29-db1a-4a6e-84ed-cb810cec00d4
+
+	measure 'Total de consultas' = COUNTROWS(Consultas) + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: 828c01e0-2460-4257-ad31-1d76f5046a0d
+
+	measure 'Realizadas' = CALCULATE(COUNTROWS(Consultas), Consultas[Status] = "Realizada") + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: b188b484-0cd8-4dcd-a1fa-0e664f7c57bf
+
+	measure 'Faltas' = CALCULATE(COUNTROWS(Consultas), Consultas[Status] = "Faltou") + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: dda0a932-99a0-4838-8f17-8cdd52eb348f
+
+	measure 'Próximas' = CALCULATE(COUNTROWS(Consultas), Consultas[Status] IN {"Agendada", "Confirmada"}, Consultas[Início] >= NOW()) + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: 0d23e640-a0e5-4baa-a7a8-d7b594de4b7e
+
+	measure 'Próximos 7 dias' = CALCULATE(COUNTROWS(Consultas), Consultas[Status] IN {"Agendada", "Confirmada"}, Consultas[Início] >= NOW(), Consultas[Início] < NOW() + 7) + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: 5cab79be-4a0e-48d3-acd3-b73c3fae1152
+
+	measure 'Não confirmadas' = CALCULATE(COUNTROWS(Consultas), Consultas[Status] = "Agendada", Consultas[Início] >= NOW()) + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: c3a028c8-b5e2-4561-aaf7-dd8c6215e5b8
+
+	measure 'Taxa de comparecimento' = VAR r = [Realizadas] VAR f = [Faltas] RETURN IF(r + f = 0, BLANK(), DIVIDE(r, r + f))
+		formatString: 0%
+		displayFolder: Relatório
+		lineageTag: 70bc91f3-5435-4201-8e52-657c29c9c051
+
+	measure 'Adesão média' = AVERAGE(Consultas[Adesão (0-10)])
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 7416fe6b-7339-4a69-a27c-a69e09a0f542
+
+	measure 'Adesão média (texto)' = IF(ISBLANK([Adesão média]), "–", FORMAT([Adesão média], "0.0"))
+		displayFolder: Relatório
+		lineageTag: 3dedf1f4-15cd-424e-9ce8-2eff447c21f1
+
+	measure 'Atendimentos por atleta' = DIVIDE([Realizadas], CALCULATE(DISTINCTCOUNT(Consultas[Atleta]), Consultas[Status] = "Realizada"))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 96b0263b-5c02-4eed-a301-2b9f941c956d
+
+	measure 'Taxa de comparecimento (texto)' = IF(ISBLANK([Taxa de comparecimento]), "–", FORMAT([Taxa de comparecimento], "0%"))
+		displayFolder: Relatório
+		lineageTag: 745f282c-0910-4a41-8cd6-f262b5a29d5c
+
+	column 'ID'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 359b7b71-3a4e-4887-b253-28934df2ea8a
+		summarizeBy: average
+		sourceColumn: ID
+
+	column 'Atleta'
+		dataType: string
+		lineageTag: b0c3bdb3-5476-470d-9c40-22f6d311a371
+		summarizeBy: none
+		sourceColumn: Atleta
+
+	column 'Data'
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: 32dd103b-62ab-49f0-915f-8eb1b2d886d2
+		summarizeBy: none
+		sourceColumn: Data
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Duração (min)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: d8359c15-8a90-4173-ae1c-54c032653837
+		summarizeBy: average
+		sourceColumn: Duração (min)
+
+	column 'Tipo'
+		dataType: string
+		lineageTag: 689042cb-dad0-4469-b300-d95382e0a65b
+		summarizeBy: none
+		sourceColumn: Tipo
+
+	column 'Modalidade'
+		dataType: string
+		lineageTag: a68114df-741c-4177-8f1f-45db96b841ff
+		summarizeBy: none
+		sourceColumn: Modalidade
+
+	column 'Status'
+		dataType: string
+		lineageTag: 2c53d289-973f-4068-95a1-a58f3faf9d8a
+		summarizeBy: none
+		sourceColumn: Status
+
+	column 'Objetivo / queixa'
+		dataType: string
+		lineageTag: 0122da89-d88a-405a-8ac1-1d87c59869ba
+		summarizeBy: none
+		sourceColumn: Objetivo / queixa
+
+	column 'Resumo e condutas'
+		dataType: string
+		lineageTag: b151be6e-ea6a-4fad-b460-2005880cb130
+		summarizeBy: none
+		sourceColumn: Resumo e condutas
+
+	column 'Próximo retorno'
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: a561fe22-3450-4e7c-ace0-68c78adcdfbc
+		summarizeBy: none
+		sourceColumn: Próximo retorno
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Nº do atendimento'
+		dataType: double
+		formatString: 0.0
+		lineageTag: a4bf8d9c-d637-4549-bbce-0af03b40af7c
+		summarizeBy: average
+		sourceColumn: Nº do atendimento
+
+	column 'Hábitos / recordatório'
+		dataType: string
+		lineageTag: 9b15dcd6-7d2d-47bf-b29c-8ae8b41c207f
+		summarizeBy: none
+		sourceColumn: Hábitos / recordatório
+
+	column 'Plano entregue'
+		dataType: string
+		lineageTag: d4a6423e-e729-411e-999b-91d77ba829c7
+		summarizeBy: none
+		sourceColumn: Plano entregue
+
+	column 'Suplementação prescrita'
+		dataType: string
+		lineageTag: e0666c00-32fb-48ca-a2c8-f75c09957d13
+		summarizeBy: none
+		sourceColumn: Suplementação prescrita
+
+	column 'Adesão (0-10)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: a9d84f5a-b190-40c6-84d3-2ba3b5d484a4
+		summarizeBy: average
+		sourceColumn: Adesão (0-10)
+
+	column 'Sintomas / observações'
+		dataType: string
+		lineageTag: 483f3eb0-37b8-42ee-864b-523e65871064
+		summarizeBy: none
+		sourceColumn: Sintomas / observações
+
+	column 'Início'
+		dataType: dateTime
+		formatString: dd/mm/yyyy hh:nn
+		lineageTag: a116030b-f28d-4488-99f6-878f08862851
+		summarizeBy: none
+		sourceColumn: Início
+
+	column 'Nome curto' = RELATED(Atletas[Nome curto])
+		dataType: string
+		lineageTag: 4402f418-3c31-40bf-9b72-ff0ff95224be
+		summarizeBy: none
+
+	column 'Posição' = RELATED(Atletas[Posição 1])
+		dataType: string
+		lineageTag: 12394cfb-dfed-481a-89e1-ed80d4e3238e
+		summarizeBy: none
+
+	column 'Semana' = IF(ISBLANK(Consultas[Data]), BLANK(), Consultas[Data] - WEEKDAY(Consultas[Data], 2) + 1)
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: d4fe90a2-fb2f-49db-b2ea-5c3c9177cd42
+		summarizeBy: none
+
+	column 'Quando' = IF(Consultas[Início] >= NOW(), "Próxima", "Passada")
+		dataType: string
+		lineageTag: 1c9796d0-c1b7-4732-a419-dce664ab4a20
+		summarizeBy: none
+
+	column 'Data e hora' = FORMAT(Consultas[Início], "dd/mm/yyyy hh:nn")
+		dataType: string
+		lineageTag: aa840b7f-605d-43dd-8863-f209b4ce6b15
+		summarizeBy: none
+
+	partition Consultas = m
+		mode: import
+		source =
+				let
+				    Fonte = fnAba("Consultas"),
+				    Colunas = Table.SelectColumns(Fonte, {"ID", "Atleta", "Data", "Hora", "Duração (min)", "Tipo", "Modalidade", "Status", "Objetivo / queixa", "Resumo e condutas", "Próximo retorno", "Nº do atendimento", "Hábitos / recordatório", "Plano entregue", "Suplementação prescrita", "Adesão (0-10)", "Sintomas / observações"}, MissingField.UseNull),
+				    Tipos = Table.TransformColumns(Colunas, {{"ID", fnNumero, type nullable number}, {"Atleta", fnTexto, type nullable text}, {"Data", fnData, type nullable date}, {"Hora", fnHora, type time}, {"Duração (min)", fnNumero, type nullable number}, {"Tipo", fnTexto, type nullable text}, {"Modalidade", fnTexto, type nullable text}, {"Status", fnTexto, type nullable text}, {"Objetivo / queixa", fnTexto, type nullable text}, {"Resumo e condutas", fnTexto, type nullable text}, {"Próximo retorno", fnData, type nullable date}, {"Nº do atendimento", fnNumero, type nullable number}, {"Hábitos / recordatório", fnTexto, type nullable text}, {"Plano entregue", fnTexto, type nullable text}, {"Suplementação prescrita", fnTexto, type nullable text}, {"Adesão (0-10)", fnNumero, type nullable number}, {"Sintomas / observações", fnTexto, type nullable text}}),
+				    Linhas = Table.SelectRows(Tipos, each [Atleta] <> null),
+				    Unicos = Linhas,
+				    Inicio = Table.AddColumn(Unicos, "Início", each if [Data] = null then null else [Data] & [Hora], type nullable datetime),
+				    SemHora = Table.RemoveColumns(Inicio, {"Hora"}),
+				    Resultado = Table.ReplaceValue(SemHora, each [Status], each if [Status] = null then "Agendada" else [Status], Replacer.ReplaceValue, {"Status"})
+				in
+				    Resultado
+
+	annotation PBI_ResultType = Table

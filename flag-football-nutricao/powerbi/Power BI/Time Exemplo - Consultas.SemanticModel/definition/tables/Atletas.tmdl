@@ -1,0 +1,162 @@
+table Atletas
+	lineageTag: 2d25125c-e3c6-4d63-a146-5beff2e6248a
+
+	measure 'Total de atletas' = CALCULATE(COUNTROWS(Atletas), Atletas[Status] <> "Inativo") + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: ee2e77ef-5321-4fc4-a968-c37e18247934
+
+	measure 'QUAEST respondidos' = CALCULATE(COUNTROWS(Atletas), Atletas[QUAEST] = "Respondido", Atletas[Status] <> "Inativo") + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: 16d50e25-9b1d-48bb-979a-30f3558f3d35
+
+	measure 'Em acompanhamento' = CALCULATE(COUNTROWS(Atletas), Atletas[Acompanhamento] = "Em acompanhamento", Atletas[Status] <> "Inativo") + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: f18a3b6a-10df-44d7-8040-66ca32f7ac9f
+
+	measure 'Sem consulta' = CALCULATE(COUNTROWS(Atletas), Atletas[Acompanhamento] = "Sem consulta", Atletas[Status] <> "Inativo") + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: 55b01e7f-fa24-4404-a3db-1ceb289e44eb
+
+	measure '% em acompanhamento' = DIVIDE([Em acompanhamento], [Total de atletas])
+		formatString: 0%
+		displayFolder: Relatório
+		lineageTag: c83af76b-5f7d-442e-a679-a839991b50d8
+
+	measure 'Atleta selecionado' = IF(HASONEVALUE(Atletas[Atleta]), VALUES(Atletas[Atleta]), "Todos os atletas · escolha um atleta no filtro")
+		displayFolder: Relatório
+		lineageTag: b7e3081d-d48e-49b1-acfb-1944bd59189e
+
+	measure 'Ficha do atleta' = IF(HASONEVALUE(Atletas[Atleta]), "Posições: " & COALESCE(SELECTEDVALUE(Atletas[Posições]), "–") & "   ·   " & SELECTEDVALUE(Atletas[Acompanhamento]) & "   ·   " & FORMAT(SELECTEDVALUE(Atletas[Consultas realizadas]), "0") & " consulta(s) realizada(s)", "Time Exemplo · time de flag football")
+		displayFolder: Relatório
+		lineageTag: c34b97d3-f983-420a-9d2e-54e1151ffb4f
+
+	measure 'Próxima consulta (texto)' = VAR d = CALCULATE(MIN(Consultas[Início]), Consultas[Status] IN {"Agendada", "Confirmada"}, Consultas[Início] >= NOW()) RETURN IF(ISBLANK(d), "Nenhuma consulta marcada", FORMAT(d, "dd/mm/yyyy") & " às " & FORMAT(d, "hh:nn"))
+		displayFolder: Relatório
+		lineageTag: 62ecb275-5c37-4139-bed9-f18d6f1ba11a
+
+	measure 'Último resumo' = VAR d = CALCULATE(MAX(Consultas[Início]), Consultas[Status] = "Realizada") RETURN IF(ISBLANK(d), "Nenhuma consulta realizada ainda.", FORMAT(d, "dd/mm/yyyy") & " · " & COALESCE(CALCULATE(MAX(Consultas[Resumo e condutas]), Consultas[Início] = d, Consultas[Status] = "Realizada"), "(sem resumo escrito)"))
+		displayFolder: Relatório
+		lineageTag: e2a0d8a3-bfe6-4615-b4a2-371396a1d80a
+
+	measure 'Próximo retorno (texto)' = VAR d = CALCULATE(MAX(Consultas[Próximo retorno]), Consultas[Status] = "Realizada") RETURN IF(ISBLANK(d), "–", FORMAT(d, "dd/mm/yyyy") & IF(d < TODAY(), " (atrasado)", ""))
+		displayFolder: Relatório
+		lineageTag: 677b3bae-ae32-4da9-b86b-52675fd36727
+
+	measure 'Cor do retorno' = VAR d = CALCULATE(MAX(Consultas[Próximo retorno]), Consultas[Status] = "Realizada") RETURN IF(NOT ISBLANK(d) && d < TODAY(), "#C2452D", "#1C2430")
+		displayFolder: Relatório
+		lineageTag: e46431c9-bbfd-4ddb-8e0a-36875a31a887
+
+	column 'Atleta'
+		dataType: string
+		lineageTag: d5828a68-81ea-4857-8186-cfb12ae26be7
+		summarizeBy: none
+		sourceColumn: Atleta
+
+	column 'Nome curto'
+		dataType: string
+		lineageTag: 6021d327-992f-46b7-9322-51a6c22dd354
+		summarizeBy: none
+		sourceColumn: Nome curto
+
+	column 'Posição 1'
+		dataType: string
+		lineageTag: 5d62c57c-1dac-471e-967a-7258be5d737c
+		summarizeBy: none
+		sourceColumn: Posição 1
+
+	column 'Posição 2'
+		dataType: string
+		lineageTag: 555ae38f-842f-4cc8-a938-e474c120367f
+		summarizeBy: none
+		sourceColumn: Posição 2
+
+	column 'Posição 3'
+		dataType: string
+		lineageTag: 2d77228f-8fcd-4ed9-a176-58fe68312bc5
+		summarizeBy: none
+		sourceColumn: Posição 3
+
+	column 'Data de nascimento'
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: bb986f11-86f8-4ccd-9217-a2ce42130a55
+		summarizeBy: none
+		sourceColumn: Data de nascimento
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Peso informado (kg)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 7f10ec95-4049-4a54-85db-720ec423a149
+		summarizeBy: average
+		sourceColumn: Peso informado (kg)
+
+	column 'Altura informada (m)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 7721e02d-1768-4532-a3da-8adbb1a19c39
+		summarizeBy: average
+		sourceColumn: Altura informada (m)
+
+	column 'QUAEST'
+		dataType: string
+		lineageTag: d5041553-b3e9-4627-8824-104bad4dece4
+		summarizeBy: none
+		sourceColumn: QUAEST
+
+	column 'Status'
+		dataType: string
+		lineageTag: 095d84d6-e8a8-4b2e-9ce0-9015ecf8732f
+		summarizeBy: none
+		sourceColumn: Status
+
+	column 'Posições'
+		dataType: string
+		lineageTag: 3db25dbb-99c6-4966-b4f1-b1947010f0c1
+		summarizeBy: none
+		sourceColumn: Posições
+
+	column 'Consultas realizadas' = VAR a = Atletas[Atleta] RETURN COUNTROWS(FILTER(Consultas, Consultas[Atleta] = a && Consultas[Status] = "Realizada")) + 0
+		dataType: int64
+		formatString: 0
+		lineageTag: de88e4b1-3e06-4ce3-bce4-4f02ead794a7
+		summarizeBy: none
+
+	column 'Próxima consulta' = VAR a = Atletas[Atleta] RETURN MINX(FILTER(Consultas, Consultas[Atleta] = a && Consultas[Status] IN {"Agendada", "Confirmada"} && Consultas[Início] >= NOW()), Consultas[Início])
+		dataType: dateTime
+		formatString: dd/mm/yyyy hh:nn
+		lineageTag: 2b79259d-9236-4adf-84b7-740b350790d2
+		summarizeBy: none
+
+	column 'Acompanhamento' = IF(Atletas[Consultas realizadas] > 0, "Em acompanhamento", IF(NOT ISBLANK(Atletas[Próxima consulta]), "1ª consulta marcada", "Sem consulta"))
+		dataType: string
+		lineageTag: 12d4334f-3074-4808-868c-ce3c5498965a
+		summarizeBy: none
+
+	column 'Avaliações feitas' = VAR a = Atletas[Atleta] RETURN COUNTROWS(FILTER(Avaliacoes, Avaliacoes[Atleta] = a)) + 0
+		dataType: int64
+		formatString: 0
+		lineageTag: 97ee25ef-ac21-4bdc-a799-48aa353e605d
+		summarizeBy: none
+
+	partition Atletas = m
+		mode: import
+		source =
+				let
+				    Fonte = fnAba("Atletas"),
+				    Colunas = Table.SelectColumns(Fonte, {"Atleta", "Nome curto", "Posição 1", "Posição 2", "Posição 3", "Data de nascimento", "Peso informado (kg)", "Altura informada (m)", "QUAEST", "Status"}, MissingField.UseNull),
+				    Tipos = Table.TransformColumns(Colunas, {{"Atleta", fnTexto, type nullable text}, {"Nome curto", fnTexto, type nullable text}, {"Posição 1", fnTexto, type nullable text}, {"Posição 2", fnTexto, type nullable text}, {"Posição 3", fnTexto, type nullable text}, {"Data de nascimento", fnData, type nullable date}, {"Peso informado (kg)", fnNumero, type nullable number}, {"Altura informada (m)", fnNumero, type nullable number}, {"QUAEST", fnTexto, type nullable text}, {"Status", fnTexto, type nullable text}}),
+				    Linhas = Table.SelectRows(Tipos, each [Atleta] <> null),
+				    Unicos = Table.Distinct(Linhas, {"Atleta"}),
+				    Posicoes = Table.AddColumn(Unicos, "Posições", each Text.Combine(List.RemoveNulls({[Posição 1], [Posição 2], [Posição 3]}), "/"), type text),
+				    Curto = Table.ReplaceValue(Posicoes, each [Nome curto], each if [Nome curto] = null then [Atleta] else [Nome curto], Replacer.ReplaceValue, {"Nome curto"}),
+				    Resultado = Table.ReplaceValue(Curto, each [Status], each if [Status] = null then "Ativo" else [Status], Replacer.ReplaceValue, {"Status"})
+				in
+				    Resultado
+
+	annotation PBI_ResultType = Table

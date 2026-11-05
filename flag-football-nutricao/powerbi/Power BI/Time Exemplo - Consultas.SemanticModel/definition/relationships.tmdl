@@ -1,0 +1,7 @@
+relationship a0663003-e59d-42b4-ac3d-d5939591a1a3
+	fromColumn: Consultas.Atleta
+	toColumn: Atletas.Atleta
+
+relationship cefc3bb3-11cb-4010-83af-849e34145681
+	fromColumn: Avaliacoes.Atleta
+	toColumn: Atletas.Atleta

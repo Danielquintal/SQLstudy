@@ -1,0 +1,42 @@
+table Referencias
+	lineageTag: 379c3aa3-4f2d-4585-8f66-20b91a69b3fe
+
+	column 'Indicador'
+		dataType: string
+		lineageTag: f8dfaac4-1e2d-4dd0-989d-b086459df50f
+		summarizeBy: none
+		sourceColumn: Indicador
+
+	column 'Valor'
+		dataType: double
+		formatString: 0.0
+		lineageTag: beb39a45-9475-442c-aba1-f3a6abaf0421
+		summarizeBy: average
+		sourceColumn: Valor
+
+	column 'Unidade'
+		dataType: string
+		lineageTag: 1cf2f38b-077a-479b-94e4-e4edbc870c7b
+		summarizeBy: none
+		sourceColumn: Unidade
+
+	column 'Fonte'
+		dataType: string
+		lineageTag: 3ef0bae6-1b9c-49be-8dc6-9b8e41e06cf8
+		summarizeBy: none
+		sourceColumn: Fonte
+
+	partition Referencias = m
+		mode: import
+		source =
+				let
+				    Fonte = fnAba("Referências"),
+				    Colunas = Table.SelectColumns(Fonte, {"Indicador", "Valor", "Unidade", "Fonte"}, MissingField.UseNull),
+				    Tipos = Table.TransformColumns(Colunas, {{"Indicador", fnTexto, type nullable text}, {"Valor", fnNumero, type nullable number}, {"Unidade", fnTexto, type nullable text}, {"Fonte", fnTexto, type nullable text}}),
+				    Linhas = Table.SelectRows(Tipos, each [Indicador] <> null),
+				    Unicos = Linhas,
+				    Resultado = Unicos
+				in
+				    Resultado
+
+	annotation PBI_ResultType = Table

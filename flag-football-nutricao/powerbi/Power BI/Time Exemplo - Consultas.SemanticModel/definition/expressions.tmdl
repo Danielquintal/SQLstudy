@@ -1,0 +1,50 @@
+expression URL_Planilha = "https://docs.google.com/spreadsheets/d/COLE-AQUI-O-ID-DA-PLANILHA/edit" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 340fa715-49bd-49e5-b3e6-f3fe533ec518
+
+	annotation PBI_ResultType = Text
+
+expression fnAba =
+		(aba as text) as table =>
+		let
+		    Fonte = GoogleSheets.Contents(URL_Planilha),
+		    Linha = Table.SelectRows(Fonte, each List.Contains(List.Transform(Record.FieldValues(_), each try Text.From(_) otherwise ""), aba)){0},
+		    Dados = Linha[Data],
+		    ComCabecalho = if List.Contains(Table.ColumnNames(Dados), "Atleta") or List.Contains(Table.ColumnNames(Dados), "Indicador")
+		        then Dados else Table.PromoteHeaders(Dados, [PromoteAllScalars = true])
+		in
+		    ComCabecalho
+	lineageTag: 48170ef4-2e66-4c25-9bda-fab87c9507d8
+
+	annotation PBI_ResultType = Function
+
+expression fnTexto =
+		(x as any) as nullable text =>
+		    if x = null then null else let t = Text.Trim(Text.From(x)) in if t = "" then null else t
+	lineageTag: b0c31c73-668d-47d5-9b4d-b449c22a123e
+
+	annotation PBI_ResultType = Function
+
+expression fnNumero =
+		(x as any) as nullable number =>
+		    if x = null or x = "" then null else try Number.From(x, "pt-BR") otherwise try Number.From(Text.Replace(Text.From(x), ",", "."), "en-US") otherwise null
+	lineageTag: 1f7f41ed-0528-4c08-8568-37ec707e1b56
+
+	annotation PBI_ResultType = Function
+
+expression fnData =
+		(x as any) as nullable date =>
+		    if x = null or x = "" then null else try Date.From(x, "pt-BR") otherwise null
+	lineageTag: 3954d490-f076-4bf6-b6e3-3962c73d8d7b
+
+	annotation PBI_ResultType = Function
+
+expression fnHora =
+		(x as any) as time =>
+		    if x = null or x = "" then #time(0, 0, 0)
+		    else if x is time then x
+		    else if x is datetime then Time.From(x)
+		    else if x is number then Time.From(x)
+		    else try Time.From(Text.From(x), "pt-BR") otherwise #time(0, 0, 0)
+	lineageTag: 26d214d0-072f-4ded-889b-fdbf9131771d
+
+	annotation PBI_ResultType = Function

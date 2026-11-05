@@ -1,0 +1,21 @@
+model Model
+	culture: pt-BR
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: pt-BR
+	valueFilterBehavior: independent
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_QueryOrder = ["URL_Planilha", "fnAba", "fnTexto", "fnNumero", "fnData", "fnHora", "Atletas", "Consultas", "Avaliacoes", "Referencias"]
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table Atletas
+ref table Consultas
+ref table Avaliacoes
+ref table Referencias
+
+ref cultureInfo pt-BR

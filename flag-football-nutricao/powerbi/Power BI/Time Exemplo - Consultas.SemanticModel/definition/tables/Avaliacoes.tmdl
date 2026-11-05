@@ -1,0 +1,457 @@
+table Avaliacoes
+	lineageTag: 504717ab-f559-4de5-907e-4625ce8ef72f
+
+	measure 'Avaliações' = COUNTROWS(Avaliacoes) + 0
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: c2de1d76-2f31-4d98-afc4-f4d87fb005a7
+
+	measure 'Peso atual' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MAX(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Peso (kg)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Peso (kg)]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 569c5f5b-12a0-4589-91ae-4e87fb33195e
+
+	measure 'Peso inicial' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MIN(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Peso (kg)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Peso (kg)]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 77d6f291-e9b7-4987-9172-0e79838a77c1
+
+	measure 'Peso média' = AVERAGE(Avaliacoes[Peso (kg)])
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 2aecb942-e7fa-4104-b180-064ec7600d26
+
+	measure 'Peso atual (texto)' = IF(ISBLANK([Peso atual]), "–", FORMAT([Peso atual], "0.0"))
+		displayFolder: Relatório
+		lineageTag: fa53c63f-3213-4d2c-b91a-ef5409f69476
+
+	measure 'Peso variação' = VAR n = CALCULATE(COUNTROWS(Avaliacoes), NOT ISBLANK(Avaliacoes[Peso (kg)])) VAR dif = [Peso atual] - [Peso inicial] RETURN IF(n < 2 || ISBLANK(dif), "1ª avaliação", IF(dif > 0, "+", IF(dif < 0, "−", "±")) & FORMAT(ABS(dif), "0.0") & " kg desde a 1ª")
+		displayFolder: Relatório
+		lineageTag: 4b0267d5-3939-4c0d-8e1f-df2b2ae31e93
+
+	measure 'Peso cor' = VAR dif = [Peso atual] - [Peso inicial] RETURN IF(ISBLANK(dif) || ABS(dif) < 0.05 || 0 = 0, "#5F6B7A", IF(SIGN(dif) = 0, "#1F8A5B", "#C2452D"))
+		displayFolder: Relatório
+		lineageTag: d588cd12-a721-45b7-a7f8-7362b56dcea7
+
+	measure '% Gordura atual' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MAX(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[% Gordura])) RETURN CALCULATE(AVERAGE(Avaliacoes[% Gordura]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 214ca7ea-4eea-4d8d-8968-097e3c342e12
+
+	measure '% Gordura inicial' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MIN(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[% Gordura])) RETURN CALCULATE(AVERAGE(Avaliacoes[% Gordura]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 5bf4b01c-d23c-4c85-ae5d-41479faa8191
+
+	measure '% Gordura média' = AVERAGE(Avaliacoes[% Gordura])
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 93e21b02-15e7-41f4-840b-e7a368763cc7
+
+	measure '% Gordura atual (texto)' = IF(ISBLANK([% Gordura atual]), "–", FORMAT([% Gordura atual], "0.0"))
+		displayFolder: Relatório
+		lineageTag: 462aba44-3b0f-4ed6-b228-e5898e369a26
+
+	measure '% Gordura variação' = VAR n = CALCULATE(COUNTROWS(Avaliacoes), NOT ISBLANK(Avaliacoes[% Gordura])) VAR dif = [% Gordura atual] - [% Gordura inicial] RETURN IF(n < 2 || ISBLANK(dif), "1ª avaliação", IF(dif > 0, "+", IF(dif < 0, "−", "±")) & FORMAT(ABS(dif), "0.0") & " % desde a 1ª")
+		displayFolder: Relatório
+		lineageTag: 48e6573e-cd36-45e6-85b3-85056aa17127
+
+	measure '% Gordura cor' = VAR dif = [% Gordura atual] - [% Gordura inicial] RETURN IF(ISBLANK(dif) || ABS(dif) < 0.05 || -1 = 0, "#5F6B7A", IF(SIGN(dif) = -1, "#1F8A5B", "#C2452D"))
+		displayFolder: Relatório
+		lineageTag: 0544dc58-5b43-43dc-982e-d6cb2d7f764c
+
+	measure 'Massa muscular atual' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MAX(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Massa muscular (kg)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Massa muscular (kg)]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 4027d2f8-f383-4a95-a587-492503b39e4c
+
+	measure 'Massa muscular inicial' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MIN(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Massa muscular (kg)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Massa muscular (kg)]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: cffdad77-d0ea-459e-9c69-910ccdbcd01b
+
+	measure 'Massa muscular média' = AVERAGE(Avaliacoes[Massa muscular (kg)])
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 58235b82-3367-4e99-81c0-880d9902e8d0
+
+	measure 'Massa muscular atual (texto)' = IF(ISBLANK([Massa muscular atual]), "–", FORMAT([Massa muscular atual], "0.0"))
+		displayFolder: Relatório
+		lineageTag: 305be23b-89fe-446e-9faa-2a3f777d74a5
+
+	measure 'Massa muscular variação' = VAR n = CALCULATE(COUNTROWS(Avaliacoes), NOT ISBLANK(Avaliacoes[Massa muscular (kg)])) VAR dif = [Massa muscular atual] - [Massa muscular inicial] RETURN IF(n < 2 || ISBLANK(dif), "1ª avaliação", IF(dif > 0, "+", IF(dif < 0, "−", "±")) & FORMAT(ABS(dif), "0.0") & " kg desde a 1ª")
+		displayFolder: Relatório
+		lineageTag: 963d352f-16a4-44b4-aec6-626957af970c
+
+	measure 'Massa muscular cor' = VAR dif = [Massa muscular atual] - [Massa muscular inicial] RETURN IF(ISBLANK(dif) || ABS(dif) < 0.05 || 1 = 0, "#5F6B7A", IF(SIGN(dif) = 1, "#1F8A5B", "#C2452D"))
+		displayFolder: Relatório
+		lineageTag: c6a73e27-5f5c-498a-8f4e-19a4bbe8ce37
+
+	measure 'Massa adiposa atual' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MAX(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Massa adiposa (kg)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Massa adiposa (kg)]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 78f883fe-7211-4215-93d3-d5da1901ed20
+
+	measure 'Massa adiposa inicial' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MIN(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Massa adiposa (kg)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Massa adiposa (kg)]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 77d77ae7-4c82-4006-a1d3-47102eb22cc3
+
+	measure 'Massa adiposa média' = AVERAGE(Avaliacoes[Massa adiposa (kg)])
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: b860d778-2bde-4727-b5fe-d8543dcf8741
+
+	measure 'Massa adiposa atual (texto)' = IF(ISBLANK([Massa adiposa atual]), "–", FORMAT([Massa adiposa atual], "0.0"))
+		displayFolder: Relatório
+		lineageTag: 0c33c45b-c8cd-4f6c-ba7b-ba7a717f0f42
+
+	measure 'Massa adiposa variação' = VAR n = CALCULATE(COUNTROWS(Avaliacoes), NOT ISBLANK(Avaliacoes[Massa adiposa (kg)])) VAR dif = [Massa adiposa atual] - [Massa adiposa inicial] RETURN IF(n < 2 || ISBLANK(dif), "1ª avaliação", IF(dif > 0, "+", IF(dif < 0, "−", "±")) & FORMAT(ABS(dif), "0.0") & " kg desde a 1ª")
+		displayFolder: Relatório
+		lineageTag: 086c52a6-ea87-495a-ace9-30f1e8540f4d
+
+	measure 'Massa adiposa cor' = VAR dif = [Massa adiposa atual] - [Massa adiposa inicial] RETURN IF(ISBLANK(dif) || ABS(dif) < 0.05 || -1 = 0, "#5F6B7A", IF(SIGN(dif) = -1, "#1F8A5B", "#C2452D"))
+		displayFolder: Relatório
+		lineageTag: 60e26f85-de75-4c25-8aec-68a230479a0c
+
+	measure 'MLG atual' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MAX(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Massa livre de gordura (kg)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Massa livre de gordura (kg)]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 6491b0ec-c1e2-42c0-8765-67bacb5f54a7
+
+	measure 'MLG inicial' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MIN(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Massa livre de gordura (kg)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Massa livre de gordura (kg)]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: f694244b-5c49-4d42-a456-9dc91821a395
+
+	measure 'MLG média' = AVERAGE(Avaliacoes[Massa livre de gordura (kg)])
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 2bd5d227-ea22-432c-85db-1ad6db1bb5e2
+
+	measure 'MLG atual (texto)' = IF(ISBLANK([MLG atual]), "–", FORMAT([MLG atual], "0.0"))
+		displayFolder: Relatório
+		lineageTag: c2a5fdb5-b66b-41bf-8240-045ba0882d77
+
+	measure 'MLG variação' = VAR n = CALCULATE(COUNTROWS(Avaliacoes), NOT ISBLANK(Avaliacoes[Massa livre de gordura (kg)])) VAR dif = [MLG atual] - [MLG inicial] RETURN IF(n < 2 || ISBLANK(dif), "1ª avaliação", IF(dif > 0, "+", IF(dif < 0, "−", "±")) & FORMAT(ABS(dif), "0.0") & " kg desde a 1ª")
+		displayFolder: Relatório
+		lineageTag: aaf3ecbb-88f3-4a3e-87f0-82c2aac73b0d
+
+	measure 'MLG cor' = VAR dif = [MLG atual] - [MLG inicial] RETURN IF(ISBLANK(dif) || ABS(dif) < 0.05 || 1 = 0, "#5F6B7A", IF(SIGN(dif) = 1, "#1F8A5B", "#C2452D"))
+		displayFolder: Relatório
+		lineageTag: ef440198-b15f-4ffd-bacd-09ef621c01fa
+
+	measure 'Água atual' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MAX(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[% água corporal])) RETURN CALCULATE(AVERAGE(Avaliacoes[% água corporal]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 09216791-632e-45b0-9ca1-ae0408a508fa
+
+	measure 'Água inicial' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MIN(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[% água corporal])) RETURN CALCULATE(AVERAGE(Avaliacoes[% água corporal]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: ddcd34b0-563b-44f7-9d4d-1ef783a64413
+
+	measure 'Água média' = AVERAGE(Avaliacoes[% água corporal])
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: bd353f86-4563-4d2d-8919-8be438b2d6cc
+
+	measure 'Água atual (texto)' = IF(ISBLANK([Água atual]), "–", FORMAT([Água atual], "0.0"))
+		displayFolder: Relatório
+		lineageTag: 62a4ec28-fc1e-4013-a4f0-f0b05611c169
+
+	measure 'Água variação' = VAR n = CALCULATE(COUNTROWS(Avaliacoes), NOT ISBLANK(Avaliacoes[% água corporal])) VAR dif = [Água atual] - [Água inicial] RETURN IF(n < 2 || ISBLANK(dif), "1ª avaliação", IF(dif > 0, "+", IF(dif < 0, "−", "±")) & FORMAT(ABS(dif), "0.0") & " % desde a 1ª")
+		displayFolder: Relatório
+		lineageTag: 80e80ab7-edbd-4404-868c-e8ef0c460d0f
+
+	measure 'Água cor' = VAR dif = [Água atual] - [Água inicial] RETURN IF(ISBLANK(dif) || ABS(dif) < 0.05 || 1 = 0, "#5F6B7A", IF(SIGN(dif) = 1, "#1F8A5B", "#C2452D"))
+		displayFolder: Relatório
+		lineageTag: 49b1e996-445d-40d1-83a7-9df629f869bc
+
+	measure 'IMC atual' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MAX(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[IMC])) RETURN CALCULATE(AVERAGE(Avaliacoes[IMC]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 913f9e24-cd9f-420e-bf3a-e77861b75c9a
+
+	measure 'IMC inicial' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MIN(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[IMC])) RETURN CALCULATE(AVERAGE(Avaliacoes[IMC]), Avaliacoes[Data] = d))
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: 1f7ecfe5-3314-4df6-92d2-f6fcd17956f7
+
+	measure 'IMC média' = AVERAGE(Avaliacoes[IMC])
+		formatString: 0.0
+		displayFolder: Relatório
+		lineageTag: cf0fd889-d439-4572-97c1-52bfb305b963
+
+	measure 'IMC atual (texto)' = IF(ISBLANK([IMC atual]), "–", FORMAT([IMC atual], "0.0"))
+		displayFolder: Relatório
+		lineageTag: 46920c1f-5ae9-49e1-8fb9-71c61b4a707c
+
+	measure 'IMC variação' = VAR n = CALCULATE(COUNTROWS(Avaliacoes), NOT ISBLANK(Avaliacoes[IMC])) VAR dif = [IMC atual] - [IMC inicial] RETURN IF(n < 2 || ISBLANK(dif), "1ª avaliação", IF(dif > 0, "+", IF(dif < 0, "−", "±")) & FORMAT(ABS(dif), "0.0") & " kg/m² desde a 1ª")
+		displayFolder: Relatório
+		lineageTag: 15b8fbad-3da4-45da-a400-3d14fe38308d
+
+	measure 'IMC cor' = VAR dif = [IMC atual] - [IMC inicial] RETURN IF(ISBLANK(dif) || ABS(dif) < 0.05 || 0 = 0, "#5F6B7A", IF(SIGN(dif) = 0, "#1F8A5B", "#C2452D"))
+		displayFolder: Relatório
+		lineageTag: 5ee39216-aa57-4d0a-91c3-e26f71a735ca
+
+	measure 'Soma 7 dobras atual' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MAX(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Soma 7 dobras (mm)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Soma 7 dobras (mm)]), Avaliacoes[Data] = d))
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: 0dbaa811-2026-4456-bdfa-27999d115115
+
+	measure 'Soma 7 dobras inicial' = AVERAGEX(VALUES(Avaliacoes[Atleta]), VAR d = CALCULATE(MIN(Avaliacoes[Data]), NOT ISBLANK(Avaliacoes[Soma 7 dobras (mm)])) RETURN CALCULATE(AVERAGE(Avaliacoes[Soma 7 dobras (mm)]), Avaliacoes[Data] = d))
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: f8ab16df-b098-4235-aaca-022b7b1b7244
+
+	measure 'Soma 7 dobras média' = AVERAGE(Avaliacoes[Soma 7 dobras (mm)])
+		formatString: 0
+		displayFolder: Relatório
+		lineageTag: f646c578-57b3-40f2-b5a5-e604da12ff1b
+
+	measure 'Soma 7 dobras atual (texto)' = IF(ISBLANK([Soma 7 dobras atual]), "–", FORMAT([Soma 7 dobras atual], "0"))
+		displayFolder: Relatório
+		lineageTag: 5600bc7d-42ad-4a5d-abbd-4130f0bdbbe8
+
+	measure 'Soma 7 dobras variação' = VAR n = CALCULATE(COUNTROWS(Avaliacoes), NOT ISBLANK(Avaliacoes[Soma 7 dobras (mm)])) VAR dif = [Soma 7 dobras atual] - [Soma 7 dobras inicial] RETURN IF(n < 2 || ISBLANK(dif), "1ª avaliação", IF(dif > 0, "+", IF(dif < 0, "−", "±")) & FORMAT(ABS(dif), "0") & " mm desde a 1ª")
+		displayFolder: Relatório
+		lineageTag: a2a02e42-5d96-4467-b2c1-ca2034764a5c
+
+	measure 'Soma 7 dobras cor' = VAR dif = [Soma 7 dobras atual] - [Soma 7 dobras inicial] RETURN IF(ISBLANK(dif) || ABS(dif) < 0.05 || -1 = 0, "#5F6B7A", IF(SIGN(dif) = -1, "#1F8A5B", "#C2452D"))
+		displayFolder: Relatório
+		lineageTag: a27cf42f-f5fa-4927-880a-c8b0a0d986f4
+
+	measure 'Ref. massa muscular' = CALCULATE(MAX(Referencias[Valor]), Referencias[Indicador] = "Massa muscular (kg)")
+		formatString: 0.00
+		displayFolder: Relatório
+		lineageTag: 90928765-9916-40fe-bcb6-aa1bb04a0c3b
+
+	measure 'Ref. massa adiposa' = CALCULATE(MAX(Referencias[Valor]), Referencias[Indicador] = "Massa adiposa (kg)")
+		formatString: 0.00
+		displayFolder: Relatório
+		lineageTag: acbf1527-10c7-477f-9b07-2b3700d9cec7
+
+	measure 'Dif. massa muscular × ref.' = DIVIDE([Massa muscular atual] - [Ref. massa muscular], [Ref. massa muscular])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: Relatório
+		lineageTag: 6cbc13a6-d00e-4b75-b87e-1a6cfe189b17
+
+	measure 'Dif. massa adiposa × ref.' = DIVIDE([Massa adiposa atual] - [Ref. massa adiposa], [Ref. massa adiposa])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: Relatório
+		lineageTag: 8dba012d-0e0e-469a-beb8-e188037c4707
+
+	measure 'Comparativo massa muscular (texto)' = IF(ISBLANK([Massa muscular atual]) || ISBLANK([Ref. massa muscular]), "Sem dados ainda", FORMAT([Massa muscular atual], "0.00") & " kg × referência " & FORMAT([Ref. massa muscular], "0.00") & " kg (" & FORMAT([Dif. massa muscular × ref.], "+0.0%;-0.0%") & ")")
+		displayFolder: Relatório
+		lineageTag: 1ad50490-01ee-43dc-9ff6-8b548a1f48fd
+
+	measure 'Comparativo massa adiposa (texto)' = IF(ISBLANK([Massa adiposa atual]) || ISBLANK([Ref. massa adiposa]), "Sem dados ainda", FORMAT([Massa adiposa atual], "0.00") & " kg × referência " & FORMAT([Ref. massa adiposa], "0.00") & " kg (" & FORMAT([Dif. massa adiposa × ref.], "+0.0%;-0.0%") & ")")
+		displayFolder: Relatório
+		lineageTag: 1af4d96e-c4cb-4efc-a82c-b1cf24e5be45
+
+	column 'Atleta'
+		dataType: string
+		lineageTag: ac5f958e-41b0-4ae4-bc69-8dfe15b0f30b
+		summarizeBy: none
+		sourceColumn: Atleta
+
+	column 'Data'
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: b2bb015e-3201-47ff-8056-a7418bdcc8e8
+		summarizeBy: none
+		sourceColumn: Data
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Peso (kg)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 7cd5b3ba-0fa6-47e5-82fa-53fa446d415d
+		summarizeBy: average
+		sourceColumn: Peso (kg)
+
+	column 'Altura (cm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 85b4e95d-9973-4f38-ad8f-610487f86027
+		summarizeBy: average
+		sourceColumn: Altura (cm)
+
+	column 'Dobra tríceps (mm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: f3da86ff-c5e1-4d9c-afbd-fe42942c2480
+		summarizeBy: average
+		sourceColumn: Dobra tríceps (mm)
+
+	column 'Dobra subescapular (mm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 2abb19c3-24dc-482a-874b-59227ce2ee5f
+		summarizeBy: average
+		sourceColumn: Dobra subescapular (mm)
+
+	column 'Dobra peitoral (mm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: c50f0169-83b2-458d-989f-2a82e33e194c
+		summarizeBy: average
+		sourceColumn: Dobra peitoral (mm)
+
+	column 'Dobra axilar média (mm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: b092fa13-bacd-4868-8e68-073fa846481f
+		summarizeBy: average
+		sourceColumn: Dobra axilar média (mm)
+
+	column 'Dobra suprailíaca (mm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 39f46519-6dca-4fb3-a451-f3aa0e2ce9e2
+		summarizeBy: average
+		sourceColumn: Dobra suprailíaca (mm)
+
+	column 'Dobra abdominal (mm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 6dddb35e-46c3-4d77-8635-6ed8ccd67a4d
+		summarizeBy: average
+		sourceColumn: Dobra abdominal (mm)
+
+	column 'Dobra coxa medial (mm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: c0c90010-3d97-406b-95cb-b454357febcd
+		summarizeBy: average
+		sourceColumn: Dobra coxa medial (mm)
+
+	column 'Circ. braço relaxado (cm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 9b88f48c-f7e7-4749-93b2-3bddca90c94e
+		summarizeBy: average
+		sourceColumn: Circ. braço relaxado (cm)
+
+	column 'Circ. braço contraído (cm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 39f67a5b-5cbd-4f1d-9ac8-88e9b562e92e
+		summarizeBy: average
+		sourceColumn: Circ. braço contraído (cm)
+
+	column 'Circ. cintura (cm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: ed32c119-5dc4-4d69-bf91-cc17273aaa69
+		summarizeBy: average
+		sourceColumn: Circ. cintura (cm)
+
+	column 'Circ. coxa medial (cm)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 11343188-bc42-4c0b-abbf-025865ead9ee
+		summarizeBy: average
+		sourceColumn: Circ. coxa medial (cm)
+
+	column 'Massa muscular (kg)'
+		dataType: double
+		formatString: 0.0
+		lineageTag: cc3a2f54-6b9d-441a-91e1-59a546551e1c
+		summarizeBy: average
+		sourceColumn: Massa muscular (kg)
+
+	column '% água corporal'
+		dataType: double
+		formatString: 0.0
+		lineageTag: 88a9e7cd-a864-4e84-bb38-295dd1c56435
+		summarizeBy: average
+		sourceColumn: % água corporal
+
+	column 'Observações'
+		dataType: string
+		lineageTag: e83366f7-f807-45aa-aa5c-41c846db1913
+		summarizeBy: none
+		sourceColumn: Observações
+
+	column 'Nome curto' = RELATED(Atletas[Nome curto])
+		dataType: string
+		lineageTag: b965afe6-2957-486f-9ce9-429f83618793
+		summarizeBy: none
+
+	column 'Posição' = RELATED(Atletas[Posição 1])
+		dataType: string
+		lineageTag: 46102ead-1494-41df-9b19-de0bece12424
+		summarizeBy: none
+
+	column 'Idade' = VAR n = RELATED(Atletas[Data de nascimento]) RETURN IF(ISBLANK(n) || ISBLANK(Avaliacoes[Data]), BLANK(), INT(YEARFRAC(n, Avaliacoes[Data])))
+		dataType: int64
+		formatString: 0
+		lineageTag: 4e587118-d050-4b1d-9616-c3e148a2d169
+		summarizeBy: none
+
+	column 'Soma 7 dobras (mm)' = IF(ISBLANK(Avaliacoes[Dobra tríceps (mm)]) || ISBLANK(Avaliacoes[Dobra subescapular (mm)]) || ISBLANK(Avaliacoes[Dobra peitoral (mm)]) || ISBLANK(Avaliacoes[Dobra axilar média (mm)]) || ISBLANK(Avaliacoes[Dobra suprailíaca (mm)]) || ISBLANK(Avaliacoes[Dobra abdominal (mm)]) || ISBLANK(Avaliacoes[Dobra coxa medial (mm)]), BLANK(), Avaliacoes[Dobra tríceps (mm)] + Avaliacoes[Dobra subescapular (mm)] + Avaliacoes[Dobra peitoral (mm)] + Avaliacoes[Dobra axilar média (mm)] + Avaliacoes[Dobra suprailíaca (mm)] + Avaliacoes[Dobra abdominal (mm)] + Avaliacoes[Dobra coxa medial (mm)])
+		dataType: double
+		formatString: 0.0
+		lineageTag: eab50c8a-8d2a-4cf0-9e73-9cbd9fc471d5
+		summarizeBy: none
+
+	column '% Gordura Pollock 7' = VAR s = Avaliacoes[Soma 7 dobras (mm)] VAR i = Avaliacoes[Idade] RETURN IF(ISBLANK(s) || ISBLANK(i), BLANK(), 495 / (1.112 - 0.00043499 * s + 0.00000055 * s * s - 0.00028826 * i) - 450)
+		dataType: double
+		formatString: 0.0
+		lineageTag: 7493289a-e7bd-4b03-8763-df0362e9d96e
+		summarizeBy: none
+
+	column '% Gordura Faulkner' = VAR s = IF(ISBLANK(Avaliacoes[Dobra tríceps (mm)]) || ISBLANK(Avaliacoes[Dobra subescapular (mm)]) || ISBLANK(Avaliacoes[Dobra suprailíaca (mm)]) || ISBLANK(Avaliacoes[Dobra abdominal (mm)]), BLANK(), Avaliacoes[Dobra tríceps (mm)] + Avaliacoes[Dobra subescapular (mm)] + Avaliacoes[Dobra suprailíaca (mm)] + Avaliacoes[Dobra abdominal (mm)]) RETURN IF(ISBLANK(s), BLANK(), 0.153 * s + 5.783)
+		dataType: double
+		formatString: 0.0
+		lineageTag: ef17dbbf-b357-4d29-b6b1-c44d8a7b79d5
+		summarizeBy: none
+
+	column '% Gordura' = IF(NOT ISBLANK(Avaliacoes[% Gordura Faulkner]), Avaliacoes[% Gordura Faulkner], Avaliacoes[% Gordura Pollock 7])
+		dataType: double
+		formatString: 0.0
+		lineageTag: bf43735b-774a-43b5-8f26-0fc672e4f701
+		summarizeBy: none
+
+	column 'Massa adiposa (kg)' = IF(ISBLANK(Avaliacoes[% Gordura]) || ISBLANK(Avaliacoes[Peso (kg)]), BLANK(), Avaliacoes[Peso (kg)] * Avaliacoes[% Gordura] / 100)
+		dataType: double
+		formatString: 0.0
+		lineageTag: 113fc40b-09d1-4e7a-b1b4-eb27ea5d35c3
+		summarizeBy: none
+
+	column 'Massa livre de gordura (kg)' = IF(ISBLANK(Avaliacoes[Massa adiposa (kg)]), BLANK(), Avaliacoes[Peso (kg)] - Avaliacoes[Massa adiposa (kg)])
+		dataType: double
+		formatString: 0.0
+		lineageTag: d122cc47-049b-4e91-b70a-2e954b9a343e
+		summarizeBy: none
+
+	column 'IMC' = IF(ISBLANK(Avaliacoes[Altura (cm)]) || Avaliacoes[Altura (cm)] = 0, BLANK(), Avaliacoes[Peso (kg)] / (Avaliacoes[Altura (cm)] / 100) ^ 2)
+		dataType: double
+		formatString: 0.0
+		lineageTag: 6e39b82e-0c61-4337-ab6d-739d96085042
+		summarizeBy: none
+
+	column 'Nº da avaliação' = COUNTROWS(FILTER(Avaliacoes, Avaliacoes[Atleta] = EARLIER(Avaliacoes[Atleta]) && Avaliacoes[Data] <= EARLIER(Avaliacoes[Data])))
+		dataType: int64
+		formatString: 0
+		lineageTag: 7146bffb-ec7a-46a5-a9d1-d683d42361fb
+		summarizeBy: none
+
+	partition Avaliacoes = m
+		mode: import
+		source =
+				let
+				    Fonte = fnAba("Avaliações"),
+				    Colunas = Table.SelectColumns(Fonte, {"Atleta", "Data", "Peso (kg)", "Altura (cm)", "Dobra tríceps (mm)", "Dobra subescapular (mm)", "Dobra peitoral (mm)", "Dobra axilar média (mm)", "Dobra suprailíaca (mm)", "Dobra abdominal (mm)", "Dobra coxa medial (mm)", "Circ. braço relaxado (cm)", "Circ. braço contraído (cm)", "Circ. cintura (cm)", "Circ. coxa medial (cm)", "Massa muscular (kg)", "% água corporal", "Observações"}, MissingField.UseNull),
+				    Tipos = Table.TransformColumns(Colunas, {{"Atleta", fnTexto, type nullable text}, {"Data", fnData, type nullable date}, {"Peso (kg)", fnNumero, type nullable number}, {"Altura (cm)", fnNumero, type nullable number}, {"Dobra tríceps (mm)", fnNumero, type nullable number}, {"Dobra subescapular (mm)", fnNumero, type nullable number}, {"Dobra peitoral (mm)", fnNumero, type nullable number}, {"Dobra axilar média (mm)", fnNumero, type nullable number}, {"Dobra suprailíaca (mm)", fnNumero, type nullable number}, {"Dobra abdominal (mm)", fnNumero, type nullable number}, {"Dobra coxa medial (mm)", fnNumero, type nullable number}, {"Circ. braço relaxado (cm)", fnNumero, type nullable number}, {"Circ. braço contraído (cm)", fnNumero, type nullable number}, {"Circ. cintura (cm)", fnNumero, type nullable number}, {"Circ. coxa medial (cm)", fnNumero, type nullable number}, {"Massa muscular (kg)", fnNumero, type nullable number}, {"% água corporal", fnNumero, type nullable number}, {"Observações", fnTexto, type nullable text}}),
+				    Linhas = Table.SelectRows(Tipos, each [Atleta] <> null),
+				    Unicos = Linhas,
+				    ComData = Table.SelectRows(Unicos, each [Data] <> null),
+				    Resultado = ComData
+				in
+				    Resultado
+
+	annotation PBI_ResultType = Table
