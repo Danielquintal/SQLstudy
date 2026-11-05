@@ -180,6 +180,113 @@
   {% endif %}
 </div>
 
+<div class="card" id="lembretes">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2>Lembretes</h2>
+    <a class="btn" href="{{ url_for('lembretes_pagina', paciente=p.id, voltar=url_for('paciente', pid=p.id) + '#lembretes') }}#novo">+ Lembrete</a>
+  </div>
+  {% if lembretes_pac %}
+  <div class="lista-lembretes">
+    {% for l in lembretes_pac %}
+    <div class="lemb compacto">
+      <div class="lemb-txt"><span class="quando">{{ quando_lembrete(l.quando) }}</span><span class="o-que">{{ l.texto }}</span></div>
+      <div class="acoes">
+        <form method="post" action="{{ url_for('lembrete_acao', lid=l.id, acao='feito') }}">
+          <input type="hidden" name="voltar" value="{{ url_for('paciente', pid=p.id) }}#lembretes"><button class="btn mini">✓ Feito</button></form>
+        <a class="btn mini" href="{{ url_for('lembretes_pagina', editar=l.id, voltar=url_for('paciente', pid=p.id) + '#lembretes') }}#novo">Alterar</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="note" style="margin:0">Nenhum lembrete pendente sobre este paciente (ex.: pedir exames, revisar o plano).</p>
+  {% endif %}
+</div>
+
+<div class="card" id="lembretes-paciente">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2>Lembretes para o paciente</h2>
+    <a class="btn pri" href="{{ url_for('lembrete_paciente', pid=p.id) }}">+ Lembrete para o paciente</a>
+  </div>
+  <p class="note" style="margin:0">Chegam no celular dele: WhatsApp (aparece em Contatos para você enviar), Telegram e e-mail
+    (automáticos) e convite no Google Agenda.</p>
+  {% if lp.aviso %}<p class="msg aviso" style="margin:0">Envio automático: {{ lp.aviso }}</p>{% endif %}
+
+  {% if lp.lista %}
+  <div class="lista-lembretes">
+    {% for l in lp.lista %}
+    <div class="lemb{{ ' feito' if not l.ativo or (not l.proxima and not l.repetir) }}">
+      <div class="lemb-txt">
+        <span class="quando">{{ l.descricao }}{% if not l.ativo %} · pausado{% elif l.proxima %} · próxima: {{ quando_lembrete(l.proxima) }}{% else %} · já enviado{% endif %}</span>
+        <span class="o-que">{{ l.texto.replace('{primeiro_nome}', p.nome.split()[0].title()) }}</span>
+        <span class="det">{% for c, rot in lp.canais.items() if (l.email_ligado if c == 'email' else l[c]) %}<span class="chip">{{ rot }}</span>{% endfor %}</span>
+      </div>
+      <div class="acoes">
+        <a class="btn mini" href="{{ url_for('lembrete_paciente', lid=l.id) }}">Alterar</a>
+        <form method="post" action="{{ url_for('lembrete_paciente_acao', lid=l.id, acao='retomar' if not l.ativo else 'pausar') }}">
+          <button class="btn mini">{{ 'Retomar' if not l.ativo else 'Pausar' }}</button></form>
+        <form method="post" action="{{ url_for('lembrete_paciente_acao', lid=l.id, acao='excluir') }}">
+          <button type="button" class="btn mini perigo" onclick="this.hidden=true;this.nextElementSibling.hidden=false">Excluir</button>
+          <span hidden class="confirma">Excluir? <button class="btn mini perigo cheio">Sim</button></span></form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="note" style="margin:0">Nenhum lembrete ainda. Exemplos: beber água, tomar o suplemento, lanche da tarde, pesar-se para o check-in.</p>
+  {% endif %}
+
+  <div class="duas canais-pac">
+    <div class="item">
+      <div class="quem"><span class="tipo">Telegram</span>
+        {% if not lp.tg_pronto %}<span class="note">Crie o robô em <a href="{{ url_for('configuracao') }}#telegram">Configuração › Telegram</a>.</span>
+        {% elif lp.tg_chat %}<span class="chip good">vinculado{% if lp.tg_desde %} desde {{ lp.tg_desde|br }}{% endif %}</span>
+        {% else %}<span class="note">Ainda não vinculado. Mande o link ao paciente; ele toca e aperta “Começar”.</span>{% endif %}
+      </div>
+      {% if lp.tg_pronto %}
+      <div class="acoes">
+        {% if not lp.tg_chat %}
+        <form method="post" action="{{ url_for('whatsapp', pid=p.id, tipo='livre') }}" target="_blank">
+          <input type="hidden" name="texto" value="{{ lp.zap_tg }}">
+          <button class="btn zap mini" {{ 'disabled' if not tem_whatsapp }}>Mandar o link pelo WhatsApp</button></form>
+        <button type="button" class="btn mini" data-copiar="{{ lp.tg_link }}">Copiar o link</button>
+        <form method="post" action="{{ url_for('paciente_telegram', pid=p.id, acao='verificar') }}"><button class="btn mini">Já tocou? Verificar</button></form>
+        {% else %}
+        <form method="post" action="{{ url_for('paciente_telegram', pid=p.id, acao='desvincular') }}">
+          <button class="btn mini perigo" onclick="return confirm('Parar de mandar lembretes pelo Telegram para este paciente?')">Desvincular</button></form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="item">
+      <div class="quem"><span class="tipo">E-mail e Google Agenda</span>
+        {% if email_ok %}<span class="note">{{ p.email }}</span>{% else %}<span class="note">Sem e-mail na ficha: cadastre em Acompanhamento, logo abaixo.</span>{% endif %}
+        {% if not lp.automatico %}<span class="note falta">Para o envio automático, atualize o script do Google para a versão {{ lp.versao }}
+          (<a href="{{ url_for('configuracao') }}#telegram">Configuração</a>).</span>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if lp.historico %}
+  <details>
+    <summary class="note">Últimos envios</summary>
+    <div class="tablebox"><table><tbody>
+      {% for e in lp.historico %}
+      <tr><td class="n">{{ e.feito_em.strftime('%d/%m %H:%M') }}</td><td class="t">{{ lp.canais.get(e.canal, e.canal) }}</td>
+        <td class="t note">{{ e.texto.replace('{primeiro_nome}', '')[:60] }}</td>
+        <td class="t">{% if e.erro %}<span class="chip bad" title="{{ e.erro }}">não saiu: {{ e.erro[:40] }}</span>{% else %}<span class="chip good">enviado</span>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+  </details>
+  {% endif %}
+</div>
+<script>
+document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Link copiado'; }
+  catch (e) { prompt('Copie o link:', b.dataset.copiar); }
+}));
+</script>
+
 <div class="duas" id="acompanhamento">
   <form method="post" action="{{ url_for('acompanhamento', pid=p.id) }}" class="card">
     <h2>Acompanhamento</h2>
@@ -190,6 +297,8 @@
         <input class="texto" id="tel" name="telefone" value="{{ p.telefone or '' }}" placeholder="DDD + número"></div>
       <div class="campo"><label for="email">E-mail (check-in automático)</label>
         <input class="texto" id="email" name="email" type="email" value="{{ p.email or '' }}"></div>
+      <div class="campo"><label for="passos">Meta de passos por dia <span class="note">(aba Metas diárias do link)</span></label>
+        <input class="texto" id="passos" name="meta_passos" inputmode="numeric" value="{{ '{:,}'.format(p.meta_passos).replace(',', '.') if p.meta_passos }}" placeholder="ex.: 8.000 (vazio = sem meta)"></div>
     </div>
     <label class="note" style="display:flex;gap:8px;align-items:center">
       <input type="checkbox" name="whatsapp_bloqueado" value="1" {{ 'checked' if p.whatsapp_bloqueado }}>

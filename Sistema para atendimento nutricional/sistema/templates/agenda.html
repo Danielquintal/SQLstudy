@@ -24,7 +24,13 @@
     <header><span class="dsem">{{ ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][d.weekday()] }}</span>
       <span class="dnum">{{ d.strftime('%d/%m') }}</span>{% if d == hoje %}<span class="chip good">hoje</span>{% endif %}</header>
     {% for tipo, c, _ in cs %}
-    {% if tipo == 'google' %}
+    {% if tipo == 'lembrete' %}
+    <a class="cons lembrete{{ ' feito' if c.feito_em }}" href="{{ url_for('lembretes_pagina', editar=c.id) }}#novo" title="Lembrete seu">
+      <span class="hora">{{ c.quando.strftime('%H:%M') }} · lembrete{{ ' ✓' if c.feito_em }}</span>
+      <span class="nome">{{ c.texto }}</span>
+      {% if c.paciente %}<span class="det">{{ c.paciente }}</span>{% endif %}
+    </a>
+    {% elif tipo == 'google' %}
     <div class="cons google" title="Compromisso do seu Google Agenda">
       <span class="hora">{{ 'Dia inteiro' if c.dia_todo else c.inicio.strftime('%H:%M') + '–' + c.fim.strftime('%H:%M') }}</span>
       <span class="nome">{{ c.titulo }}</span>

@@ -5,7 +5,7 @@
 <div>
   <p class="eyebrow">WhatsApp</p>
   <h1>Contatos do dia</h1>
-  <p class="sub">{{ itens|length }} mensage{{ 'm' if itens|length == 1 else 'ns' }} para mandar · retornos, check-ins e aniversários</p>
+  <p class="sub">{{ itens|length + lembretes_zap|length }} mensage{{ 'm' if itens|length + lembretes_zap|length == 1 else 'ns' }} para mandar · retornos, check-ins e aniversários</p>
 </div>
 {% endblock %}
 {% block corpo %}
@@ -20,8 +20,30 @@
   </div>
   {% endfor %}
 </div>
-{% else %}
+{% elif not lembretes_zap %}
 <div class="card"><p class="vazio" style="margin:0">Nenhum contato pendente hoje.</p></div>
+{% endif %}
+
+{% if lembretes_zap %}
+<h2 class="titulo-sec">Lembretes dos pacientes</h2>
+<div class="lista">
+  {% for z in lembretes_zap %}
+  <div class="card" style="gap:8px">
+    <div class="quem"><a class="linha" style="font-weight:600;color:var(--ink);text-decoration:none" href="{{ url_for('paciente', pid=z.l.paciente_id) }}#lembretes-paciente">{{ z.l.nome }}</a></div>
+    <form method="post" action="{{ url_for('lembrete_paciente_acao', lid=z.l.id, acao='whatsapp') }}" target="_blank" class="item zapform">
+      <div class="quem"><span class="tipo">Lembrete do paciente</span><span class="note">Marcado para {{ quando_lembrete(z.vez) }}</span></div>
+      <div class="acoes">
+        {% if z.tem_whatsapp %}<button class="btn zap">Abrir no WhatsApp</button>
+        {% else %}<span class="note">Telefone inválido para WhatsApp</span>{% endif %}
+        <button class="btn" name="so_marcar" value="1" formtarget="_self">Já fiz</button>
+      </div>
+      <textarea name="texto" rows="3" aria-label="Mensagem">{{ z.texto }}</textarea>
+      <input type="hidden" name="vez" value="{{ z.vez.isoformat() }}">
+      <input type="hidden" name="voltar" value="{{ url_for('contatos_do_dia') }}">
+    </form>
+  </div>
+  {% endfor %}
+</div>
 {% endif %}
 
 <div class="duas">

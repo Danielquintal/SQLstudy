@@ -28,6 +28,8 @@ PADRAO = {
                               "{data_consulta}, às {hora_consulta}.\n{local_consulta}\n\nO convite vai anexo para "
                               "você salvar na sua agenda. Se precisar remarcar, é só responder este e-mail ou me "
                               "chamar no WhatsApp.\n\nAté lá!\nDaniel Quintal, nutricionista"},
+    # robô do Telegram (lembretes dos pacientes); o assunto vale para os lembretes por e-mail
+    "telegram": {"token": "", "bot": "", "email_assunto": "Lembrete do seu nutricionista"},
     "mensagens": {
         "confirmacao": "Olá, {primeiro_nome}! Sua consulta está marcada para {dia_semana}, {data_consulta}, às "
                        "{hora_consulta}. {local_consulta} Se precisar remarcar, é só me avisar por aqui. "
@@ -48,7 +50,8 @@ PADRAO = {
 TITULOS = {"confirmacao": "Confirmação de consulta", "retorno": "Lembrete de retorno", "checkin": "Pedido de check-in",
            "evolucao": "Link da evolução", "aniversario": "Aniversário", "leafq": "Questionário LEAF-Q (RED-S)",
            "livre": "Mensagem livre"}
-ROTULOS = dict(TITULOS, checkin_email="Check-in por e-mail", confirmacao_email="Confirmação por e-mail")   # histórico
+ROTULOS = dict(TITULOS, checkin_email="Check-in por e-mail", confirmacao_email="Confirmação por e-mail",
+               lembrete="Lembrete do paciente")   # histórico
 VARIAVEIS = {
     "{primeiro_nome}": "primeiro nome do paciente",
     "{nome}": "nome completo",
@@ -72,7 +75,8 @@ def carregar():
         salvo = json.loads(CONFIG.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         return cfg
-    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k not in ("mensagens", "checkin", "agenda")})
+    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k not in ("mensagens", "checkin", "agenda", "telegram")})
+    cfg["telegram"].update(salvo.get("telegram", {}))
     cfg["checkin"].update(salvo.get("checkin", {}))
     cfg["agenda"].update(salvo.get("agenda", {}))
     cfg["mensagens"].update({k: v for k, v in salvo.get("mensagens", {}).items() if k in TITULOS})

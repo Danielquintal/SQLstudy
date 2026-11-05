@@ -400,3 +400,47 @@ table.ref-tab input.un{width:110px}
 .zbar .grade{stroke:var(--line)} .zbar .zero{stroke:var(--muted)}
 .zbar .pos{fill:var(--accent)} .zbar .neg{fill:var(--warn)}
 .pf-metas{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+
+/* lembretes */
+.atalhos{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.google-lb{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.google-lb .check{display:flex;gap:8px;align-items:center;font-size:14px}
+.google-lb select{margin-left:6px;font:14px var(--sans);padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--ink)}
+.lista-lembretes{display:flex;flex-direction:column;gap:8px}
+.lemb{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px;padding:10px 12px;border-radius:10px;
+  background:var(--bg);border-left:3px solid var(--accent)}
+.lemb.vencido{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--bg))}
+.lemb.feito{border-left-color:var(--line);opacity:.75}
+.lemb.compacto{padding:7px 10px}
+.lemb-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 260px}
+.lemb .quando{font:500 12px var(--mono);color:var(--muted)}
+.lemb.vencido .quando{color:var(--warn)}
+.lemb .o-que{font-weight:600;overflow-wrap:anywhere}
+.lemb .det{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 10px}
+.lemb .adiar{display:flex;gap:4px;align-items:center}
+.lemb .adiar select{font:13px var(--sans);padding:6px 6px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--ink)}
+.cons.lembrete{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 7%,var(--bg))}
+.cons.lembrete .nome{font-weight:500}
+.cons.lembrete.feito{opacity:.55}
+.cons.lembrete.feito .nome{text-decoration:line-through}
+.avisos-lemb{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:10px;z-index:50;max-width:min(360px,calc(100vw - 32px))}
+.aviso-lemb{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;padding:12px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:6px}
+.aviso-lemb b{overflow-wrap:anywhere}
+.assistente{border-left:4px solid var(--accent)}
+.assist-linha{display:flex;gap:8px;flex-wrap:wrap}
+.assist-linha input{flex:1 1 280px;font:16px var(--sans);padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--ink);min-width:0}
+.entendi{display:flex;flex-direction:column;gap:6px;min-height:22px}
+.entendi .chips{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.entendi .chip{color:var(--accent)} .entendi .chip.warn{color:var(--warn)}
+.entendi .falta{color:var(--warn)}
+
+/* lembretes dos pacientes */
+.titulo-sec{font-size:16px;margin:8px 0 0}
+.canais-escolha{display:flex;flex-direction:column;gap:10px}
+.canais-escolha .check{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.canais-escolha .check input{margin-top:3px}
+.canais-escolha .check>span{display:flex;flex-direction:column;gap:2px}
+.canais-escolha .check.indisponivel{opacity:.6;cursor:default}
+.canais-pac .item{display:flex;flex-direction:column;gap:8px}
+.canais-pac .quem{display:flex;flex-direction:column;gap:4px}

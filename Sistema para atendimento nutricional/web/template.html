@@ -281,6 +281,16 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
 .relatorios button:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
 .relatorios .msg{font-size:13px;color:var(--brand-soft);text-transform:none;letter-spacing:0;max-width:34ch}
 .relatorios .msg a{color:var(--brand-ink);font-weight:600}
+/* passos do dia na aba Metas diárias */
+.ps-card{gap:10px}
+.ps-card .ok{color:var(--good);font-weight:600}
+.ps-card select{font:15px var(--sans);padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.ps-barras{display:grid;gap:2px;height:90px;align-items:end}
+.ps-dia{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
+.ps-dia i{display:block;width:100%;border-radius:3px 3px 0 0;background:var(--c6);opacity:.55}
+.ps-dia i.ok{background:var(--good);opacity:1}
+.ps-dia.fut{opacity:.35}
+.ps-dia small{font:10px var(--mono);color:var(--muted);height:14px;line-height:14px}
 </style>
 
 <header class="band">
@@ -384,6 +394,7 @@ const DADOS = __DATA__;
 const PLANO = __PLANO__;
 const CHECKIN = __CHECKIN__;
 const WHATSAPP = __WHATSAPP__;   // WhatsApp do nutricionista, para o paciente pedir o PDF
+const META_PASSOS = __PASSOS__;   // meta de passos por dia definida pelo nutricionista (null = sem meta)
 const CHECKINS = __CHECKINS__;
 const REDS = __REDS__;
 const EXAMES = __EXAMES__;
@@ -1010,6 +1021,46 @@ const ICONES_META = [[/água|agua|beber/, '💧'], [/trein|academia|muscula/, '�
   [/cachorro|cão|pet/, '🐕'], [/escada/, '🏃'], [/dorm|sono/, '😴'], [/fruta|verdura|legume|salada/, '🍎'], [/along|yoga|ioga/, '🤸'],
   [/celular|tela/, '📵'], [/sol/, '☀️'], [/camin|andar|corr|pedal|bike/, '🚶'], [/doce|açúcar|acucar|refrigerante|álcool|alcool/, '🚫']];
 const iconeMeta = nome => (ICONES_META.find(([r]) => r.test(nome.toLowerCase())) || [, '⭐'])[1];
+// passos do dia: a meta vem do nutricionista (META_PASSOS); o paciente lança quantos passos deu (fica neste aparelho)
+const fmtPassos = v => Math.round(v).toLocaleString('pt-BR');
+const passosMes = m => ((MT.passos || {})[m]) || {};
+function resumoPassos(m) {
+  const pm = passosMes(m), abertos = diasAbertos(m);
+  const dias = Object.keys(pm).map(Number).filter(d => d <= abertos && pm[d] > 0);
+  const soma = dias.reduce((a, d) => a + pm[d], 0);
+  return { pm, dias, bateu: dias.filter(d => pm[d] >= META_PASSOS).length, media: dias.length ? soma / dias.length : 0 };
+}
+function cartaoPassos(ehAtual) {
+  if (!META_PASSOS) return '';
+  const n = diasNoMes(mtMes), abertos = diasAbertos(mtMes), r = resumoPassos(mtMes), pm = r.pm, hoje = diaHoje();
+  const vHoje = ehAtual ? pm[hoje] || 0 : 0, pct = Math.min(100, Math.round(vHoje / META_PASSOS * 100));
+  const barras = Array.from({ length: n }, (_, i) => {
+    const d = i + 1, v = pm[d] || 0, h = v ? Math.max(4, Math.min(100, Math.round(v / META_PASSOS * 100))) : 0;
+    return `<span class="ps-dia${d > abertos ? ' fut' : ''}" title="Dia ${d}: ${v ? fmtPassos(v) + ' passos' : 'sem registro'}">
+      <i class="${v >= META_PASSOS ? 'ok' : ''}" style="height:${h}%"></i><small>${d === 1 || d % 5 === 0 ? d : ''}</small></span>`; }).join('');
+  const opcoes = Array.from({ length: abertos }, (_, i) => abertos - i)
+    .map(d => `<option value="${d}">${ehAtual && d === hoje ? 'Hoje' : ehAtual && d === hoje - 1 ? 'Ontem' : `Dia ${d}`}</option>`).join('');
+  return `<div class="card ps-card"><div class="mt-hoje-top"><h2>👟 Passos</h2><span class="alvo">Meta: ${fmtPassos(META_PASSOS)} por dia</span></div>
+    ${ehAtual ? `<div class="mt-barra"><i style="width:${pct}%"></i></div>
+      <p class="note" style="margin:0">${vHoje ? (vHoje >= META_PASSOS ? `<span class="ok">Hoje: ${fmtPassos(vHoje)} passos. Meta batida!</span>`
+        : `Hoje: <b>${fmtPassos(vHoje)}</b> passos. Faltam <b>${fmtPassos(META_PASSOS - vHoje)}</b>.`) : 'Lance os passos de hoje (veja no app de saúde do celular ou no relógio).'}</p>` : ''}
+    ${abertos ? `<form class="mt-novo" id="ps-form"><select id="ps-dia" aria-label="Dia">${opcoes}</select>
+      <input id="ps-n" inputmode="numeric" maxlength="7" placeholder="Passos, ex.: 7.500" aria-label="Passos do dia">
+      <button class="mt-btn pri">Salvar</button></form>` : ''}
+    <div class="mt-resumo"><div><span class="k">Dias com a meta batida</span><span class="v">${r.bateu}<small style="font-size:13px;color:var(--muted)"> de ${abertos}</small></span></div>
+      <div><span class="k">Média por dia lançado</span><span class="v">${r.dias.length ? fmtPassos(r.media) : '–'}</span></div>
+      <div><span class="k">Dias lançados</span><span class="v">${r.dias.length}</span></div></div>
+    <div class="ps-barras" style="grid-template-columns:repeat(${n},1fr)" aria-label="Passos por dia do mês">${barras}</div>
+    <p class="note" style="margin:0">Barra verde = meta batida. Para corrigir um dia, escolha o dia, digite o número e salve (0 apaga).</p></div>`;
+}
+function salvarPassos() {
+  const dia = +document.getElementById('ps-dia').value, v = +document.getElementById('ps-n').value.replace(/\D/g, '');
+  if (!dia || Number.isNaN(v) || v > 200000) return;
+  MT.passos = MT.passos || {};
+  const pm = MT.passos[mtMes] || (MT.passos[mtMes] = {});
+  if (v) pm[dia] = v; else delete pm[dia];
+  mtSalvar(); desenharMetas();
+}
 function desenharMetas() {
   const d = mesDe(mtMes, mtMes === MES_ATUAL), n = diasNoMes(mtMes), abertos = diasAbertos(mtMes), r = resumoMes(mtMes);
   const [ano, mes] = mtMes.split('-').map(Number), ehAtual = mtMes === MES_ATUAL;
@@ -1020,6 +1071,7 @@ function desenharMetas() {
       <button type="button" class="mt-btn" data-mt="prox" aria-label="Próximo mês" ${mtMes >= MES_ATUAL ? 'disabled' : ''}>›</button></div>
     ${ehAtual ? '' : '<button type="button" class="mt-btn" data-mt="atual">Voltar para este mês</button>'}</div>
     <p class="note">Escolha o que é importante para a sua qualidade de vida e marque cada dia em que cumpriu. Fica salvo neste aparelho.</p></div>`);
+  partes.push(cartaoPassos(ehAtual));
   if (ehAtual && d.metas.length) {
     const hoje = diaHoje(), feitasHoje = d.metas.filter(x => feito(x.id, hoje)).length, falta = d.metas.length - feitasHoje;
     partes.push(`<div class="card w12 mt-hoje">
@@ -1057,9 +1109,12 @@ function desenharMetas() {
       <p class="note">As metas valem para o mês todo; no mês seguinte elas continuam, e você pode trocar.</p></div>`);
   } else if (!d.metas.length) partes.push('<div class="card"><p class="note">Nenhuma meta neste mês.</p></div>');
   document.getElementById('mt-dados').innerHTML = partes.join('');
-  document.getElementById('rel-mt').hidden = !Object.values(MT.meses).some(x => x.metas.length);
+  document.getElementById('rel-mt').hidden = !Object.values(MT.meses).some(x => x.metas.length)
+    && !(META_PASSOS && Object.values(MT.passos || {}).some(m => Object.keys(m).length));
   const f = document.getElementById('mt-form');
   if (f) f.addEventListener('submit', e => { e.preventDefault(); novaMeta(document.getElementById('mt-nova').value); });
+  const fp = document.getElementById('ps-form');
+  if (fp) fp.addEventListener('submit', e => { e.preventDefault(); salvarPassos(); });
 }
 function novaMeta(nome) {
   nome = nome.trim().replace(/\s+/g, ' ');
@@ -1107,6 +1162,12 @@ function relatorioMetas() {
         columnStyles: { 0: { halign: 'left', cellWidth: 46 } }, headStyles: { fillColor: COR.fundo, textColor: COR.muted, fontSize: 7, halign: 'center' } });
   });
   texto(doc, 'X = meta cumprida no dia.', { tam: 8, cor: COR.muted });
+  const rp = META_PASSOS ? resumoPassos(mtMes) : null;
+  if (rp && rp.dias.length) {
+    secao(doc, `Passos (meta: ${fmtPassos(META_PASSOS)} por dia)`);
+    texto(doc, `Meta batida em ${rp.bateu} de ${diasAbertos(mtMes)} dias · média de ${fmtPassos(rp.media)} passos nos ${rp.dias.length} dias lançados.`, { tam: 10 });
+    tabela(doc, ['Dia', 'Passos', 'Meta'], rp.dias.sort((a, b) => a - b).map(d => [String(d), fmtPassos(rp.pm[d]), rp.pm[d] >= META_PASSOS ? 'batida' : '']), {}, [1]);
+  }
   rodapes(doc);
   return doc;
 }

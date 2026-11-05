@@ -93,6 +93,19 @@
     <div class="acoes"><button class="btn" formaction="{{ url_for('agenda_google_enviar') }}" formnovalidate>Enviar ao Google as consultas já agendadas</button>
       <span class="note">Leva as consultas futuras que ainda não estão no Google.</span></div>
     {% endif %}
+    {% if cfg.checkin.url and versao_google <= (cfg.checkin.versao or 0) < versao_aviso %}
+      <div class="msg aviso" style="margin:0">
+        <b>Lembretes no celular:</b> para o Google Agenda avisar seus lembretes com a antecedência que você escolher,
+        atualize o código do script do Google (a versão instalada é a {{ cfg.checkin.versao }}; precisa da {{ versao_aviso }}):
+        <ol class="passos" style="margin-top:8px">
+          <li>Abra o projeto “Check-in” em <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a>.</li>
+          <li>Clique em <b>Copiar o código</b> (no passo a passo do check-in, acima), apague o código antigo, cole o novo e salve.</li>
+          <li><b>Implantar › Gerenciar implantações</b> › lápis › Versão: <b>Nova versão</b> › Implantar. A URL e a chave continuam iguais.</li>
+          <li>Escolha a função <b>mostrar</b> e clique em <b>Executar</b> (se o Google pedir autorização, permita).</li>
+          <li>Volte aqui e recarregue a página.</li>
+        </ol>
+      </div>
+    {% endif %}
     <h2 style="font-size:14px;margin-top:4px">E-mail de confirmação</h2>
     {% if not cfg.checkin.url %}
       <p class="note" style="margin:0">O e-mail sai pela sua conta Google, pelo mesmo script do check-in: ligue o check-in acima primeiro.</p>
@@ -192,6 +205,62 @@
     {% endfor %}
   </div>
   <div class="barra"><div class="acoes"><button class="btn pri">Salvar configuração</button></div></div>
+</form>
+
+<form method="post" action="{{ url_for('configuracao_telegram') }}" class="card ficha" id="telegram">
+  <h2>Lembretes dos pacientes: Telegram e e-mail automáticos</h2>
+  <p class="note" style="margin:0">Os lembretes que você cria na ficha de cada paciente saem sozinhos pelo Telegram e pelo e-mail
+    (e como convite no Google Agenda dele), pelo script do Google, de 10 em 10 minutos, mesmo com este computador desligado.
+    O WhatsApp continua do jeito de sempre: aparece em Contatos para você enviar.</p>
+  {% if cfg.checkin.url and (cfg.checkin.versao or 0) < versao_lp %}
+  <div class="msg aviso" style="margin:0">
+    <b>Atualize o código do script do Google</b> (a versão instalada é a {{ cfg.checkin.versao or 1 }}; os lembretes automáticos precisam da {{ versao_lp }}):
+    <ol class="passos" style="margin-top:8px">
+      <li>Abra o projeto “Check-in” em <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a>.</li>
+      <li>Clique em <b>Copiar o código</b> (no passo a passo do check-in, no alto desta página), apague o código antigo, cole o novo e salve.</li>
+      <li><b>Implantar › Gerenciar implantações</b> › lápis › Versão: <b>Nova versão</b> › Implantar. A URL e a chave continuam iguais.</li>
+      <li>Escolha a função <b>mostrar</b> e clique em <b>Executar</b>. O Google pede autorização nova (para “conectar a um serviço externo”,
+        que é o Telegram, e para a agenda): clique em Revisar permissões › sua conta › Avançado › Acessar › Permitir.</li>
+      <li>Volte aqui e recarregue a página.</li>
+    </ol>
+  </div>
+  {% elif not cfg.checkin.url %}
+  <p class="msg aviso" style="margin:0">Os lembretes automáticos usam o mesmo script do check-in: instale o check-in no alto desta página primeiro.</p>
+  {% endif %}
+
+  <h2 style="font-size:14px;margin-top:4px">Robô do Telegram</h2>
+  {% if cfg.telegram.bot %}
+  <p class="msg" style="margin:0">Ligado: <a href="https://t.me/{{ cfg.telegram.bot }}" target="_blank" rel="noopener">@{{ cfg.telegram.bot }}</a>
+    (link de teste: toque e veja se abre o seu robô).
+    Na ficha de cada paciente, no quadro “Lembretes para o paciente”, está o link para ele tocar uma vez.</p>
+  {% endif %}
+  <details {{ '' if cfg.telegram.bot else 'open' }}>
+    <summary>Como criar o robô (uma vez só, uns 3 minutos)</summary>
+    <ol class="passos" style="margin-top:10px">
+      <li>No Telegram (celular ou computador), procure <b>@BotFather</b> (tem o selo azul de verificado) e toque em <b>Iniciar</b>.</li>
+      <li>Envie <code>/newbot</code>.</li>
+      <li>Ele pede um nome: escreva o que os pacientes vão ver, por exemplo <i>Lembretes · Daniel Quintal Nutricionista</i>.</li>
+      <li>Depois pede um nome de usuário que termine em <b>bot</b>, por exemplo <i>danielquintal_lembretes_bot</i>.</li>
+      <li>Ele responde com um <b>token</b> (parecido com <code>1234567890:AAH...</code>). Copie e cole aqui embaixo.</li>
+    </ol>
+  </details>
+  <div class="campo"><label for="tg-token">Token do robô</label>
+    <input class="texto" id="tg-token" name="token" value="{{ cfg.telegram.token }}" autocomplete="off" placeholder="1234567890:AAH..."
+      {{ 'type=password' if cfg.telegram.token }}>
+    <span class="note">Não mostre o token a ninguém: quem tem o token controla o robô.</span></div>
+  {% if cfg.telegram.token and not cfg.telegram.bot %}
+  <div class="campo"><label for="tg-bot">Nome de usuário do robô (só se a internet estiver lenta e o sistema não conseguir conferir)</label>
+    <input class="texto" id="tg-bot" name="bot" autocomplete="off" placeholder="ex.: danielquintal_lembretes_bot"></div>
+  {% endif %}
+
+  <h2 style="font-size:14px;margin-top:4px">E-mail</h2>
+  <div class="campo"><label for="tg-assunto">Assunto dos lembretes por e-mail</label>
+    <input class="texto" id="tg-assunto" name="email_assunto" value="{{ cfg.telegram.email_assunto }}"></div>
+  <div class="acoes">
+    <button class="btn pri">Salvar</button>
+    {% if cfg.telegram.bot %}<button class="btn perigo" name="remover" value="1"
+      onclick="return confirm('Remover o robô do sistema? Os lembretes por Telegram param.')">Remover o robô</button>{% endif %}
+  </div>
 </form>
 <script>
 document.getElementById('copiar-gs').addEventListener('click', async e => {

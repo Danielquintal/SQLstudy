@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import quote, urlparse
 
 import psycopg
-from flask import Flask, abort, flash, redirect, render_template, request, url_for
+from flask import Flask, abort, flash, jsonify, redirect, render_template, request, url_for
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from atualizar_paciente import (CONEXAO, PAGINAS, TEMPLATE, achar_planilha, avaliacoes_do_banco, converter,
@@ -25,6 +25,9 @@ import reds
 import exames
 import perfil as antropo
 import contatos
+import lembretes
+import lembretes_paciente
+import assistente
 import links
 import plano as planos
 import plano_pdf
@@ -76,7 +79,7 @@ def idade(nasc, ref=None):
 
 
 CAMPOS_PACIENTE = ["id", "nome", "genero", "data_nascimento", "telefone", "email", "retorno_em",
-                   "whatsapp_bloqueado", "checkin_pausado", "meta_gordura_pct", "meta_imo"]
+                   "whatsapp_bloqueado", "checkin_pausado", "meta_gordura_pct", "meta_imo", "meta_passos"]
 
 
 def buscar_paciente(cur, pid):
@@ -93,14 +96,16 @@ def contagem_contatos():
     try:
         with conectar() as con:
             cur = con.cursor()
-            n = len(contatos.pendencias(cur, contatos.carregar()))
+            n = len(contatos.pendencias(cur, contatos.carregar())) + lembretes_paciente.contar_whatsapp(cur)
             cur.execute("SELECT count(*) FROM checkin WHERE paciente_id IS NULL AND NOT excluido")
             sem = cur.fetchone()[0]
             cur.execute("SELECT count(*) FROM consulta WHERE inicio::date = current_date AND status <> 'cancelada'")
             hoje = cur.fetchone()[0]
+            n_lem = lembretes.contar_vencidos(cur)
     except psycopg.Error:
-        n = sem = hoje = 0
-    return {"n_contatos": n, "n_pedidos": len(links.pedidos()), "n_checkin_sem": sem, "n_consultas_hoje": hoje}
+        n = sem = hoje = n_lem = 0
+    return {"n_contatos": n, "n_pedidos": len(links.pedidos()), "n_checkin_sem": sem, "n_consultas_hoje": hoje,
+            "n_lembretes": n_lem}
 
 
 def ler_formulario(form):
@@ -198,6 +203,23 @@ def paciente(pid):
         cur = con.cursor()
         p = buscar_paciente(cur, pid)
         checkins = checkin.com_alertas(checkin.lista(cur, "k.paciente_id = %s", (pid,), 26))
+        lembretes_pac = lembretes.lista(cur, "l.paciente_id = %s AND l.feito_em IS NULL", (pid,), limite=20)
+        lembretes_paciente.sincronizar_se_preciso(con, cfg)
+        lp = lembretes_paciente.lista(cur, "l.paciente_id = %s", (pid,))
+        for l in lp:
+            l["proxima"] = lembretes_paciente.proxima(l) if l["ativo"] else None
+            l["descricao"] = lembretes_paciente.descricao(l)
+        cur.execute("SELECT telegram_chat, telegram_desde FROM paciente WHERE id = %s", (pid,))
+        tg_chat, tg_desde = cur.fetchone()
+        tg_link = (lembretes_paciente.link_telegram(cfg, lembretes_paciente.codigo(cur, pid))
+                   if lembretes_paciente.telegram_pronto(cfg) else None)
+        lp_info = {"lista": lp, "historico": lembretes_paciente.historico(cur, pid), "tg_chat": tg_chat, "tg_desde": tg_desde,
+                   "tg_link": tg_link, "tg_pronto": lembretes_paciente.telegram_pronto(cfg),
+                   "automatico": lembretes_paciente.script_pronto(cfg), "versao": lembretes_paciente.VERSAO,
+                   "aviso": lembretes_paciente.aviso, "canais": lembretes_paciente.CANAIS,
+                   "zap_tg": ("Olá, {primeiro_nome}! Para receber os lembretes do seu acompanhamento pelo Telegram, "
+                              "toque neste link e aperte “Começar”: " + tg_link).replace("{primeiro_nome}", p["nome"].split()[0].title())
+                   if tg_link else ""}
         consultas = agenda.lista(cur, "c.paciente_id = %s", (pid,))
         cur.execute("SELECT data, total FROM reds_leafq WHERE paciente_id = %s ORDER BY data DESC, id DESC LIMIT 1", (pid,))
         ult_leafq = cur.fetchone()
@@ -242,7 +264,8 @@ def paciente(pid):
                                reds.energia_disponivel(*ult_ed[1:])),
                            ult_exame=ult_exame, testes=testes, perfil=perfil_pac,
                            passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,
-                           email_ok=checkin.email_valido(p["email"]),
+                           email_ok=checkin.email_valido(p["email"]), lembretes_pac=lembretes_pac, lp=lp_info,
+                           quando_lembrete=lembretes.quando_texto,
                            tem_whatsapp=bool(contatos.telefone_whatsapp(p["telefone"])), titulos=contatos.ROTULOS)
 
 
@@ -901,11 +924,17 @@ def acompanhamento(pid):
         if email and not checkin.email_valido(email):
             flash(f"O e-mail “{email}” não parece válido e não foi salvo.", "aviso")
             email = buscar_paciente(cur, pid)["email"]
+        atual = buscar_paciente(cur, pid)
+        passos = re.sub(r"\D", "", f.get("meta_passos", "")) or None     # "8.000" -> 8000; vazio = sem meta
+        if passos and not 500 <= int(passos) <= 50000:
+            flash("Meta de passos: use um número entre 500 e 50.000 por dia. Ela não foi salva.", "aviso")
+            passos = atual["meta_passos"]
+        aviso_link = pedir_atualizacao(pid, atual["nome"]) if (passos and int(passos)) != atual["meta_passos"] else ""
         cur.execute("UPDATE paciente SET retorno_em = %s, whatsapp_bloqueado = %s, checkin_pausado = %s, telefone = %s, "
-                    "email = %s WHERE id = %s",
+                    "email = %s, meta_passos = %s WHERE id = %s",
                     (retorno, bool(f.get("whatsapp_bloqueado")), bool(f.get("checkin_pausado")),
-                     " ".join(f.get("telefone", "").split()) or None, email, pid))
-    flash("Acompanhamento salvo.")
+                     " ".join(f.get("telefone", "").split()) or None, email, passos and int(passos), pid))
+    flash("Acompanhamento salvo." + aviso_link)
     return redirect(url_for("paciente", pid=pid) + "#acompanhamento")
 
 
@@ -957,6 +986,9 @@ def contatos_do_dia():
             itens.append(dict(tipo=tipo, titulo=contatos.TITULOS[tipo], p=p, detalhe=detalhe,
                               texto=contatos.mensagem(cfg, tipo, p),
                               tem_whatsapp=bool(contatos.telefone_whatsapp(p["telefone"]))))
+        lembretes_zap = [dict(l=l, vez=v, texto=lembretes_paciente.texto_final(cfg, l, "whatsapp"),
+                              tem_whatsapp=bool(contatos.telefone_whatsapp(l["telefone"])))
+                         for l, v in lembretes_paciente.pendentes_whatsapp(cur)]
         cur.execute("""SELECT c.feito_em, c.tipo, p.id, p.nome FROM contato c JOIN paciente p ON p.id = c.paciente_id
                        WHERE c.feito_em >= %s ORDER BY c.feito_em DESC""", (date.today(),))
         feitos = cur.fetchall()
@@ -964,7 +996,7 @@ def contatos_do_dia():
                        ORDER BY retorno_em, nome LIMIT 30""", (date.today(),))
         agenda = cur.fetchall()
     return render_template("contatos.html", itens=itens, feitos=feitos, agenda=agenda, titulos=contatos.ROTULOS,
-                           quando=contatos.quando)
+                           quando=contatos.quando, lembretes_zap=lembretes_zap, quando_lembrete=lembretes.quando_texto)
 
 
 @app.route("/configuracao", methods=["GET", "POST"])
@@ -1059,7 +1091,7 @@ def configuracao():
                            padrao=contatos.PADRAO["mensagens"], script=checkin.SCRIPT.read_text(encoding="utf-8"),
                            exemplo=checkin.link_formulario(cfg, "Maria da Silva"), estado=estado,
                            versao_atual=checkin.VERSAO_SCRIPT, versao_email=agenda.VERSAO_EMAIL,
-                           versao_google=agenda.VERSAO_GOOGLE, n_ativos=len(ativos),
+                           versao_google=agenda.VERSAO_GOOGLE, versao_aviso=lembretes.VERSAO_AVISO, versao_lp=lembretes_paciente.VERSAO, n_ativos=len(ativos),
                            n_com_email=sum(checkin.email_valido(e) for e in ativos))
 
 
@@ -1465,6 +1497,7 @@ def agenda_semana():
     cfg = contatos.carregar()
     with conectar() as con:
         cs = agenda.lista(con.cursor(), "c.inicio >= %s AND c.inicio < %s", (ini, ini + timedelta(days=7)))
+        lem = lembretes.lista(con.cursor(), "l.quando >= %s AND l.quando < %s", (ini, ini + timedelta(days=7)))
     google, erro_google = [], None
     if agenda.google_pronto(cfg) and cfg["agenda"].get("google_mostrar", True):
         try:
@@ -1476,6 +1509,7 @@ def agenda_semana():
     for i in range(7):
         d = ini + timedelta(days=i)
         itens = [("consulta", c, c["inicio"]) for c in cs if c["inicio"].date() == d]
+        itens += [("lembrete", l, l["quando"]) for l in lem if l["quando"].date() == d]
         itens += [("google", g, datetime.combine(d, datetime.min.time()) if g["dia_todo"] else g["inicio"])
                   for g in google if ((g["inicio"].date() <= d < g["fim"].date()) if g["dia_todo"] else g["inicio"].date() == d)]
         itens.sort(key=lambda x: x[2])
@@ -1650,6 +1684,368 @@ def agenda_google_enviar():
     flash(f"{feitas} consulta(s) enviada(s) ao Google Agenda." if feitas or not erros else erros[0],
           "aviso" if erros else "")
     return redirect(url_for("configuracao") + "#agenda")
+
+
+# ---------- lembretes (seus, não dos pacientes) ----------
+
+ADIAR = {"1h": lambda d: datetime.now().replace(second=0, microsecond=0) + timedelta(hours=1),
+         "amanha": lambda d: datetime.combine(date.today() + timedelta(days=1), d.time()),
+         "semana": lambda d: datetime.combine(date.today() + timedelta(days=7), d.time())}
+
+
+def _voltar_seguro(v):
+    """volta só para uma página deste sistema"""
+    return v if v and v.startswith("/") and not v.startswith("//") else url_for("lembretes_pagina")
+
+
+def _google_lembrete(cur, cfg, lid):
+    """leva o lembrete ao Google Agenda; se der erro, avisa (o lembrete continua salvo no sistema)"""
+    try:
+        lembretes.sincronizar_evento(cur, cfg, lembretes.buscar(cur, lid))
+    except checkin.ErroGoogle as e:
+        flash(f"O lembrete está salvo no sistema. {e}", "aviso")
+
+
+@app.route("/lembretes")
+def lembretes_pagina():
+    cfg = contatos.carregar()
+    agora = datetime.now()
+    with conectar() as con:
+        cur = con.cursor()
+        abertos = lembretes.lista(cur, "l.feito_em IS NULL")
+        feitos = lembretes.lista(cur, "l.feito_em IS NOT NULL", ordem="l.feito_em DESC", limite=15)
+        cur.execute("SELECT id, nome FROM paciente ORDER BY nome")
+        pacientes = cur.fetchall()
+        editar = lembretes.buscar(cur, int(request.args["editar"])) if request.args.get("editar", "").isdigit() else None
+    hoje = date.today()
+    grupos = [("Atrasados", [l for l in abertos if l["quando"].date() < hoje]),
+              ("Hoje", [l for l in abertos if l["quando"].date() == hoje]),
+              ("Próximos", [l for l in abertos if l["quando"].date() > hoje])]
+    if editar:
+        form = {"id": editar["id"], "texto": editar["texto"], "data": editar["quando"].date().isoformat(),
+                "hora": editar["quando"].strftime("%H:%M"), "paciente": editar["paciente"] or "",
+                "repetir": editar["repetir"], "google": editar["google"], "aviso_min": editar["aviso_min"]}
+    else:
+        pid = request.args.get("paciente", "")
+        form = {"id": "", "texto": request.args.get("texto", ""), "data": "", "hora": "09:00",
+                "paciente": next((n for i, n in pacientes if str(i) == pid), ""),
+                "repetir": "", "google": True, "aviso_min": 0}
+    return render_template("lembretes.html", grupos=grupos, feitos=feitos, nomes=[n for _, n in pacientes], form=form,
+                           editar=editar, google_ligado=agenda.google_pronto(cfg), avisa_certo=lembretes.avisa_certo(cfg),
+                           versao_aviso=lembretes.VERSAO_AVISO, versao_script=cfg["checkin"].get("versao") or 1,
+                           repetir=lembretes.REPETIR, avisos=lembretes.AVISOS, quando=lembretes.quando_texto, agora=agora,
+                           voltar=request.args.get("voltar", ""))
+
+
+@app.route("/lembretes/salvar", methods=["POST"])
+def lembrete_salvar():
+    f = request.form
+    texto = " ".join(f.get("texto", "").split())
+    voltar = _voltar_seguro(f.get("voltar"))
+    editar = f.get("id") if f.get("id", "").isdigit() else None
+    try:
+        quando = datetime.combine(date.fromisoformat(f.get("data", "")),
+                                  datetime.strptime(f.get("hora") or "09:00", "%H:%M").time())
+    except ValueError:
+        quando = None
+    if not texto or not quando:
+        flash("Escreva o lembrete e escolha o dia.", "aviso")
+        return redirect(url_for("lembretes_pagina", editar=editar, texto=texto or None))
+    repetir = f.get("repetir") if f.get("repetir") in lembretes.REPETIR else ""
+    aviso = int(f["aviso_min"]) if f.get("aviso_min", "").isdigit() and int(f["aviso_min"]) in lembretes.AVISOS else 0
+    google = bool(f.get("google"))
+    cfg = contatos.carregar()
+    with conectar() as con:
+        cur = con.cursor()
+        pid = None
+        nome = f.get("paciente", "").strip()
+        if nome:
+            cur.execute("SELECT id, nome FROM paciente")
+            achados = [i for i, n in cur.fetchall() if norm(n) == norm(nome)]
+            if len(achados) != 1:
+                flash(f"Não achei um paciente só com o nome “{nome}”. Escolha um nome da lista ou deixe em branco.", "aviso")
+                return redirect(url_for("lembretes_pagina", editar=editar, texto=texto))
+            pid = achados[0]
+        if editar:
+            lid = int(editar)
+            cur.execute("""UPDATE lembrete SET texto = %s, quando = %s, paciente_id = %s, repetir = %s, google = %s,
+                           aviso_min = %s, feito_em = NULL WHERE id = %s RETURNING id""",
+                        (texto, quando, pid, repetir, google, aviso, lid))
+            if not cur.fetchone():
+                abort(404)
+            flash("Lembrete alterado.")
+        else:
+            cur.execute("""INSERT INTO lembrete (texto, quando, paciente_id, repetir, google, aviso_min)
+                           VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""", (texto, quando, pid, repetir, google, aviso))
+            lid = cur.fetchone()[0]
+            flash(f"Lembrete criado para {lembretes.quando_texto(quando)}.")
+        con.commit()
+        _google_lembrete(cur, cfg, lid)
+    return redirect(voltar)
+
+
+@app.route("/lembrete/<int:lid>/<acao>", methods=["POST"])
+def lembrete_acao(lid, acao):
+    cfg = contatos.carregar()
+    voltar = _voltar_seguro(request.form.get("voltar"))
+    with conectar() as con:
+        cur = con.cursor()
+        l = lembretes.buscar(cur, lid) or abort(404)
+        if acao == "feito":
+            prox = lembretes.seguinte(l["quando"], l["repetir"])
+            if prox:
+                cur.execute("UPDATE lembrete SET quando = %s WHERE id = %s", (prox, lid))
+                flash(f"Feito. Esse lembrete repete: o próximo é {lembretes.quando_texto(prox)}.")
+            else:
+                cur.execute("UPDATE lembrete SET feito_em = now() WHERE id = %s", (lid,))
+                flash("Lembrete concluído.")
+        elif acao == "adiar" and request.form.get("para") in ADIAR:
+            novo = ADIAR[request.form["para"]](l["quando"])
+            cur.execute("UPDATE lembrete SET quando = %s WHERE id = %s", (novo, lid))
+            flash(f"Adiado para {lembretes.quando_texto(novo)}.")
+        elif acao == "reabrir":
+            cur.execute("UPDATE lembrete SET feito_em = NULL WHERE id = %s", (lid,))
+            flash("Lembrete reaberto.")
+        elif acao == "excluir":
+            cur.execute("DELETE FROM lembrete WHERE id = %s", (lid,))
+            con.commit()
+            try:
+                lembretes.excluir_evento(cfg, l["google_evento_id"])
+                flash("Lembrete excluído.")
+            except checkin.ErroGoogle as e:
+                flash(f"Lembrete excluído do sistema, mas no Google Agenda ele continua. {e}", "aviso")
+            return redirect(voltar)
+        else:
+            abort(400)
+        con.commit()
+        _google_lembrete(cur, cfg, lid)
+    return redirect(voltar)
+
+
+@app.route("/lembretes/entender")
+def lembretes_entender():
+    """assistente: entende a frase digitada e devolve os campos do lembrete (tudo neste computador)"""
+    with conectar() as con:
+        cur = con.cursor()
+        cur.execute("SELECT id, nome FROM paciente ORDER BY nome")
+        pacientes = cur.fetchall()
+    return jsonify(assistente.interpretar(request.args.get("frase", "")[:400], pacientes))
+
+
+@app.route("/lembretes/agora.json")
+def lembretes_agora():
+    """lembretes que já venceram, para o aviso na tela do sistema (as páginas abertas perguntam a cada minuto)"""
+    try:
+        with conectar() as con:
+            itens = lembretes.vencidos(con.cursor())
+    except psycopg.Error:
+        itens = []
+    return jsonify([{"id": l["id"], "chave": f"{l['id']}-{l['quando'].isoformat()}", "texto": l["texto"],
+                     "paciente": l["paciente"] or "", "quando": lembretes.quando_texto(l["quando"])} for l in itens])
+
+
+# ---------- lembretes para os pacientes (WhatsApp, Telegram, e-mail, Google Agenda) ----------
+
+def _sinc_lembretes_paciente(con, cfg):
+    """leva as mudanças ao script do Google; se não der, avisa (fica salvo no sistema e tenta de novo depois)"""
+    if not lembretes_paciente.script_pronto(cfg):
+        return
+    try:
+        lembretes_paciente.sincronizar(con, cfg)
+        if lembretes_paciente.aviso:
+            flash(f"Atenção: {lembretes_paciente.aviso}", "aviso")
+    except checkin.ErroGoogle as e:
+        flash(f"Salvo no sistema, mas o envio automático ainda não foi atualizado. {e}", "aviso")
+
+
+@app.route("/paciente/<int:pid>/lembrete/novo", methods=["GET", "POST"])
+@app.route("/lembrete-paciente/<int:lid>", methods=["GET", "POST"])
+def lembrete_paciente(pid=None, lid=None):
+    cfg = contatos.carregar()
+    with conectar() as con:
+        cur = con.cursor()
+        l = lembretes_paciente.buscar(cur, lid) if lid else None
+        if lid and not l:
+            abort(404)
+        pid = l["paciente_id"] if l else pid
+        p = buscar_paciente(cur, pid)
+        cur.execute("SELECT telegram_chat FROM paciente WHERE id = %s", (pid,))
+        tg_chat = cur.fetchone()[0]
+        erros = []
+        if request.method == "POST":
+            f = request.form
+            texto = f.get("texto", "").strip()
+            try:
+                inicio = datetime.combine(date.fromisoformat(f.get("data", "")),
+                                          datetime.strptime(f.get("hora") or "09:00", "%H:%M").time())
+            except ValueError:
+                inicio = None
+                erros.append("Escolha o dia e a hora.")
+            if not texto:
+                erros.append("Escreva a mensagem.")
+            repetir = f.get("repetir") if f.get("repetir") in lembretes_paciente.REPETIR else ""
+            ate = None
+            if repetir and f.get("ate"):
+                try:
+                    ate = date.fromisoformat(f["ate"])
+                except ValueError:
+                    erros.append("A data de fim não é válida.")
+                if ate and inicio and ate < inicio.date():
+                    erros.append("A data de fim é antes do primeiro dia.")
+            canais = {c: bool(f.get(c)) for c in lembretes_paciente.CANAIS}
+            if not any(canais.values()):
+                erros.append("Escolha pelo menos um jeito de enviar.")
+            if not erros:
+                valores = (texto, inicio, repetir, ate, canais["whatsapp"], canais["telegram"], canais["email"], canais["google"])
+                if l:
+                    # mudou o dia/hora: o WhatsApp recomeça a contar a partir de agora
+                    cur.execute("""UPDATE lembrete_paciente SET texto = %s, inicio = %s, repetir = %s, ate = %s, whatsapp = %s,
+                                   telegram = %s, email = %s, google = %s,
+                                   whatsapp_ate = CASE WHEN inicio = %s AND repetir = %s THEN whatsapp_ate ELSE now() END
+                                   WHERE id = %s""", valores + (inicio, repetir, l["id"]))
+                    flash("Lembrete do paciente alterado.")
+                else:
+                    cur.execute("""INSERT INTO lembrete_paciente (paciente_id, texto, inicio, repetir, ate, whatsapp, telegram,
+                                   email, google, whatsapp_ate) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now() - interval '1 minute')""",
+                                (pid,) + valores)
+                    flash("Lembrete criado para o paciente.")
+                con.commit()
+                _sinc_lembretes_paciente(con, cfg)
+                return redirect(url_for("paciente", pid=pid) + "#lembretes-paciente")
+            form = {"texto": texto, "data": f.get("data", ""), "hora": f.get("hora", ""), "repetir": repetir,
+                    "ate": f.get("ate", ""), **canais}
+        elif l:
+            form = {"texto": l["texto"], "data": l["inicio"].date().isoformat(), "hora": l["inicio"].strftime("%H:%M"),
+                    "repetir": l["repetir"], "ate": l["ate"].isoformat() if l["ate"] else "", "whatsapp": l["whatsapp"],
+                    "telegram": l["telegram"], "email": l["email_ligado"], "google": l["google"]}
+        else:
+            form = {"texto": "", "data": date.today().isoformat(), "hora": "", "repetir": "", "ate": "",
+                    "whatsapp": True, "telegram": bool(tg_chat), "email": False, "google": False}
+    automatico = lembretes_paciente.script_pronto(cfg)
+    disponivel = {
+        "whatsapp": (bool(contatos.telefone_whatsapp(p["telefone"])), "o telefone da ficha não serve para o WhatsApp"),
+        "telegram": (automatico and lembretes_paciente.telegram_pronto(cfg) and bool(tg_chat),
+                     "o paciente ainda não tocou no link do robô (veja o quadro Telegram na ficha)" if lembretes_paciente.telegram_pronto(cfg)
+                     else "crie o robô do Telegram em Configuração › Telegram"),
+        "email": (automatico and checkin.email_valido(p["email"]), "cadastre o e-mail do paciente na ficha"),
+        "google": (automatico and checkin.email_valido(p["email"]), "cadastre o e-mail do paciente na ficha"),
+    }
+    if not automatico:
+        for c in ("telegram", "email", "google"):
+            disponivel[c] = (False, f"atualize o script do Google para a versão {lembretes_paciente.VERSAO} (Configuração › Check-in)")
+    return render_template("lembrete_paciente.html", p=p, l=l, form=form, erros=erros, canais=lembretes_paciente.CANAIS,
+                           disponivel=disponivel, repetir=lembretes_paciente.REPETIR, modelos=lembretes_paciente.MODELOS,
+                           assinatura=cfg["agenda"].get("profissional") or "")
+
+
+@app.route("/lembrete-paciente/<int:lid>/<acao>", methods=["POST"])
+def lembrete_paciente_acao(lid, acao):
+    cfg = contatos.carregar()
+    with conectar() as con:
+        cur = con.cursor()
+        l = lembretes_paciente.buscar(cur, lid) or abort(404)
+        voltar = url_for("paciente", pid=l["paciente_id"]) + "#lembretes-paciente"
+        if acao == "pausar":
+            cur.execute("UPDATE lembrete_paciente SET ativo = false WHERE id = %s", (lid,))
+            flash("Lembrete pausado: não sai mais por nenhum canal até você retomar.")
+        elif acao == "retomar":
+            cur.execute("UPDATE lembrete_paciente SET ativo = true, whatsapp_ate = now() WHERE id = %s", (lid,))
+            flash("Lembrete retomado.")
+        elif acao == "excluir":
+            cur.execute("DELETE FROM lembrete_paciente WHERE id = %s", (lid,))
+            flash("Lembrete do paciente excluído.")
+        elif acao == "whatsapp":
+            # abre o WhatsApp com a mensagem (ou só marca como feito) e registra a vez
+            try:
+                vez = datetime.fromisoformat(request.form.get("vez", ""))
+            except ValueError:
+                abort(400)
+            texto = request.form.get("texto", "")
+            cur.execute("UPDATE lembrete_paciente SET whatsapp_ate = greatest(coalesce(whatsapp_ate, %s), %s) WHERE id = %s",
+                        (vez, vez, lid))
+            cur.execute("""INSERT INTO lembrete_envio (lembrete_id, canal, ocorrencia) VALUES (%s, 'whatsapp', %s)
+                           ON CONFLICT DO NOTHING""", (lid, vez))
+            cur.execute("INSERT INTO contato (paciente_id, tipo, referencia) VALUES (%s, 'lembrete', %s)",
+                        (l["paciente_id"], f"{lid}:{vez.isoformat()}"))
+            con.commit()
+            link = contatos.link_whatsapp(l["telefone"], texto)
+            if request.form.get("so_marcar") or not link:
+                return redirect(_voltar_seguro(request.form.get("voltar")))
+            return redirect(link)
+        else:
+            abort(400)
+        con.commit()
+        _sinc_lembretes_paciente(con, cfg)
+    return redirect(voltar)
+
+
+@app.route("/paciente/<int:pid>/telegram/<acao>", methods=["POST"])
+def paciente_telegram(pid, acao):
+    cfg = contatos.carregar()
+    with conectar() as con:
+        cur = con.cursor()
+        p = buscar_paciente(cur, pid)
+        if acao == "verificar" and not lembretes_paciente.script_pronto(cfg):
+            flash(f"Atualize o script do Google para a versão {lembretes_paciente.VERSAO} (Configuração › Check-in) "
+                  "para o Telegram funcionar.", "aviso")
+        elif acao == "verificar":
+            try:
+                lembretes_paciente.sincronizar(con, cfg)
+                cur.execute("SELECT telegram_chat FROM paciente WHERE id = %s", (pid,))
+                if cur.fetchone()[0]:
+                    flash("Telegram vinculado! O paciente já pode receber os lembretes por lá.")
+                else:
+                    flash("Ainda não chegou nada do paciente no robô. Peça para ele tocar no link e apertar "
+                          "“Começar” (ou “Iniciar”), e verifique de novo.", "aviso")
+            except checkin.ErroGoogle as e:
+                flash(str(e), "aviso")
+        elif acao == "desvincular":
+            cod = lembretes_paciente.codigo(cur, pid)
+            cur.execute("UPDATE paciente SET telegram_chat = NULL, telegram_desde = NULL WHERE id = %s", (pid,))
+            con.commit()
+            try:
+                lembretes_paciente.sincronizar(con, cfg, desvincular=cod)
+            except checkin.ErroGoogle as e:
+                flash(str(e), "aviso")
+            flash(f"Telegram de {p['nome']} desvinculado.")
+        else:
+            abort(400)
+    return redirect(url_for("paciente", pid=pid) + "#lembretes-paciente")
+
+
+@app.route("/configuracao/telegram", methods=["POST"])
+def configuracao_telegram():
+    cfg = contatos.carregar()
+    token = request.form.get("token", "").strip()
+    cfg["telegram"]["email_assunto"] = request.form.get("email_assunto", "").strip() or "Lembrete do seu nutricionista"
+    if request.form.get("remover"):
+        cfg["telegram"].update(token="", bot="")
+        flash("Robô do Telegram removido do sistema. Os lembretes por Telegram param.")
+    elif token and (token != cfg["telegram"].get("token") or not cfg["telegram"].get("bot")):
+        manual = request.form.get("bot", "").strip().lstrip("@").replace("https://t.me/", "")
+        try:
+            cfg["telegram"].update(token=token, bot=lembretes_paciente.robo(token))
+            flash(f"Robô @{cfg['telegram']['bot']} ligado ao sistema.")
+        except lembretes_paciente.SemConexao as e:
+            if re.fullmatch(r"\w{5,32}bot", manual, re.I):
+                cfg["telegram"].update(token=token, bot=manual)
+                flash(f"Robô @{manual} salvo sem conferir (a internet estava lenta). Se o nome ou o token estiverem errados, "
+                      "o link do paciente não vai funcionar: confira tocando no link de teste abaixo.", "aviso")
+            else:
+                cfg["telegram"].update(token=token, bot="")
+                contatos.salvar(cfg)
+                flash(f"{e} Se continuar, escreva o nome de usuário do robô (o que termina em bot) no campo "
+                      "“Nome de usuário do robô” e salve de novo.", "aviso")
+                return redirect(url_for("configuracao") + "#telegram")
+        except checkin.ErroGoogle as e:
+            flash(str(e), "aviso")
+            return redirect(url_for("configuracao") + "#telegram")
+    else:
+        flash("Configuração salva.")
+    contatos.salvar(cfg)
+    with conectar() as con:
+        _sinc_lembretes_paciente(con, cfg)
+    return redirect(url_for("configuracao") + "#telegram")
 
 
 # ---------- check-in semanal (Formulário Google) ----------

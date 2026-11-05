@@ -1,7 +1,8 @@
 /**
  * Check-in semanal dos pacientes: cria o Formulário Google e entrega as respostas ao sistema local.
  * Também envia, pela sua conta Google, os e-mails do check-in automático e as confirmações de consulta da Agenda,
- * coloca as consultas da Agenda no seu Google Agenda (agenda principal) e mantém o formulário do LEAF-Q
+ * coloca as consultas e os lembretes do sistema no seu Google Agenda (agenda principal), envia os lembretes dos
+ * pacientes (Telegram, e-mail e convite no Google Agenda, de 10 em 10 minutos) e mantém o formulário do LEAF-Q
  * (rastreio de RED-S), criado pelo sistema com as mesmas perguntas da tela de rastreio.
  *
  * Como instalar (uma vez só; o passo a passo também está na tela Configuração do sistema):
@@ -45,7 +46,7 @@ const PERGUNTAS = [
   ['comentario', 'paragrafo', 'Quer me contar mais alguma coisa? (opcional)', '', false],
 ];
 const MARCA_NOME = 'NOME_DO_PACIENTE';   // o sistema troca pelo nome de cada paciente no link
-const VERSAO = 5;                        // o sistema confere para saber se o código está atualizado
+const VERSAO = 7;                        // o sistema confere para saber se o código está atualizado
 const TAG = 'sistemaConsulta';           // marca os eventos criados pelo sistema (não voltam como "outros compromissos")
 
 function criar() {
@@ -215,6 +216,11 @@ function doPost(e) {
         ev = cal.createEvent(d.titulo || 'Consulta', ini, fim, { location: d.local || '', description: d.descricao || '' });
         ev.setTag(TAG, String(d.consulta || ''));
       }
+      if (d.aviso !== undefined && d.aviso !== null && d.aviso !== '') {
+        // lembrete do sistema: aviso no celular com a antecedência escolhida (minutos)
+        ev.removeAllReminders();
+        ev.addPopupReminder(Math.max(0, Math.min(40320, Number(d.aviso) || 0)));
+      }
       if (d.convidado && !ev.getGuestByEmail(d.convidado)) {
         ev.addGuest(d.convidado);   // o Google manda o convite ao paciente
       }
@@ -222,6 +228,28 @@ function doPost(e) {
       return json({ erro: 'agenda', detalhe: String(err).slice(0, 200) });
     }
     return json({ ok: true, versao: VERSAO, evento: ev.getId() });
+  }
+  if (d.acao === 'lembretes' || d.acao === 'telegram') {
+    // lembretes dos pacientes: recebe a lista (acao lembretes) ou só lê o Telegram e devolve o estado (acao telegram)
+    const trava = LockService.getScriptLock();
+    if (!trava.tryLock(25000)) return json({ erro: 'ocupado' });
+    try {
+      let erros = [];
+      if (d.acao === 'lembretes') erros = lembretesReceber(d);
+      else if (d.telegram_token !== undefined) props.setProperty('TG_TOKEN', d.telegram_token || '');
+      lerTelegram();
+      if (d.desvincular) {
+        const links = JSON.parse(props.getProperty('TG_LINKS') || '{}');
+        if (links[d.desvincular]) {
+          telegram('sendMessage', { chat_id: links[d.desvincular].chat, text: 'Seu nutricionista desligou os lembretes por aqui.' });
+          delete links[d.desvincular];
+          props.setProperty('TG_LINKS', JSON.stringify(links));
+        }
+      }
+      return json(Object.assign({ ok: true, versao: VERSAO, erros_google: erros }, estadoLembretes()));
+    } finally {
+      trava.releaseLock();
+    }
   }
   if (d.acao === 'pacientes') {
     props.setProperty('EMAIL_CFG', JSON.stringify(d.config || {}));
@@ -232,6 +260,181 @@ function doPost(e) {
     return json({ ok: true, versao: VERSAO, pacientes: Object.keys(novos).length, emails: estadoEmails() });
   }
   return json({ erro: 'acao' });
+}
+
+// ---------- lembretes para os pacientes (Telegram, e-mail e convite no Google Agenda) ----------
+// O sistema manda (POST acao "lembretes") a lista com as próximas vezes de cada lembrete; o gatilho "rodarLembretes",
+// a cada 10 minutos, envia o que chegou na hora, mesmo com o computador desligado. O robô do Telegram é criado por
+// você no @BotFather; o paciente toca no link com o código dele e passa a receber.
+
+const LEMB_JANELA = 6 * 3600 * 1000;   // vez atrasada mais de 6 h (script parado) não é mais enviada
+
+function lembretesReceber(d) {
+  const props = PropertiesService.getScriptProperties();
+  if (d.telegram_token !== undefined) props.setProperty('TG_TOKEN', d.telegram_token || '');
+  props.setProperty('LP_CFG', JSON.stringify({ remetente: d.remetente || '', assunto: d.assunto || 'Lembrete' }));
+  const novos = {}, google = {};
+  for (const it of d.itens || []) {
+    novos['LI_' + it.id] = JSON.stringify({ id: it.id, texto: it.texto, telegram: it.telegram || '', email: it.email || '',
+                                             ocorrencias: it.ocorrencias || [] });
+    if (it.google) google[it.id] = it.google;
+  }
+  for (const k of props.getKeys()) if (k.indexOf('LI_') === 0 && !(k in novos)) props.deleteProperty(k);   // LI_ = um lembrete
+  props.setProperties(novos);
+  const erros = lembretesGoogle(google);
+  // o gatilho de 10 em 10 minutos (cria uma vez; sem lembretes, desliga)
+  const tem = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'rodarLembretes');
+  if (Object.keys(novos).length && !tem) ScriptApp.newTrigger('rodarLembretes').timeBased().everyMinutes(10).create();
+  if (!Object.keys(novos).length && tem) {
+    for (const t of ScriptApp.getProjectTriggers()) if (t.getHandlerFunction() === 'rodarLembretes') ScriptApp.deleteTrigger(t);
+  }
+  return erros;
+}
+
+function calendarioLembretes() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('LEMB_CAL');
+  let cal = id ? CalendarApp.getCalendarById(id) : null;
+  if (!cal) {
+    cal = CalendarApp.createCalendar('Lembretes dos pacientes', { summary: 'Criada pelo sistema: os convites de lembrete dos pacientes saem daqui.' });
+    props.setProperty('LEMB_CAL', cal.getId());
+  }
+  return cal;
+}
+
+function lembretesGoogle(google) {
+  // convite no Google Agenda do paciente: um evento (ou uma série que repete) com o paciente como convidado
+  const props = PropertiesService.getScriptProperties(), erros = [];
+  const apagar = g => {
+    try {
+      const cal = calendarioLembretes();
+      if (g.unico) { const ev = cal.getEventById(g.serie); if (ev) ev.deleteEvent(); }
+      else { const s = cal.getEventSeriesById(g.serie); if (s) s.deleteEventSeries(); }
+    } catch (err) {}
+  };
+  for (const k of props.getKeys()) {
+    if (k.indexOf('LG_') !== 0) continue;
+    const id = k.slice(3), atual = JSON.parse(props.getProperty(k));
+    if (!google[id] || google[id].hash !== atual.hash) { apagar(atual); props.deleteProperty(k); }
+  }
+  for (const id of Object.keys(google)) {
+    const g = google[id];
+    if (props.getProperty('LG_' + id)) continue;   // já está no Google, sem mudança
+    try {
+      const cal = calendarioLembretes();
+      const ini = new Date(g.inicio), fim = new Date(g.fim);
+      const op = { description: g.descricao || '', guests: g.email, sendInvites: true };
+      let ev, unico = !g.repetir;
+      if (unico) {
+        ev = cal.createEvent(g.titulo, ini, fim, op);
+      } else {
+        let r = CalendarApp.newRecurrence();
+        r = g.repetir === 'diario' ? r.addDailyRule() : g.repetir === 'mensal' ? r.addMonthlyRule()
+          : r.addWeeklyRule().interval(g.repetir === 'quinzenal' ? 2 : 1);
+        if (g.ate) r = r.until(new Date(g.ate));
+        ev = cal.createEventSeries(g.titulo, ini, fim, r, op);
+      }
+      ev.removeAllReminders();
+      props.setProperty('LG_' + id, JSON.stringify({ serie: ev.getId(), hash: g.hash, unico: unico }));
+    } catch (err) {
+      erros.push({ id: Number(id), erro: String(err).slice(0, 160) });
+    }
+  }
+  return erros;
+}
+
+function telegram(metodo, corpo) {
+  const token = PropertiesService.getScriptProperties().getProperty('TG_TOKEN');
+  if (!token) return { ok: false, description: 'sem robô' };
+  const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/' + metodo,
+    { method: 'post', contentType: 'application/json', payload: JSON.stringify(corpo || {}), muteHttpExceptions: true });
+  try { return JSON.parse(r.getContentText()); } catch (err) { return { ok: false, description: 'resposta ' + r.getResponseCode() }; }
+}
+
+function lerTelegram() {
+  // mensagens que chegaram ao robô: "/start CODIGO" vincula o paciente, "/parar" desliga
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('TG_TOKEN')) return {};
+  const links = JSON.parse(props.getProperty('TG_LINKS') || '{}');
+  const r = telegram('getUpdates', { offset: Number(props.getProperty('TG_OFFSET') || 0), timeout: 0, allowed_updates: ['message'] });
+  if (!r.ok) return links;
+  for (const u of r.result) {
+    props.setProperty('TG_OFFSET', String(u.update_id + 1));
+    const m = u.message;
+    if (!m || !m.chat || !m.text) continue;
+    const chat = String(m.chat.id), texto = m.text.trim();
+    let resposta;
+    if (texto.indexOf('/start') === 0) {
+      const codigo = texto.slice(6).trim();
+      if (codigo && /^[\w-]{6,64}$/.test(codigo)) {
+        links[codigo] = { chat: chat, em: new Date().toISOString(), nome: m.chat.first_name || '' };
+        resposta = 'Pronto! A partir de agora você recebe aqui os lembretes do seu nutricionista. Para parar, envie /parar.';
+      } else {
+        resposta = 'Para receber os lembretes, use o link que o seu nutricionista enviou.';
+      }
+    } else if (/^\/(parar|stop|sair)/i.test(texto)) {
+      for (const c of Object.keys(links)) if (links[c].chat === chat) links[c].parou = new Date().toISOString();
+      resposta = 'Tudo bem, você não vai mais receber lembretes por aqui. Para voltar, toque de novo no link do seu nutricionista.';
+    } else {
+      resposta = 'Este canal só envia lembretes. Para falar com o seu nutricionista, use o WhatsApp.';
+    }
+    telegram('sendMessage', { chat_id: chat, text: resposta });
+  }
+  props.setProperty('TG_LINKS', JSON.stringify(links));
+  return links;
+}
+
+function rodarLembretes() {
+  const trava = LockService.getScriptLock();
+  if (!trava.tryLock(20000)) return;
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const links = lerTelegram();
+    const parados = {};
+    for (const c of Object.keys(links)) if (links[c].parou) parados[links[c].chat] = true;
+    const cfg = JSON.parse(props.getProperty('LP_CFG') || '{}');
+    const env = JSON.parse(props.getProperty('LP_ENV') || '{}');   // id -> última vez enviada
+    const log = JSON.parse(props.getProperty('LP_LOG') || '[]');
+    const agora = Date.now();
+    for (const k of props.getKeys()) {
+      if (k.indexOf('LI_') !== 0) continue;
+      const it = JSON.parse(props.getProperty(k));
+      const ja = env[it.id] ? new Date(env[it.id]).getTime() : 0;
+      const vez = it.ocorrencias.filter(o => { const t = new Date(o).getTime(); return t <= agora && t > agora - LEMB_JANELA && t > ja; }).pop();
+      if (!vez) continue;
+      env[it.id] = vez;
+      if (it.telegram) {
+        if (parados[it.telegram]) {
+          log.unshift({ id: it.id, vez: vez, canal: 'telegram', erro: 'o paciente pediu para parar' });
+        } else {
+          const r = telegram('sendMessage', { chat_id: it.telegram, text: it.texto });
+          log.unshift({ id: it.id, vez: vez, canal: 'telegram', erro: r.ok ? '' : String(r.description || 'falhou').slice(0, 120) });
+        }
+      }
+      if (it.email) {
+        try {
+          if (MailApp.getRemainingDailyQuota() < 1) throw new Error('acabou a cota de e-mails de hoje');
+          MailApp.sendEmail({ to: it.email, subject: cfg.assunto || 'Lembrete', name: cfg.remetente || '', body: it.texto,
+            htmlBody: String(it.texto).split('\n').map(l => l ? l.replace(/&/g, '&amp;').replace(/</g, '&lt;') : '&nbsp;').join('<br>') });
+          log.unshift({ id: it.id, vez: vez, canal: 'email', erro: '' });
+        } catch (err) {
+          log.unshift({ id: it.id, vez: vez, canal: 'email', erro: String(err).slice(0, 120) });
+        }
+      }
+    }
+    props.setProperty('LP_ENV', JSON.stringify(env));
+    props.setProperty('LP_LOG', JSON.stringify(log.slice(0, 300)));
+    props.setProperty('LP_ULTIMA', new Date(agora).toISOString());
+  } finally {
+    trava.releaseLock();
+  }
+}
+
+function estadoLembretes() {
+  const props = PropertiesService.getScriptProperties();
+  return { gatilho: ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'rodarLembretes'),
+           ultima: props.getProperty('LP_ULTIMA'), log: JSON.parse(props.getProperty('LP_LOG') || '[]'),
+           telegram: JSON.parse(props.getProperty('TG_LINKS') || '{}') };
 }
 
 function normalizar(s) {

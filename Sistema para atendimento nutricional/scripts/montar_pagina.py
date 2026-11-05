@@ -54,6 +54,7 @@ def gerar_html(template, nome, avaliacoes, plano, checkin=None, extras=None):
          .replace("__PLANO__", json.dumps(plano, ensure_ascii=False))
          .replace("__CHECKIN__", json.dumps(checkin))
          .replace("__WHATSAPP__", json.dumps(_whatsapp()))
+         .replace("__PASSOS__", json.dumps(extras.get("passos")))
          .replace("__CHECKINS__", json.dumps(extras.get("checkins") or [], ensure_ascii=False))
          .replace("__REDS__", json.dumps(extras.get("reds") or {"leafq": [], "energia": []}, ensure_ascii=False))
          .replace("__EXAMES__", json.dumps(extras.get("exames") or {"datas": [], "grupos": []}, ensure_ascii=False))

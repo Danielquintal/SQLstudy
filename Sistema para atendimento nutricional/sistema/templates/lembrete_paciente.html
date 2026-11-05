@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block titulo %}Lembrete · {{ p.nome }}{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow"><a href="{{ url_for('paciente', pid=p.id) }}#lembretes-paciente">{{ p.nome }}</a></p>
+  <h1>{{ 'Alterar lembrete do paciente' if l else 'Lembrete para o paciente' }}</h1>
+  <p class="sub">Chega no celular do paciente pelos canais que você marcar.</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if erros %}<div class="msg erro" role="alert">Nada foi salvo. Confira:<ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+<form class="card assistente" id="assistente" autocomplete="off">
+  <h2>Assistente</h2>
+  <div class="assist-linha">
+    <input class="texto" id="frase" aria-label="Escreva quando e o quê" {{ 'autofocus' if not l }}
+      placeholder="Ex.: todo dia às 8h tomar creatina até 30/12">
+    <button class="btn" id="assist-ok">Preencher</button>
+  </div>
+  <div class="entendi" id="entendi" aria-live="polite">
+    <span class="note">Escreva o quando e o quê (“todo dia às 15h lanche da tarde”, “toda segunda às 7 pesar-se”) e eu preencho abaixo.</span>
+  </div>
+</form>
+
+<form method="post" class="card ficha" id="form-lp">
+  <h2>Mensagem</h2>
+  <div class="atalhos"><span class="note">Modelos:</span>
+    {% for k, (rot, txt) in modelos.items() %}<button type="button" class="btn mini" data-modelo="{{ txt }}">{{ rot }}</button>{% endfor %}
+  </div>
+  <div class="campo"><label for="lp-texto">Texto que o paciente recebe</label>
+    <textarea id="lp-texto" name="texto" rows="4" required maxlength="1500">{{ form.texto }}</textarea>
+    <span class="note">Use <code>{primeiro_nome}</code> para o nome do paciente. No Telegram e no e-mail vai a sua assinatura no fim
+      ({{ assinatura or 'configure em Configuração › Agenda' }}).</span></div>
+
+  <h2>Quando</h2>
+  <div class="cadastro">
+    <div class="campo"><label for="lp-data">{{ 'Primeiro dia' if form.repetir else 'Dia' }}</label>
+      <input id="lp-data" type="date" name="data" value="{{ form.data }}" required></div>
+    <div class="campo"><label for="lp-hora">Hora</label><input id="lp-hora" type="time" name="hora" value="{{ form.hora }}" required step="300"></div>
+    <div class="campo"><label for="lp-rep">Repetir</label>
+      <select id="lp-rep" name="repetir">{% for k, v in repetir.items() %}<option value="{{ k }}" {{ 'selected' if form.repetir == k }}>{{ v }}</option>{% endfor %}</select></div>
+    <div class="campo" id="campo-ate" {{ 'hidden' if not form.repetir }}><label for="lp-ate">Até (opcional)</label>
+      <input id="lp-ate" type="date" name="ate" value="{{ form.ate }}"></div>
+  </div>
+
+  <h2>Como enviar</h2>
+  <div class="canais-escolha">
+    {% for c, rot in canais.items() %}
+    {% set ok, motivo = disponivel[c] %}
+    <label class="check{{ ' indisponivel' if not ok }}">
+      <input type="checkbox" name="{{ c }}" value="1" {{ 'checked' if form[c] and ok }} {{ 'disabled' if not ok }}>
+      <span><b>{{ rot }}</b>
+        <span class="note">{% if not ok %}Indisponível: {{ motivo }}.
+        {% elif c == 'whatsapp' %}Na hora, aparece em Contatos com a mensagem pronta; você abre e envia.
+        {% elif c == 'telegram' %}Automático: chega como mensagem do robô no Telegram do paciente.
+        {% elif c == 'email' %}Automático: sai da sua conta Google para {{ p.email }}.
+        {% else %}O paciente recebe um convite e o Google Agenda dele avisa no celular na hora (se ele aceitar o convite).{% endif %}</span></span>
+    </label>
+    {% endfor %}
+  </div>
+  <div class="acoes">
+    <button class="btn pri">{{ 'Salvar alterações' if l else 'Criar lembrete' }}</button>
+    <a class="btn" href="{{ url_for('paciente', pid=p.id) }}#lembretes-paciente">Cancelar</a>
+  </div>
+</form>
+
+<script>
+const rep = document.getElementById('lp-rep');
+const mostrarAte = () => { document.getElementById('campo-ate').hidden = !rep.value;
+  document.querySelector('label[for=lp-data]').textContent = rep.value ? 'Primeiro dia' : 'Dia'; };
+rep.addEventListener('change', mostrarAte);
+const area = document.getElementById('lp-texto');
+document.querySelectorAll('[data-modelo]').forEach(b => b.addEventListener('click', () => { area.value = b.dataset.modelo; area.focus(); }));
+// assistente: usa o mesmo leitor de frases dos seus lembretes (o paciente já está escolhido)
+const frase = document.getElementById('frase'), entendi = document.getElementById('entendi');
+const ajuda = entendi.innerHTML;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let pedido = 0, espera;
+async function entender() {
+  const bruto = frase.value.trim(), n = ++pedido;
+  if (!bruto) { entendi.innerHTML = ajuda; return null; }
+  // "até 30/12" (fim da repetição) sai antes de mandar ao leitor, senão vira o dia do lembrete
+  const fimRe = /\bat[eé]\s+(?:o\s+dia\s+)?(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/i;
+  const ate = bruto.match(fimRe), q = bruto.replace(fimRe, ' ').trim();
+  let r;
+  try { r = await (await fetch("{{ url_for('lembretes_entender') }}?frase=" + encodeURIComponent(q), { cache: 'no-store' })).json(); }
+  catch (e) { return null; }
+  if (n !== pedido) return null;
+  if (r.texto) area.value = 'Oi, {primeiro_nome}! ' + r.texto + (/[.!?]$/.test(r.texto) ? '' : '.');
+  if (r.data) document.getElementById('lp-data').value = r.data;
+  if (r.hora && !r.hora_padrao) document.getElementById('lp-hora').value = r.hora;
+  rep.value = r.repetir; mostrarAte();
+  if (ate) {
+    const hoje = new Date(), ano = ate[3] ? (ate[3].length === 2 ? '20' + ate[3] : ate[3]) : hoje.getFullYear();
+    document.getElementById('lp-ate').value = ano + '-' + ate[2].padStart(2, '0') + '-' + ate[1].padStart(2, '0');
+  }
+  let h = '<span class="tipo">Entendi</span><span class="chips">';
+  for (const p of r.resumo) h += '<span class="chip">' + esc(p) + '</span>';
+  if (ate) h += '<span class="chip">até ' + esc(ate[0].replace(/^at[eé]\s+/i, '')) + '</span>';
+  if (r.falta_dia) h += '<span class="chip warn">sem dia: escolha abaixo</span>';
+  if (r.hora_padrao) h += '<span class="chip warn">sem hora: escolha abaixo</span>';
+  entendi.innerHTML = h + '</span>';
+  return r;
+}
+frase.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(entender, 250); });
+document.getElementById('assistente').addEventListener('submit', async e => { e.preventDefault(); await entender(); area.focus(); });
+</script>
+{% endblock %}

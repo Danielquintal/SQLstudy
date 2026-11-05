@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block titulo %}Lembretes{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">Para você</p>
+  <h1>Lembretes</h1>
+  {% set n_atr = grupos[0][1]|length %}{% set n_hoje = grupos[1][1]|length %}
+  <p class="sub">{{ n_hoje }} para hoje{% if n_atr %} · {{ n_atr }} atrasado{{ 's' if n_atr != 1 }}{% endif %} · {{ grupos[2][1]|length }} próximo{{ 's' if grupos[2][1]|length != 1 }}</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if not editar %}
+<form class="card assistente" id="assistente" autocomplete="off">
+  <h2>Assistente</h2>
+  <div class="assist-linha">
+    <input class="texto" id="frase" aria-label="Escreva o lembrete como você falaria" autofocus
+      placeholder="Ex.: me lembra de pedir exames da Alanis daqui a 2 semanas às 10h">
+    <button class="btn pri" id="assist-criar">Criar lembrete</button>
+  </div>
+  <div class="entendi" id="entendi" aria-live="polite">
+    <span class="note">Escreva como falaria: “amanhã às 10 ligar para o João”, “toda segunda revisar check-ins”,
+      “dia 15 pagar o conselho”, “na sexta de tarde mandar o plano da Ana”. Confira o que entendi e aperte Enter.</span>
+  </div>
+</form>
+{% endif %}
+
+<form method="post" action="{{ url_for('lembrete_salvar') }}" class="card" id="novo">
+  <h2>{{ 'Alterar lembrete' if editar else 'Novo lembrete' }}</h2>
+  <input type="hidden" name="id" value="{{ form.id }}">
+  <input type="hidden" name="voltar" value="{{ voltar }}">
+  <div class="campo"><label for="lb-texto">O que lembrar</label>
+    <input class="texto" id="lb-texto" name="texto" value="{{ form.texto }}" required maxlength="300" {{ 'autofocus' if editar }}
+      placeholder="Ex.: pedir exames, revisar plano, ligar para o paciente"></div>
+  <div class="cadastro">
+    <div class="campo"><label for="lb-data">Dia</label><input id="lb-data" type="date" name="data" value="{{ form.data }}" required></div>
+    <div class="campo"><label for="lb-hora">Hora</label><input id="lb-hora" type="time" name="hora" value="{{ form.hora }}" required step="300"></div>
+    <div class="campo"><label for="lb-pac">Paciente (opcional)</label>
+      <input class="texto" id="lb-pac" name="paciente" list="nomes" value="{{ form.paciente }}" autocomplete="off" placeholder="Comece a digitar o nome">
+      <datalist id="nomes">{% for n in nomes %}<option value="{{ n }}">{% endfor %}</datalist></div>
+    <div class="campo"><label for="lb-rep">Repetir</label>
+      <select id="lb-rep" name="repetir">{% for k, v in repetir.items() %}<option value="{{ k }}" {{ 'selected' if form.repetir == k }}>{{ v }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="atalhos" aria-label="Escolher o dia rápido">
+    <span class="note">Dia rápido:</span>
+    {% for dias, rot in [(0, 'Hoje'), (1, 'Amanhã'), (7, 'Em 1 semana'), (15, 'Em 15 dias'), (30, 'Em 1 mês'), (90, 'Em 3 meses')] %}
+    <button type="button" class="btn mini" data-dias="{{ dias }}">{{ rot }}</button>
+    {% endfor %}
+  </div>
+  {% if google_ligado %}
+  <div class="google-lb">
+    <label class="check"><input type="checkbox" name="google" value="1" {{ 'checked' if form.google }}> Colocar também no Google Agenda (avisa no celular)</label>
+    <label class="note" for="lb-aviso">Aviso
+      <select id="lb-aviso" name="aviso_min">{% for k, v in avisos.items() %}<option value="{{ k }}" {{ 'selected' if form.aviso_min == k }}>{{ v }}</option>{% endfor %}</select></label>
+  </div>
+  {% if not avisa_certo %}<p class="note">Para o celular avisar com a antecedência escolhida, atualize o código do script do Google
+    (está na versão {{ versao_script }}; precisa da {{ versao_aviso }}) como explicado em <a href="{{ url_for('configuracao') }}#agenda">Configuração › Agenda</a>.
+    Até lá, o Google usa o aviso padrão da sua agenda.</p>{% endif %}
+  {% else %}
+  <p class="note">Os lembretes aparecem aqui, no número do menu e num aviso na tela enquanto o sistema estiver aberto.
+    Para receber o aviso também no celular, ligue o Google Agenda em <a href="{{ url_for('configuracao') }}#agenda">Configuração › Agenda</a>.</p>
+  {% endif %}
+  <div class="acoes">
+    <button class="btn pri">{{ 'Salvar alterações' if editar else 'Criar lembrete' }}</button>
+    {% if editar %}<a class="btn" href="{{ voltar or url_for('lembretes_pagina') }}">Cancelar</a>{% endif %}
+    <span class="note" id="aviso-tela"></span>
+  </div>
+</form>
+
+{% for titulo, itens in grupos if itens %}
+<div class="card lembretes-grupo">
+  <h2>{{ titulo }} <span class="note">({{ itens|length }})</span></h2>
+  <div class="lista-lembretes">
+    {% for l in itens %}
+    <div class="lemb{{ ' vencido' if l.quando <= agora }}">
+      <div class="lemb-txt">
+        <span class="quando">{{ quando(l.quando, agora) }}</span>
+        <span class="o-que">{{ l.texto }}</span>
+        <span class="det">
+          {% if l.paciente %}<a href="{{ url_for('paciente', pid=l.paciente_id) }}">{{ l.paciente }}</a>{% endif %}
+          {% if l.repetir %}<span>↻ {{ repetir[l.repetir]|lower }}</span>{% endif %}
+          {% if google_ligado and l.google %}<span title="Também no Google Agenda">{{ 'Google Agenda ✓' if l.google_evento_id else 'ainda não foi ao Google' }}</span>{% endif %}
+        </span>
+      </div>
+      <div class="acoes">
+        <form method="post" action="{{ url_for('lembrete_acao', lid=l.id, acao='feito') }}"><button class="btn pri" title="{{ 'Marca como feito e passa para a próxima vez' if l.repetir else 'Marca como feito' }}">✓ Feito</button></form>
+        <form method="post" action="{{ url_for('lembrete_acao', lid=l.id, acao='adiar') }}" class="adiar">
+          <select name="para" aria-label="Adiar para"><option value="1h">daqui a 1 hora</option><option value="amanha">amanhã</option><option value="semana">daqui a 1 semana</option></select>
+          <button class="btn">Adiar</button></form>
+        <a class="btn" href="{{ url_for('lembretes_pagina', editar=l.id) }}#novo">Alterar</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="card"><p class="vazio" style="margin:0">Nenhum lembrete pendente. Crie o primeiro no quadro acima.</p></div>
+{% endfor %}
+
+{% if feitos %}
+<details class="card">
+  <summary><h2 style="display:inline">Feitos recentemente</h2></summary>
+  <div class="lista-lembretes">
+    {% for l in feitos %}
+    <div class="lemb feito">
+      <div class="lemb-txt">
+        <span class="quando">feito em {{ l.feito_em.strftime('%d/%m %H:%M') }}</span>
+        <span class="o-que">{{ l.texto }}</span>
+        {% if l.paciente %}<span class="det"><a href="{{ url_for('paciente', pid=l.paciente_id) }}">{{ l.paciente }}</a></span>{% endif %}
+      </div>
+      <div class="acoes">
+        <form method="post" action="{{ url_for('lembrete_acao', lid=l.id, acao='reabrir') }}"><button class="btn">Reabrir</button></form>
+        <form method="post" action="{{ url_for('lembrete_acao', lid=l.id, acao='excluir') }}">
+          <button type="button" class="btn perigo" onclick="this.hidden=true;this.nextElementSibling.hidden=false">Excluir</button>
+          <span hidden class="confirma">Excluir de vez? <button class="btn perigo cheio">Sim</button></span></form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</details>
+{% endif %}
+
+{% if editar %}
+<form method="post" action="{{ url_for('lembrete_acao', lid=editar.id, acao='excluir') }}" class="card">
+  <div class="acoes">
+    <button type="button" class="btn perigo" onclick="this.hidden=true;this.nextElementSibling.hidden=false">Excluir este lembrete</button>
+    <span hidden class="confirma">Excluir de vez{{ ' (sai também do Google Agenda)' if editar.google_evento_id }}? <button class="btn perigo cheio">Sim, excluir</button></span>
+  </div>
+</form>
+{% endif %}
+
+<script>
+// assistente: a cada letra pergunta ao sistema o que entendeu e preenche o quadro "Novo lembrete" logo abaixo
+const caixaAssist = document.getElementById('assistente');
+if (caixaAssist) {
+  const frase = document.getElementById('frase'), entendi = document.getElementById('entendi');
+  const campos = { texto: 'lb-texto', data: 'lb-data', hora: 'lb-hora', paciente: 'lb-pac', repetir: 'lb-rep' };
+  const iniciais = Object.fromEntries(Object.entries(campos).map(([k, id]) => [k, document.getElementById(id).value]));
+  const ajudaInicial = entendi.innerHTML;
+  let ultimo = null, pedido = 0, espera;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  async function entender() {
+    const q = frase.value.trim(), n = ++pedido;
+    if (!q) { ultimo = null; entendi.innerHTML = ajudaInicial; return null; }
+    let r;
+    try { r = await (await fetch("{{ url_for('lembretes_entender') }}?frase=" + encodeURIComponent(q), { cache: 'no-store' })).json(); }
+    catch (e) { entendi.innerHTML = '<span class="note">Não consegui falar com o sistema. Ele está aberto?</span>'; return null; }
+    if (n !== pedido) return null;   // chegou a resposta de uma frase mais antiga
+    ultimo = r;
+    document.getElementById(campos.texto).value = r.texto;
+    document.getElementById(campos.data).value = r.data;
+    document.getElementById(campos.hora).value = r.hora || iniciais.hora;
+    document.getElementById(campos.paciente).value = r.paciente || (r.mesmo_nome.length ? '' : iniciais.paciente);
+    document.getElementById(campos.repetir).value = r.repetir;
+    let h = '<span class="tipo">Entendi</span><span class="chips">';
+    h += r.texto ? '<b>' + esc(r.texto) + '</b>' : '<span class="falta">o que lembrar?</span>';
+    for (const p of r.resumo) h += '<span class="chip">' + esc(p) + '</span>';
+    if (r.falta_dia) h += '<span class="chip warn">sem dia: escolha abaixo</span>';
+    h += '</span>';
+    for (const a of r.avisos) h += '<span class="note falta">' + esc(a) + '</span>';
+    entendi.innerHTML = h;
+    return r;
+  }
+  frase.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(entender, 200); });
+  caixaAssist.addEventListener('submit', async e => {
+    e.preventDefault();
+    clearTimeout(espera);
+    const r = await entender();
+    if (!r) { frase.focus(); return; }
+    if (!r.texto) { document.getElementById(campos.texto).focus(); return; }
+    if (!r.data) { const d = document.getElementById(campos.data); d.focus(); try { d.showPicker(); } catch (e) {} return; }
+    if (r.mesmo_nome.length) { document.getElementById(campos.paciente).focus(); return; }
+    document.getElementById('novo').requestSubmit();
+  });
+}
+// botões de dia rápido
+const campoData = document.getElementById('lb-data');
+document.querySelectorAll('[data-dias]').forEach(b => b.addEventListener('click', () => {
+  const d = new Date();
+  d.setDate(d.getDate() + Number(b.dataset.dias));
+  campoData.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}));
+// aviso na tela do computador (notificação do Windows enquanto o sistema estiver aberto)
+const avisoTela = document.getElementById('aviso-tela');
+if ('Notification' in window && Notification.permission === 'default') {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn mini'; b.textContent = 'Ativar aviso do Windows';
+  b.title = 'Mostra o lembrete no canto da tela na hora marcada, enquanto o sistema estiver aberto';
+  b.addEventListener('click', () => Notification.requestPermission().then(() => b.remove()));
+  avisoTela.append(b);
+}
+</script>
+{% endblock %}

@@ -16,6 +16,7 @@
     <nav class="menu" aria-label="Menu">
       <a class="btn" href="{{ url_for('inicio') }}">Pacientes</a>
       <a class="btn" href="{{ url_for('agenda_semana') }}">Agenda{% if n_consultas_hoje %} <span class="badge" title="Consultas hoje">{{ n_consultas_hoje }}</span>{% endif %}</a>
+      <a class="btn" href="{{ url_for('lembretes_pagina') }}">Lembretes{% if n_lembretes %} <span class="badge" title="Lembretes que já chegaram na hora">{{ n_lembretes }}</span>{% endif %}</a>
       <a class="btn" href="{{ url_for('contatos_do_dia') }}">Contatos{% if n_contatos %} <span class="badge">{{ n_contatos }}</span>{% endif %}</a>
       <a class="btn" href="{{ url_for('checkins') }}">Check-ins{% if n_checkin_sem %} <span class="badge" title="Respostas sem paciente identificado">{{ n_checkin_sem }}</span>{% endif %}</a>
       <a class="btn" href="{{ url_for('alimentos_proprios') }}">Alimentos</a>
@@ -31,5 +32,41 @@
   {% endfor %}
   {% block corpo %}{% endblock %}
 </div></main>
+<div class="avisos-lemb" id="avisos-lemb" aria-live="polite"></div>
+<script>
+// lembretes: a cada minuto pergunta ao sistema se algum chegou na hora; mostra um aviso no canto
+// (e a notificação do Windows, se foi ativada na tela Lembretes). Cada lembrete avisa uma vez só por horário.
+(() => {
+  const URL_JSON = "{{ url_for('lembretes_agora') }}", URL_PAG = "{{ url_for('lembretes_pagina') }}";
+  const caixa = document.getElementById('avisos-lemb');
+  const ler = () => { try { return JSON.parse(localStorage.getItem('lembretes_avisados') || '[]'); } catch (e) { return []; } };
+  const gravar = v => { try { localStorage.setItem('lembretes_avisados', JSON.stringify(v.slice(-300))); } catch (e) {} };
+  let primeira = true;
+  async function olhar() {
+    let itens;
+    try { itens = await (await fetch(URL_JSON, { cache: 'no-store' })).json(); } catch (e) { return; }
+    const vistos = ler(), novos = itens.filter(i => !vistos.includes(i.chave));
+    for (const i of novos) {
+      const d = document.createElement('div');
+      d.className = 'aviso-lemb'; d.setAttribute('role', 'status');
+      d.innerHTML = '<span class="tipo">Lembrete · ' + i.quando + '</span><b></b><span class="note"></span>'
+        + '<div class="acoes"><a class="btn mini pri" href="' + URL_PAG + '">Abrir lembretes</a>'
+        + '<button type="button" class="btn mini">Fechar</button></div>';
+      d.querySelector('b').textContent = i.texto;
+      d.querySelector('.note').textContent = i.paciente;
+      d.querySelector('button').addEventListener('click', () => d.remove());
+      caixa.append(d);
+      if (!primeira && 'Notification' in window && Notification.permission === 'granted') {
+        try { new Notification('Lembrete', { body: i.texto + (i.paciente ? ' — ' + i.paciente : ''), tag: i.chave }); } catch (e) {}
+      }
+      vistos.push(i.chave);
+    }
+    if (novos.length) gravar(vistos);
+    primeira = false;
+  }
+  olhar();
+  setInterval(olhar, 60000);
+})();
+</script>
 </body>
 </html>
