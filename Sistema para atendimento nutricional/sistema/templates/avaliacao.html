@@ -24,6 +24,49 @@
     {% endif %}
   </div>
 
+  <nav class="abas-av" role="tablist">
+    <button type="button" role="tab" data-aba="anamnese" aria-selected="false">1. Anamnese{% if an %} <span class="preenchidos">{{ an|length }} resposta{{ 's' if an|length != 1 }}</span>{% endif %}</button>
+    <button type="button" role="tab" data-aba="medidas" aria-selected="false">2. Avaliação antropométrica</button>
+  </nav>
+
+  <section class="aba-av" id="aba-anamnese" data-inicial="{{ 'sim' if aid is none and not erros else '' }}">
+    {% if an_origem %}
+    <div class="msg">Trouxe a anamnese da avaliação de {{ an_origem|br }}. Atualize o que mudou: ela fica gravada junto com esta avaliação.</div>
+    {% elif aid is none %}
+    <p class="note" style="margin:0 0 4px">Primeira anamnese deste paciente. Preencha o que for relevante; nada é obrigatório.</p>
+    {% endif %}
+    {% for titulo, _, itens in an_secoes %}
+    <details class="secao an-secao" open>
+      <summary>{{ titulo }}</summary>
+      <div class="campos an-campos">
+        {% for k, rotulo, tipo, opcoes in itens %}
+        {% set v = an.get(k) %}
+        <div class="campo {{ 'largo' if tipo in ['longo', 'varias'] }}">
+          <label for="an-{{ k }}">{{ rotulo }}</label>
+          {% if tipo == 'longo' %}
+            <textarea id="an-{{ k }}" name="an_{{ k }}" rows="{{ 5 if k == 'recordatorio' else 2 }}">{{ v or '' }}</textarea>
+          {% elif tipo == 'escolha' %}
+            <select id="an-{{ k }}" name="an_{{ k }}"><option value=""></option>
+              {% for o in opcoes %}<option {{ 'selected' if v == o }}>{{ o }}</option>{% endfor %}</select>
+          {% elif tipo == 'escala' %}
+            <div class="an-escala" id="an-{{ k }}">{% for o in opcoes %}
+              <label><input type="radio" name="an_{{ k }}" value="{{ o }}" {{ 'checked' if v == o }}> {{ o }}</label>{% endfor %}
+              <button type="button" class="btn mini" data-limpar="an_{{ k }}">Limpar</button></div>
+          {% elif tipo == 'varias' %}
+            <div class="an-varias" id="an-{{ k }}">{% for o in opcoes %}
+              <label><input type="checkbox" name="an_{{ k }}" value="{{ o }}" {{ 'checked' if v and o in v }}> {{ o }}</label>{% endfor %}</div>
+          {% else %}
+            <input class="texto" id="an-{{ k }}" name="an_{{ k }}" value="{{ v or '' }}" {{ 'inputmode=decimal' if tipo == 'numero' }} autocomplete="off">
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+    <div class="acoes"><button type="button" class="btn pri" data-aba-ir="medidas">Continuar para a avaliação antropométrica →</button></div>
+  </section>
+
+  <section class="aba-av" id="aba-medidas">
   {% for titulo, campos in secoes %}
   {% set ns = namespace(tem=loop.first) %}
   {% for col, _ in campos %}{% if form.get(col) and col not in ['protocolo_dobras', 'equacao_gordura'] %}{% set ns.tem = true %}{% endif %}{% endfor %}
@@ -63,6 +106,7 @@
       Atualiza enquanto você digita.</p>
     <div id="pf" class="pf"></div>
   </div>
+  </section>
 
   <div class="barra">
     <div class="acoes">
@@ -81,7 +125,36 @@
     {% endif %}
   </div>
 </form>
+<style>
+.abas-av{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-top:4px}
+.abas-av button{appearance:none;border:1px solid transparent;border-bottom:0;background:none;color:var(--muted);font:600 15px var(--sans);
+  padding:10px 16px;border-radius:10px 10px 0 0;cursor:pointer}
+.abas-av button[aria-selected="true"]{background:var(--surface);border-color:var(--line);color:var(--ink);margin-bottom:-1px}
+.abas-av .preenchidos{font-weight:400;font-size:12px;margin-left:6px}
+.aba-av{display:flex;flex-direction:column;gap:12px}
+.aba-av[hidden]{display:none}
+.an-campos .campo.largo{grid-column:1/-1}
+.an-escala,.an-varias{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.an-escala label,.an-varias label{display:flex;gap:6px;align-items:center;font-weight:400;cursor:pointer}
+.an-escala input,.an-varias input{width:auto;min-height:0;margin:0;flex:none}
+.an-varias label{white-space:nowrap}
+</style>
 <script>
+// abas: Anamnese / Avaliação antropométrica (as duas estão no mesmo formulário e são gravadas juntas)
+(() => {
+  const botoes = [...document.querySelectorAll('.abas-av [data-aba]')];
+  const abrir = nome => {
+    botoes.forEach(b => b.setAttribute('aria-selected', String(b.dataset.aba === nome)));
+    document.querySelectorAll('.aba-av').forEach(s => { s.hidden = s.id !== 'aba-' + nome; });
+  };
+  botoes.forEach(b => b.addEventListener('click', () => abrir(b.dataset.aba)));
+  document.querySelectorAll('[data-aba-ir]').forEach(b => b.addEventListener('click', () => { abrir(b.dataset.abaIr); window.scrollTo({ top: 0 }); }));
+  document.querySelectorAll('[data-limpar]').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll(`input[name="${b.dataset.limpar}"]`).forEach(i => { i.checked = false; });
+  }));
+  // avaliação nova começa pela anamnese; edição (ou volta com erro) começa pelas medidas
+  abrir(document.getElementById('aba-anamnese').dataset.inicial ? 'anamnese' : 'medidas');
+})();
 // Campos calculados (borda tracejada) acompanham o que é digitado; as contas ficam em scripts/calculos.py.
 // Um campo calculado que você corrigir à mão não é mais trocado e entra nas contas seguintes.
 const $ = id => document.getElementById(id);
@@ -204,16 +277,17 @@ function desenharPerfil(pf) {
 }
 
 $('ficha').addEventListener('input', e => {
-  if (e.target.closest('.campo.calc')) return;
+  if (e.target.closest('.campo.calc') || e.target.closest('#aba-anamnese')) return;   // anamnese não entra nas contas
   clearTimeout(espera); espera = setTimeout(calcular, 300);
 });
 $('ficha').addEventListener('change', e => {
+  if (e.target.closest('#aba-anamnese')) return;
   if (e.target.tagName === 'SELECT' || e.target.type === 'date') { clearTimeout(espera); calcular(); }
 });
 
 // quantos campos preenchidos em cada seção
 function contar() {
-  document.querySelectorAll('.secao').forEach(s => {
+  document.querySelectorAll('.secao:not(.an-secao)').forEach(s => {
     const n = [...s.querySelectorAll('input,select')].filter(i => i.value.trim()).length;
     s.querySelector('.preenchidos').textContent = n ? n + ' preenchido' + (n > 1 ? 's' : '') : '';
   });

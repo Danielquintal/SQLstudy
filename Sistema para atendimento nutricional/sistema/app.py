@@ -20,6 +20,7 @@ from campos import CAMPOS, TEXTO
 from montar_pagina import gerar_html, montar
 from planilha_paciente import SECTIONS, build, safe_name
 import agenda
+import anamnese
 import checkin
 import reds
 import exames
@@ -325,8 +326,10 @@ def avaliacao(pid, aid=None):
         if aid is not None and atual is None:
             abort(404)
         erros = []
+        an_origem = None   # de onde veio a anamnese mostrada (avaliação nova: a última do paciente)
         if request.method == "POST":
             d, valores, erros = ler_formulario(request.form)
+            an = anamnese.ler_form(request.form)
             if d and any(a["data_avaliacao"] == d and a["id"] != aid for a in avs):
                 erros.append(f"Já existe uma avaliação em {d:%d/%m/%Y}. Abra essa avaliação para editar.")
             if not erros:
@@ -334,11 +337,14 @@ def avaliacao(pid, aid=None):
                 if aid is None:
                     cols = ["paciente_id", "data_avaliacao"] + list(valores)
                     cur.execute(f"INSERT INTO avaliacao ({', '.join(cols)}) "
-                                f"VALUES ({', '.join(['%s'] * len(cols))})", [pid, d] + list(valores.values()))
+                                f"VALUES ({', '.join(['%s'] * len(cols))}) RETURNING id", [pid, d] + list(valores.values()))
+                    novo = cur.fetchone()[0]
                 else:
                     cur.execute(f"UPDATE avaliacao SET data_avaliacao = %s, "
                                 f"{', '.join(f'{c} = %s' for c in valores)} WHERE id = %s",
                                 [d] + list(valores.values()) + [aid])
+                    novo = aid
+                anamnese.gravar(cur, pid, novo, an)
                 con.commit()
                 for a in gerar_arquivos(cur, pid, p["nome"]):
                     flash(a, "aviso")
@@ -348,7 +354,11 @@ def avaliacao(pid, aid=None):
         elif atual:
             form = {c: numero(atual[c]) if c not in TEXTO else (atual[c] or "") for c in CAMPOS}
             form["data_avaliacao"] = atual["data_avaliacao"].isoformat()
+            an = anamnese.da_avaliacao(cur, aid) or {}
         else:
+            an, data_an = anamnese.ultima(cur, pid)
+            an = an or {}
+            an_origem = data_an
             # avaliação nova: começa com a altura, os diâmetros ósseos e o protocolo da última
             ult = avs[-1] if avs else {}
             form = {"data_avaliacao": date.today().isoformat(),
@@ -363,7 +373,8 @@ def avaliacao(pid, aid=None):
     rotulos = {k: f"{v['nome']} · {v['publico']}" for k, v in antropo.PROTOCOLOS.items()}
     rotulos.update(siri="Siri", brozek="Brozek")
     return render_template("avaliacao.html", p=p, aid=aid, form=form, erros=erros, secoes=SECOES, texto=TEXTO,
-                           ops=ops, calculados=CALCULADOS, rotulos=rotulos)
+                           ops=ops, calculados=CALCULADOS, rotulos=rotulos,
+                           an=an, an_origem=an_origem, an_secoes=[s for s in anamnese.SECOES if not s[1] or s[1] == p["genero"]])
 
 
 def pedir_atualizacao(pid, nome):
@@ -808,7 +819,7 @@ def excluir_paciente(pid):
         p = buscar_paciente(cur, pid)
         copia = {"excluido_em": datetime.now().isoformat(timespec="seconds"),
                  "paciente": _linhas(cur, "SELECT * FROM paciente WHERE id = %s", (pid,))[0]}
-        for tabela in ("avaliacao", "plano_alimentar", "contato", "checkin"):
+        for tabela in ("avaliacao", "anamnese", "plano_alimentar", "contato", "checkin"):
             copia[tabela] = _linhas(cur, f"SELECT * FROM {tabela} WHERE paciente_id = %s ORDER BY id", (pid,))
         # planilha e página deste paciente (com homônimo, os arquivos levam um número no nome)
         cur.execute("SELECT nome FROM paciente WHERE id <> %s", (pid,))
