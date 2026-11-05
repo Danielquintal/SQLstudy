@@ -56,42 +56,58 @@ const media = (a, b) => (a + b) / 2;
 
 // pontos do MediaPipe Pose (índices): 0 nariz, 7/8 orelhas, 11/12 ombros, 23/24 quadris
 // pts: [{x, y}] já em pixels. Devolve os níveis e as larguras de frente.
+// a foto corta a cabeça ou os pés? (aí a altura não serve de régua)
+const cortada = (ext, h) => ext.topo <= 2 || ext.base >= h - 3;
+
+// T = distância ombro -> articulação do quadril. Posições ao longo do tronco (fração de T), ajustadas em foto real
+// (homem, 189 cm, 2026-11-05): umbigo ~0,60; cintura (a mais estreita) entre 0,45 e 0,75; quadril (a mais larga,
+// trocânteres/glúteos) em volta da articulação do quadril, sem descer para as coxas.
+export const NIVEIS = { cintura: [0.45, 0.75], abdomen: 0.60, quadril: [0.85, 1.0] };
+
 export function medirFrente(mask, w, h, pts) {
   const orelha = media(pts[7].y, pts[8].y), ombro = media(pts[11].y, pts[12].y), quadril = media(pts[23].y, pts[24].y);
   const xc = media(pts[23].x, pts[24].x), xPesc = pts[0].x;
-  const T = quadril - ombro;
+  const T = quadril - ombro, y = f => ombro + f * T;
   const ext = extremos(mask, w, h, xc);
   const niveis = {
     pescoco: busca(mask, w, orelha + 0.35 * (ombro - orelha), ombro - 0.12 * (ombro - orelha), xPesc, false),
-    cintura: busca(mask, w, ombro + 0.40 * T, quadril - 0.08 * T, xc, false),       // a mais estreita do tronco
-    abdomen: trecho(mask, w, ombro + 0.78 * T, xc),                                   // altura aproximada do umbigo
-    quadril: busca(mask, w, quadril - 0.05 * T, quadril + 0.22 * T, xc, true),       // a mais larga do quadril
+    cintura: busca(mask, w, y(NIVEIS.cintura[0]), y(NIVEIS.cintura[1]), xc, false),     // a mais estreita do tronco
+    abdomen: trecho(mask, w, y(NIVEIS.abdomen), xc),                                     // altura aproximada do umbigo
+    quadril: busca(mask, w, y(NIVEIS.quadril[0]), y(NIVEIS.quadril[1]), xc, true),       // a mais larga do quadril
   };
-  return { ext, niveis, T, ombro, quadril };
+  // posição de cada nível ao longo do tronco, para achar o mesmo nível na foto de perfil
+  // posição de cada nível entre o alto da cabeça e a articulação do quadril: referência para o perfil, onde o ombro
+  // sobe com o braço esticado (o alto da cabeça e o quadril não mudam)
+  const frac = Object.fromEntries(Object.entries(niveis).map(([k, t]) => [k, t ? (t.y - ext.topo) / (quadril - ext.topo) : null]));
+  return { ext, niveis, frac, T, ombro, quadril, cortada: cortada(ext, h) };
 }
 
-// perfil: mede a profundidade nos mesmos níveis, achados pela posição relativa à altura do corpo
-export function medirPerfil(mask, w, h, pts, frente, extFrente) {
+// perfil: os níveis saem dos pontos do esqueleto DESTA foto (ombro, quadril, orelha do lado visível), na mesma
+// fração do tronco da foto de frente; assim o enquadramento diferente das duas fotos não desloca as medidas.
+// O pescoço é a parte mais estreita entre a orelha e o ombro (acima do braço, que no protocolo fica esticado à frente).
+export function medirPerfil(mask, w, h, pts, frente) {
   const idx = (a, b) => (pts[a].visibility ?? 1) >= (pts[b].visibility ?? 1) ? a : b;   // lado mais visível
   const ombro = pts[idx(11, 12)], quadril = pts[idx(23, 24)], orelha = pts[idx(7, 8)];
+  const T = Math.max(1, quadril.y - ombro.y);
   const xTronco = y => {   // o tronco no perfil: entre o ombro e o quadril
-    const t = Math.min(1, Math.max(0, (y - ombro.y) / Math.max(1, quadril.y - ombro.y)));
+    const t = Math.min(1.2, Math.max(0, (y - ombro.y) / T));
     return ombro.x + (quadril.x - ombro.x) * t;
   };
   const ext = extremos(mask, w, h, quadril.x);
-  // posição relativa (0 = topo da cabeça, 1 = pés) de cada nível na foto de frente
-  const rel = y => (y - extFrente.topo) / extFrente.alt;
-  const yPerfil = r => ext.topo + r * ext.alt;
-  const faixa = (t, maior, janela = 0.015) => t && busca(mask, w, yPerfil(rel(t.y) - janela), yPerfil(rel(t.y) + janela), xTronco, maior);
-  const xPesc = media(orelha.x, ombro.x);
+  const base = Math.max(1, quadril.y - ext.topo);           // alto da cabeça -> quadril, nesta foto
+  const yF = f => ext.topo + f * base;
+  const faixa = (k, maior, janela) => frente.frac[k] == null ? null : busca(mask, w, yF(frente.frac[k] - janela), yF(frente.frac[k] + janela), xTronco, maior);
   const niveis = {
-    pescoco: frente.niveis.pescoco && busca(mask, w, yPerfil(rel(frente.niveis.pescoco.y) - 0.01), yPerfil(rel(frente.niveis.pescoco.y) + 0.01), xPesc, false),
-    cintura: faixa(frente.niveis.cintura, false),
-    abdomen: faixa(frente.niveis.abdomen, true, 0.01),
-    quadril: faixa(frente.niveis.quadril, true),
+    pescoco: busca(mask, w, orelha.y + 0.30 * (ombro.y - orelha.y), ombro.y - 0.25 * (ombro.y - orelha.y), media(orelha.x, ombro.x), false),
+    cintura: faixa('cintura', false, 0.02),
+    abdomen: faixa('abdomen', true, 0.012),
+    quadril: faixa('quadril', true, 0.03),
   };
-  return { ext, niveis };
+  return { ext, niveis, cortada: cortada(ext, h) };
 }
+
+// circunferências que não existem em adultos: provavelmente a linha pegou braço, mão ou fundo
+export const FAIXA_POSSIVEL = { pescoco: [25, 60], cintura: [50, 170], abdomen: [55, 190], quadril: [70, 190] };
 
 // perímetro da elipse (Ramanujan) com largura e profundidade em cm
 export function perimetroElipse(larg, prof) {
@@ -118,12 +134,21 @@ export function calcular(sexo, alturaCm, frente, perfil) {
   for (const k of ['pescoco', 'cintura', 'abdomen', 'quadril']) {
     const f = frente.niveis[k], p = perfil.niveis[k];
     if (!f || !p) { medidas[k] = null; continue; }
-    const larg = f.larg * escF, prof = p.larg * escP;
-    medidas[k] = { larg, prof, circ: perimetroElipse(larg, prof) };
+    const larg = f.larg * escF;
+    let prof = p.larg * escP, estimado = false;
+    if (k === 'pescoco' && prof > 1.25 * larg) { prof = 1.05 * larg; estimado = true; }   // pegou queixo ou braço no perfil
+    const circ = perimetroElipse(larg, prof);
+    const [lo, hi] = FAIXA_POSSIVEL[k];
+    medidas[k] = { larg, prof, circ, estimado, fora: circ < lo || circ > hi };
   }
-  const c = Object.fromEntries(Object.entries(medidas).map(([k, v]) => [k, v && v.circ]));
-  const gord = marinha(sexo, alturaCm, c);
-  return { medidas, gordura: gord != null && isFinite(gord) ? gord : null };
+  // a equação só usa medidas plausíveis; se faltar alguma, diz qual
+  const usadas = sexo === 'M' ? ['abdomen', 'pescoco'] : ['cintura', 'quadril', 'pescoco'];
+  const problema = usadas.filter(k => !medidas[k] || medidas[k].fora);
+  const c = Object.fromEntries(Object.entries(medidas).map(([k, v]) => [k, v && !v.fora ? v.circ : null]));
+  const gord = problema.length ? null : marinha(sexo, alturaCm, c);
+  const avisos = [];
+  if (frente.cortada || perfil.cortada) avisos.push(`A foto ${frente.cortada && perfil.cortada ? 'de frente e a de perfil cortam' : frente.cortada ? 'de frente corta' : 'de perfil corta'} a cabeça ou os pés: a altura só serve de régua com o corpo inteiro na foto, então as medidas podem estar maiores do que são.`);
+  return { medidas, gordura: gord != null && isFinite(gord) ? gord : null, problema, avisos };
 }
 
 // ---------- MediaPipe (navegador) ----------

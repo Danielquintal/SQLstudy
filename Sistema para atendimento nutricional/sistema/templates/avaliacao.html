@@ -181,6 +181,7 @@
 .fi-tab th,.fi-tab td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 .fi-tab th:first-child,.fi-tab td:first-child{text-align:left}
 .fi-tab tfoot td{font-weight:600}
+.fi-verif{color:var(--bad);font-weight:600;font-size:12px}
 .troca-av{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:flex-start;
   text-align:left;margin-bottom:12px;padding:12px 16px}
 .troca-av label{font-weight:600}
@@ -222,21 +223,21 @@ $f('fi-analisar')?.addEventListener('click', async () => {
     msg.textContent = 'Carregando o modelo e analisando as fotos (a primeira vez demora mais)…';
     const [i1, i2] = await Promise.all([fm.abrirFoto(a1), fm.abrirFoto(a2)]);
     const d1 = await fm.detectar(i1), d2 = await fm.detectar(i2);
-    const fr = fm.medirFrente(d1.mask, d1.w, d1.h, d1.pts), pe = fm.medirPerfil(d2.mask, d2.w, d2.h, d2.pts, fr, fr.ext);
+    const fr = fm.medirFrente(d1.mask, d1.w, d1.h, d1.pts), pe = fm.medirPerfil(d2.mask, d2.w, d2.h, d2.pts, fr);
     fm.desenhar($f('fi-c1'), i1, fr, ROT); fm.desenhar($f('fi-c2'), i2, pe, ROT);
     resultado = fm.calcular(SEXO, altura, fr, pe);
     const linhas = Object.entries(resultado.medidas).map(([k, m]) => {
       const fita = numero($f(FITA[k])?.value);
       const dif = m && fita ? m.circ - fita : null;
-      return `<tr><td>${ROT[k]}</td><td>${m ? fmt(m.larg) : '–'}</td><td>${m ? fmt(m.prof) : '–'}</td><td><b>${m ? fmt(m.circ) : 'não medido'}</b></td>
+      return `<tr><td>${ROT[k]}</td><td>${m ? fmt(m.larg) : '–'}</td><td>${m ? fmt(m.prof) : '–'}</td><td><b>${m ? fmt(m.circ) : 'não medido'}</b>${m && m.fora ? ' <span class="fi-verif">verifique</span>' : ''}${m && m.estimado ? ' <span class="note">(profundidade estimada pela largura: no perfil pegou queixo ou braço)</span>' : ''}</td>
         <td>${fmt(fita)}</td><td>${dif == null ? '–' : (dif > 0 ? '+' : '') + fmt(dif)}</td></tr>`;
     }).join('');
     const usa = SEXO === 'M' ? 'abdômen e pescoço' : 'cintura, quadril e pescoço';
     $f('fi-tab').innerHTML = `<thead><tr><th>Medida (cm)</th><th>Largura</th><th>Profundidade</th><th>Circunferência estimada</th><th>Fita</th><th>Diferença</th></tr></thead>
       <tbody>${linhas}</tbody><tfoot><tr><td colspan="3">% de gordura (Marinha, ${usa}, altura ${fmt(altura, 0)} cm)</td>
-      <td colspan="3">${resultado.gordura == null ? 'não deu para calcular' : fmt(resultado.gordura) + '%'}</td></tr></tfoot>`;
+      <td colspan="3">${resultado.gordura == null ? 'não deu para calcular' + (resultado.problema.length ? ` (${resultado.problema.map(k => ROT[k].toLowerCase()).join(', ')} fora do possível)` : '') : fmt(resultado.gordura) + '%'}</td></tr></tfoot>`;
     $f('fi-tab').hidden = false;
-    msg.textContent = 'Confira se as linhas coloridas ficaram nos lugares certos. Se ficaram fora, refaça as fotos seguindo o protocolo.';
+    msg.textContent = [...resultado.avisos, 'Confira se as linhas coloridas ficaram nos lugares certos. Se ficaram fora, refaça as fotos seguindo o protocolo.'].join(' ');
     $f('fi-usar').hidden = resultado.gordura == null;
   } catch (e) {
     msg.textContent = (e && e.message) || 'Não consegui analisar as fotos. Confira a internet (o modelo é baixado na primeira vez) e tente de novo.';
