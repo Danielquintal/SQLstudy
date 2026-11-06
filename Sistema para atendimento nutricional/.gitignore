@@ -8,6 +8,7 @@ web/tunel.log
 web/planos/
 web/pedidos.json
 _backup/
+_copias/
 *.dump
 *.xlsx
 *.pdf

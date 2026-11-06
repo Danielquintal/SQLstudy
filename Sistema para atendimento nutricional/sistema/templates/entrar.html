@@ -20,10 +20,12 @@ body{min-height:100vh;display:flex;flex-direction:column}
 <div class="entrar-faixa"><p>Res Athleticae</p></div>
 <form method="post" class="entrar">
   <h1>Entrar no sistema</h1>
-  <p class="note" style="margin:0">Você está acessando de fora do consultório. Digite a senha do sistema.</p>
+  <p class="note" style="margin:0">Você está acessando de fora do consultório. Digite a senha do sistema{% if celular %} e o código que aparece agora no app do celular{% endif %}.</p>
   <input type="hidden" name="proximo" value="{{ proximo }}">
   <div class="campo"><label for="senha">Senha</label>
     <input class="texto" id="senha" name="senha" type="password" autocomplete="current-password" autofocus required></div>
+  {% if celular %}<div class="campo"><label for="codigo">Código do celular <span class="note">(6 números do app autenticador)</span></label>
+    <input class="texto" id="codigo" name="codigo" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" required></div>{% endif %}
   {% if erro %}<p class="msg erro" role="alert" style="margin:0">{{ erro }}</p>{% endif %}
   <button class="btn pri">Entrar</button>
 </form>

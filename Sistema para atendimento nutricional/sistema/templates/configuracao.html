@@ -212,7 +212,8 @@
   {% if rm_ok %}
     <p class="msg" style="margin:0">{% if rm_ligado %}Túnel <b>ligado</b>{% else %}Túnel configurado (liga junto com o sistema){% endif %}:
       {% if cfg.remoto.dominio %}<a href="https://{{ cfg.remoto.dominio }}" target="_blank" rel="noopener">https://{{ cfg.remoto.dominio }}</a>{% endif %}.
-      De fora, o Cloudflare pede o código do seu e-mail e o sistema pede a senha. Neste computador, continua entrando direto.</p>
+      De fora, só entra quem está no Brasil e passa pela verificação do Cloudflare, e o sistema pede a senha{% if rm_celular %} e o
+      código do celular{% endif %}; a entrada vale 12 horas. Neste computador, continua entrando direto.</p>
     {% if rm_log %}<details><summary class="note">Últimas mensagens do túnel</summary><pre class="note" style="white-space:pre-wrap;margin:6px 0 0">{{ rm_log|join('
 ') }}</pre></details>{% endif %}
   {% else %}
@@ -243,6 +244,56 @@
   </div>
   <div class="acoes"><button class="btn pri">Salvar e ligar</button>
     {% if rm_ok %}<button class="btn" name="desligar" value="1" onclick="return confirm('Desligar o acesso de fora?')">Desligar</button>{% endif %}</div>
+</form>
+
+<form method="post" action="{{ url_for('configuracao_celular') }}" class="card ficha" id="celular">
+  <h2>Código do celular no acesso de fora</h2>
+  {% if rm_celular %}
+    <p class="msg" style="margin:0">Ligado: de fora, além da senha, o sistema pede os 6 números do app do celular. Quem descobrir a senha
+      não entra sem o seu celular.</p>
+    {% if rm_local %}<div class="acoes"><button class="btn" name="acao" value="desligar"
+      onclick="return confirm('Desligar o código do celular? De fora, o sistema vai pedir só a senha.')">Desligar</button></div>
+    <p class="note" style="margin:0">Trocou ou perdeu o celular? Desligue aqui e ligue de novo com o celular novo.</p>{% endif %}
+  {% elif rm_qr %}
+    <ol class="passos">
+      <li>No celular, instale o <b>Google Authenticator</b> (ou Microsoft Authenticator), grátis na loja de apps.</li>
+      <li>No app, toque em <b>+</b> › <b>Ler código QR</b> e aponte para o quadrado abaixo. (Sem câmera: <b>Inserir chave de
+        configuração</b>, nome “Res Athleticae”, chave <code style="user-select:all">{{ rm_chave }}</code>, tipo “Baseado no horário”.)</li>
+      <li>O app passa a mostrar <b>Res Athleticae</b> com 6 números que mudam a cada 30 segundos. Digite os números de agora e clique em <b>Confirmar</b>.</li>
+    </ol>
+    <div style="background:#fff;padding:8px;border-radius:8px;align-self:flex-start;line-height:0">{{ rm_qr|safe }}</div>
+    <div class="cadastro"><div class="campo"><label for="cel-cod">Código que aparece no app</label>
+      <input class="texto" id="cel-cod" name="codigo" inputmode="numeric" maxlength="7" autocomplete="one-time-code" autofocus></div></div>
+    <div class="acoes"><button class="btn pri" name="acao" value="confirmar">Confirmar</button>
+      <button class="btn" name="acao" value="cancelar">Cancelar</button></div>
+  {% else %}
+    <p class="note" style="margin:0">Uma segunda tranca para quem entra de fora: além da senha, um código de 6 números que só o seu celular
+      mostra (app autenticador, grátis, funciona sem internet). Neste computador nada muda.</p>
+    {% if rm_local %}<div class="acoes"><button class="btn pri" name="acao" value="iniciar">Ligar código do celular</button></div>
+    {% else %}<p class="msg aviso" style="margin:0">Por segurança, o código do celular só é ligado no computador do consultório.</p>{% endif %}
+  {% endif %}
+</form>
+
+<form method="post" action="{{ url_for('configuracao_copia') }}" class="card ficha" id="copia">
+  <h2>Cópia de segurança</h2>
+  {% set u = cp_estado.ultima %}
+  {% if u %}<p class="msg {{ '' if cp_estado.nuvem == u else 'aviso' }}" style="margin:0">Última cópia: {{ u[8:10] }}/{{ u[5:7] }} às {{ u[11:16] }}
+    ({{ cp_estado.tamanho_kb }} KB){% if cp_estado.nuvem == u %}, neste computador e no OneDrive{% else %}, só neste computador: {{ cp_estado.aviso_nuvem }}{% endif %}.</p>
+  {% else %}<p class="msg aviso" style="margin:0">Nenhuma cópia feita ainda.</p>{% endif %}
+  {% if cp_estado.erro and (not u or cp_estado.erro_em > u) %}<p class="msg aviso" style="margin:0">Último erro: {{ cp_estado.erro }}</p>{% endif %}
+  <p class="note" style="margin:0">Uma vez por dia, com o sistema aberto, ele copia o banco inteiro (pacientes, avaliações, planos, exames, check-ins)
+    e a configuração. Ficam as 30 últimas na pasta <b>_copias</b> deste computador e, trancadas com a <b>senha das cópias</b>, na pasta
+    {% if cp_nuvem %}<b>{{ cp_nuvem }}</b>{% else %}do OneDrive (não encontrada){% endif %}, que sobe para a nuvem.
+    Se o computador estragar, é dessa cópia que tudo volta. Anote a senha fora do computador (papel ou gerenciador de senhas):
+    sem ela, ninguém abre a cópia, nem você.</p>
+  <div class="cadastro">
+    <div class="campo"><label for="cp-s1">{{ 'Nova senha das cópias' if cfg.copia.senha else 'Senha das cópias' }}</label>
+      <input class="texto" id="cp-s1" name="senha" type="password" autocomplete="new-password"
+        placeholder="{{ 'guardada — deixe em branco para manter' if cfg.copia.senha else 'mínimo 10 caracteres' }}"></div>
+    <div class="campo"><label for="cp-s2">Repita a senha</label>
+      <input class="texto" id="cp-s2" name="senha2" type="password" autocomplete="new-password"></div>
+  </div>
+  <div class="acoes"><button class="btn pri">{{ 'Salvar e fazer cópia agora' if not cfg.copia.senha else 'Fazer cópia agora' }}</button></div>
 </form>
 
 <form method="post" action="{{ url_for('configuracao_cloudflare') }}" class="card ficha" id="cloudflare">

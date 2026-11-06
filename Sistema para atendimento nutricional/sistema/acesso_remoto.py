@@ -2,16 +2,22 @@
 
   - O sistema continua rodando aqui (localhost:5000). O túnel (ferramentas/cloudflared/cloudflared.exe) liga este
     computador ao Cloudflare por uma conexão de saída: nenhuma porta fica aberta no roteador.
-  - Camada 1 (no Cloudflare): Cloudflare Access — só o e-mail autorizado entra (código enviado ao e-mail).
-  - Camada 2 (aqui): senha do sistema, pedida a quem chega pelo túnel. Quem usa o próprio computador (localhost)
-    continua entrando direto.
+  - No Cloudflare: só do Brasil e verificação contra robôs (regras do WAF).
+  - Aqui: senha do sistema + código de 6 números do app do celular (se ligado), pedidos a quem chega pelo túnel.
+    A entrada vale 12 horas. Quem usa o próprio computador (localhost) continua entrando direto.
   - Config (sistema/config.json, chave "remoto"): dominio (ex.: sistema.seudominio.com.br), token_tunel (o token do
     túnel criado no painel do Cloudflare) e senha_hash (nunca a senha em si).
 """
 import atexit
+import base64
+import hashlib
+import hmac
+import os
+import struct
 import subprocess
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -44,12 +50,51 @@ def bloqueado(quem):
     return bool(f and f[1] > time.time())
 
 
-def conferir(cfg, quem, senha):
-    """True se a senha confere; conta as erradas e trava o IP por 5 minutos depois de 5 seguidas"""
+# ---------- código do celular (2ª etapa): TOTP, o mesmo do Google Authenticator / Microsoft Authenticator ----------
+EMISSOR = "Res Athleticae"
+_ultimo_passo = [0]          # o mesmo código não vale duas vezes
+
+
+def novo_segredo():
+    return base64.b32encode(os.urandom(20)).decode("ascii")
+
+
+def _totp(segredo, passo):
+    d = hmac.new(base64.b32decode(segredo), struct.pack(">Q", passo), hashlib.sha1).digest()
+    o = d[-1] & 15
+    return f"{(struct.unpack('>I', d[o:o + 4])[0] & 0x7FFFFFFF) % 1_000_000:06d}"
+
+
+def codigo_confere(segredo, codigo):
+    """aceita o código de agora e o de 30 s antes/depois (relógio do celular um pouco diferente)"""
+    codigo = "".join(c for c in str(codigo or "") if c.isdigit())
+    if not segredo or len(codigo) != 6:
+        return False
+    agora = int(time.time()) // 30
+    for passo in (agora - 1, agora, agora + 1):
+        if passo > _ultimo_passo[0] and hmac.compare_digest(_totp(segredo, passo), codigo):
+            _ultimo_passo[0] = passo
+            return True
+    return False
+
+
+def endereco_app(segredo):
+    """o que vai no QR code para o app do celular"""
+    return f"otpauth://totp/{quote(EMISSOR)}:sistema?secret={segredo}&issuer={quote(EMISSOR)}&digits=6&period=30"
+
+
+def tem_celular(cfg):
+    return bool((cfg.get("remoto") or {}).get("totp_segredo"))
+
+
+def conferir(cfg, quem, senha, codigo=""):
+    """True se a senha (e, se ligado, o código do celular) confere; conta as erradas e trava o IP por 5 minutos
+    depois de 5 seguidas"""
     if bloqueado(quem):
         return False
     h = cfg["remoto"].get("senha_hash")
-    if h and senha and check_password_hash(h, senha):
+    if (h and senha and check_password_hash(h, senha)
+            and (not tem_celular(cfg) or codigo_confere(cfg["remoto"]["totp_segredo"], codigo))):
         _falhas.pop(quem, None)
         return True
     f = _falhas.setdefault(quem, [0, 0])

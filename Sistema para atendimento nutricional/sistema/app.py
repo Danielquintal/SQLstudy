@@ -3,7 +3,7 @@
 Uso:  python sistema/app.py   (ou dois cliques em "Abrir sistema.bat")  ->  http://localhost:5000
 Só atende este computador (127.0.0.1). Depois de gravar uma avaliação, gera de novo a planilha e a página do paciente.
 """
-import base64, json, os, re, shutil, sys, webbrowser
+import base64, json, os, re, shutil, sys, time, webbrowser
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -11,6 +11,7 @@ from urllib.parse import quote, urlparse
 
 import psycopg
 from flask import Flask, abort, flash, jsonify, redirect, render_template, request, session, url_for
+from flask.sessions import SecureCookieSessionInterface
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from atualizar_paciente import (CONEXAO, PAGINAS, TEMPLATE, achar_planilha, avaliacoes_do_banco, converter,
@@ -23,6 +24,7 @@ import acesso_remoto
 import agenda
 import anamnese
 import cloudflare
+import copia_seguranca
 import publicacao
 import resumo
 import checkin
@@ -50,7 +52,31 @@ CALCULADOS = {"imc", "classificacao_imc", "peso_ideal", "rcq", "risco_rcq", "cmb
 OPCOES_FIXAS = {"protocolo_dobras": ["pollock7", "pollock3", "guedes"], "equacao_gordura": ["siri", "brozek"]}
 
 app = Flask(__name__)
-app.secret_key = os.urandom(16)
+app.secret_key = os.urandom(32)          # nova a cada abertura: reiniciar o sistema desconecta quem está de fora
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
+REMOTO_HORAS = 12                        # de fora, a entrada vale 12 horas
+
+
+class _Sessao(SecureCookieSessionInterface):
+    def get_cookie_secure(self, app_):
+        """de fora (https pelo Cloudflare) o cookie só trafega por conexão segura; neste computador é http"""
+        return acesso_remoto.eh_remoto(request)
+
+
+app.session_interface = _Sessao()
+
+
+@app.after_request
+def protecoes(resp):
+    """cabeçalhos de proteção do navegador"""
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")          # outro site não abre o sistema dentro dele
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("Referrer-Policy", "same-origin")         # endereços internos não vazam para outros sites
+    if acesso_remoto.eh_remoto(request):
+        resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+        if resp.mimetype == "text/html":
+            resp.headers["Cache-Control"] = "no-store"                # dados de paciente não ficam no cache do navegador
+    return resp
 
 
 _pool = None
@@ -97,6 +123,8 @@ def so_deste_computador():
     if remoto:
         if not acesso_remoto.configurado(contatos.carregar()):
             abort(403)                       # sem senha definida, ninguém entra de fora
+        if session.get("remoto_ok") and time.time() - session.get("remoto_desde", 0) > REMOTO_HORAS * 3600:
+            session.clear()                  # passou de 12 horas: entra de novo
         if request.endpoint not in ("entrar", "static") and not session.get("remoto_ok"):
             return redirect(url_for("entrar", proximo=request.full_path.rstrip("?") if request.method == "GET" else None))
     # um site aberto em outra aba não pode mandar formulários para cá
@@ -118,14 +146,16 @@ def entrar():
     if request.method == "POST":
         if acesso_remoto.bloqueado(quem):
             erro = "Muitas tentativas erradas. Espere 5 minutos e tente de novo."
-        elif acesso_remoto.conferir(cfg, quem, request.form.get("senha", "")):
+        elif acesso_remoto.conferir(cfg, quem, request.form.get("senha", ""), request.form.get("codigo", "")):
             session.clear()
             session["remoto_ok"] = True
+            session["remoto_desde"] = time.time()
             session.permanent = False
             return redirect(proximo)
         else:
-            erro = "Senha errada." if not acesso_remoto.bloqueado(quem) else "Muitas tentativas erradas. Espere 5 minutos e tente de novo."
-    return render_template("entrar.html", erro=erro, proximo=proximo)
+            erro = (("Senha ou código do celular errado." if acesso_remoto.tem_celular(cfg) else "Senha errada.")
+                    if not acesso_remoto.bloqueado(quem) else "Muitas tentativas erradas. Espere 5 minutos e tente de novo.")
+    return render_template("entrar.html", erro=erro, proximo=proximo, celular=acesso_remoto.tem_celular(cfg))
 
 
 @app.route("/sair")
@@ -1239,6 +1269,9 @@ def configuracao():
     return render_template("configuracao.html", cfg=cfg, titulos=contatos.TITULOS, variaveis=contatos.VARIAVEIS,
                            cf_ok=cloudflare.configurado(cfg), cf_estado=publicacao.estado(), cf_ferramenta=cloudflare.WRANGLER.exists(),
                            rm_ok=acesso_remoto.configurado(cfg), rm_ligado=acesso_remoto.tunel_ligado(), rm_log=acesso_remoto.ultimas_linhas(),
+                           cp_estado=copia_seguranca.estado(), cp_nuvem=copia_seguranca.pasta_nuvem(cfg),
+                           rm_local=not acesso_remoto.eh_remoto(request), rm_celular=acesso_remoto.tem_celular(cfg),
+                           rm_qr=_qr_celular(cfg), rm_chave=_agrupar(cfg["remoto"].get("totp_pendente")),
                            padrao=contatos.PADRAO["mensagens"], script=checkin.SCRIPT.read_text(encoding="utf-8"),
                            exemplo=checkin.link_formulario(cfg, "Maria da Silva"), estado=estado,
                            versao_atual=checkin.VERSAO_SCRIPT, versao_email=agenda.VERSAO_EMAIL,
@@ -2203,6 +2236,19 @@ def paciente_telegram(pid, acao):
     return redirect(url_for("paciente", pid=pid) + "#lembretes-paciente")
 
 
+def _qr_celular(cfg):
+    """QR code (SVG) para o app do celular, só enquanto liga o código e só neste computador"""
+    segredo = cfg["remoto"].get("totp_pendente")
+    if not segredo or acesso_remoto.eh_remoto(request):
+        return ""
+    import segno
+    return segno.make(acesso_remoto.endereco_app(segredo), error="m").svg_inline(scale=5, border=2)
+
+
+def _agrupar(s):
+    return " ".join(s[i:i + 4] for i in range(0, len(s), 4)) if s else ""
+
+
 @app.route("/configuracao/cloudflare", methods=["POST"])
 def configuracao_cloudflare():
     """conecta o Cloudflare Pages (cria o projeto se preciso) para o sistema publicar os links sozinho"""
@@ -2265,6 +2311,56 @@ def configuracao_remoto():
             x for x, ok in (("o túnel (peça ao Claude para criar)", r.get("token_tunel") or r.get("tunel_nome")), ("a senha do sistema", r.get("senha_hash")),
                             ("a ferramenta cloudflared", acesso_remoto.CLOUDFLARED.exists())) if not ok) + ".", "aviso")
     return redirect(url_for("configuracao") + "#remoto")
+
+
+@app.route("/configuracao/remoto/celular", methods=["POST"])
+def configuracao_celular():
+    """liga/desliga o código do celular (2ª etapa) do acesso de fora. Só neste computador: quem está de fora não
+    consegue trocar nem desligar."""
+    if acesso_remoto.eh_remoto(request):
+        abort(403)
+    cfg = contatos.carregar()
+    r, acao = cfg["remoto"], request.form.get("acao")
+    if acao == "iniciar":
+        r["totp_pendente"] = acesso_remoto.novo_segredo()
+    elif acao == "confirmar":
+        if acesso_remoto.codigo_confere(r.get("totp_pendente"), request.form.get("codigo")):
+            r["totp_segredo"], r["totp_pendente"] = r["totp_pendente"], ""
+            flash("Código do celular ligado. De fora, o sistema vai pedir a senha e o código do app.")
+        else:
+            flash("O código não confere. Confira se digitou o número que aparece agora no app e tente de novo.", "aviso")
+            return redirect(url_for("configuracao") + "#remoto")
+    elif acao == "cancelar":
+        r["totp_pendente"] = ""
+    elif acao == "desligar":
+        r["totp_segredo"] = r["totp_pendente"] = ""
+        flash("Código do celular desligado. De fora, o sistema pede só a senha.", "aviso")
+    contatos.salvar(cfg)
+    return redirect(url_for("configuracao") + "#remoto")
+
+
+@app.route("/configuracao/copia", methods=["POST"])
+def configuracao_copia():
+    """cópia de segurança: senha das cópias (para a do OneDrive) e o botão “fazer agora”"""
+    cfg = contatos.carregar()
+    nova, conf = request.form.get("senha", ""), request.form.get("senha2", "")
+    if nova or conf:
+        if nova != conf:
+            flash("As duas senhas não são iguais. Nada foi trocado.", "aviso")
+            return redirect(url_for("configuracao") + "#copia")
+        if len(nova) < 10:
+            flash("Use uma senha das cópias com pelo menos 10 caracteres.", "aviso")
+            return redirect(url_for("configuracao") + "#copia")
+        cfg["copia"]["senha"] = nova
+        contatos.salvar(cfg)
+        flash("Senha das cópias salva. Anote-a fora do computador: sem ela, a cópia do OneDrive não abre.")
+    try:
+        r = copia_seguranca.fazer(cfg, CONEXAO)
+        flash(f"Cópia feita ({r['tamanho_kb']} KB)" + (" e enviada ao OneDrive." if r["nuvem"] else f", mas {r['aviso_nuvem']}."),
+              "" if r["nuvem"] else "aviso")
+    except copia_seguranca.ErroCopia as e:
+        flash(f"A cópia falhou: {e}", "aviso")
+    return redirect(url_for("configuracao") + "#copia")
 
 
 @app.route("/links/cloudflare", methods=["POST"])
@@ -2378,6 +2474,13 @@ if __name__ == "__main__":
     _cfg = contatos.carregar()
     if acesso_remoto.iniciar_tunel(_cfg):
         print(f"Acesso de fora ligado: https://{_cfg['remoto'].get('dominio') or '(domínio do túnel)'}  (com a senha do sistema)")
+    copia_seguranca.iniciar_automatico(contatos.carregar, CONEXAO)   # cópia do banco uma vez por dia
     if "--sem-navegador" not in sys.argv:
         webbrowser.open(f"http://localhost:{PORTA}")
-    app.run(host="127.0.0.1", port=PORTA)
+    try:
+        from waitress import serve        # servidor de produção (o do Flask é só para desenvolvimento)
+    except ImportError:
+        print("Aviso: waitress não instalado (pip install waitress); usando o servidor de desenvolvimento.")
+        app.run(host="127.0.0.1", port=PORTA, threaded=True)
+    else:
+        serve(app, host="127.0.0.1", port=PORTA, threads=12, ident="", channel_timeout=300)
