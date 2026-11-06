@@ -31,11 +31,10 @@ def pdf_para_paginas(dados):
     return paginas
 
 
-PROFISSIONAL = "Daniel Quintal · Nutricionista · CRN3 54937"
-
-
-def montar_plano(titulo, prescrito, paginas, profissional=PROFISSIONAL):
+def montar_plano(titulo, prescrito, paginas, profissional=None):
     """objeto PLANO que o template entende (versão em páginas de PDF)"""
+    import identidade
+    profissional = profissional or identidade.completo()
     return {"titulo": titulo, "prescrito": prescrito.strftime("%d/%m/%Y"), "profissional": profissional,
             "paginas": paginas}
 

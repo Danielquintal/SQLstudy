@@ -94,7 +94,7 @@ def sincronizar_evento(cur, cfg, l):
         return False
     descricao = [f"Paciente: {l['paciente']}" if l.get("paciente") else "",
                  f"Repete: {REPETIR[l['repetir']].lower()}" if l.get("repetir") else "",
-                 "", "Lembrete criado pelo sistema Res Athleticae. Marque como feito na tela Lembretes."]
+                 "", f"Lembrete criado pelo sistema {__import__('identidade').marca()}. Marque como feito na tela Lembretes."]
     titulo = "Lembrete: " + l["texto"] + (f" ({l['paciente']})" if l.get("paciente") else "")
     r = agenda._evento(cfg, {"evento": l.get("google_evento_id") or "", "consulta": f"lembrete-{l['id']}",
                              "titulo": titulo[:250], "inicio": agenda._local_iso(l["quando"]),

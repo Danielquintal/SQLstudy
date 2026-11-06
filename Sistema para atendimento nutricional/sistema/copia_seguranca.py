@@ -22,8 +22,9 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 PASTA_LOCAL = RAIZ / "_copias"
 ESTADO = PASTA_LOCAL / "estado.json"
-NOME_NUVEM = "Res Athleticae - copias de seguranca"
-EXTRAS = ["sistema/config.json", "web/artefatos.json", "web/pedidos.json", "web/site_estado.json"]
+EXTRAS = ["sistema/config.json", "sistema/identidade.json", "sistema/licenca.chave", "sistema/licenca_estado.json",
+          "ferramentas/licenca/chave_privada.pem", "ferramentas/licenca/emitidas.json",
+          "web/artefatos.json", "web/pedidos.json", "web/site_estado.json"]
 MANTER = 30
 INTERVALO_H = 20          # faz outra se a última tiver mais de 20 horas
 MAGICO = b"RESCOPIA1"     # cabeçalho do arquivo trancado: MAGICO + sal(16) + nonce(12) + conteúdo
@@ -42,7 +43,8 @@ def pasta_nuvem(cfg):
     if p:
         return Path(p)
     od = os.environ.get("OneDrive") or os.environ.get("OneDriveConsumer")
-    return Path(od) / NOME_NUVEM if od and Path(od).is_dir() else None
+    import identidade
+    return Path(od) / f"{identidade.marca()} - copias de seguranca" if od and Path(od).is_dir() else None
 
 
 def pg_dump():
@@ -130,7 +132,7 @@ def fazer(cfg, conexao):
                 p = RAIZ / rel
                 if p.exists():
                     z.write(p, rel)
-            z.writestr("LEIA-ME.txt", f"Cópia de segurança do sistema Res Athleticae, feita em {quando:%d/%m/%Y %H:%M}.\n"
+            z.writestr("LEIA-ME.txt", f"Cópia de segurança do sistema {__import__('identidade').marca()}, feita em {quando:%d/%m/%Y %H:%M}.\n"
                                       "banco.dump = banco atendimento_nutricional (restaure com scripts/restaurar_copia.py\n"
                                       "ou: pg_restore --clean --if-exists -d atendimento_nutricional banco.dump).\n")
         dados = buf.getvalue()

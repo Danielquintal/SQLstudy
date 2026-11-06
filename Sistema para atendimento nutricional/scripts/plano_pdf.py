@@ -107,7 +107,7 @@ def _plano(titulo, prescrito, refeicoes, nutrientes, micros, compras=(), receita
             usados.add(i)
             r.update(nutrientes[i][1])
     plano = {"titulo": titulo or "Plano alimentar", "prescrito": prescrito or datetime.now().strftime("%d/%m/%Y"),
-             "profissional": "Daniel Quintal · Nutricionista · CRN3 54937", "refeicoes": refeicoes,
+             "profissional": __import__("identidade").completo(), "refeicoes": refeicoes,
              "receitas": list(receitas), "micros": micros, "compras": list(compras)}
     if agua:
         plano["agua"] = agua

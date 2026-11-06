@@ -3,7 +3,12 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Entrar · Res Athleticae</title>
+<title>Entrar · {{ marca }}</title>
+<link rel="manifest" href="{{ url_for('manifesto') }}" crossorigin="use-credentials">
+<meta name="theme-color" content="#12434F">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icone-apple-180.png') }}">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="{{ marca }}">
 <link rel="icon" href="{{ url_for('static', filename='icone.png') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
 <style>
@@ -17,10 +22,10 @@ body{min-height:100vh;display:flex;flex-direction:column}
 </style>
 </head>
 <body>
-<div class="entrar-faixa"><p>Res Athleticae</p></div>
+<div class="entrar-faixa"><p>{{ marca }}</p></div>
 <form method="post" class="entrar">
   <h1>Entrar no sistema</h1>
-  <p class="note" style="margin:0">Você está acessando de fora do consultório. Digite a senha do sistema{% if celular %} e o código que aparece agora no app do celular{% endif %}.</p>
+  <p class="note" style="margin:0">{% if remoto %}Você está acessando de fora do consultório. {% endif %}Digite a senha do sistema{% if celular %} e o código que aparece agora no app do celular{% endif %}.</p>
   <input type="hidden" name="proximo" value="{{ proximo }}">
   <div class="campo"><label for="senha">Senha</label>
     <input class="texto" id="senha" name="senha" type="password" autocomplete="current-password" autofocus required></div>

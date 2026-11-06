@@ -1,7 +1,7 @@
 """Preenche o template com as avaliacoes de um paciente."""
 import json, os, re, sys
 
-from plano import PROFISSIONAL
+import identidade
 
 KEEP = ["dataAvaliacao", "dataOrdem", "massa", "estatura", "gc", "peso_m", "peso_g", "mlg", "somatorio", "razao",
         "c_cintura", "c_abdomen", "c_quadril", "c_torax", "c_ombro",
@@ -39,10 +39,15 @@ def montar(template, nome, avaliacoes, plano, out, checkin=None, extras=None):
     """grava a página que vai ser publicada; com extras["acesso"] (data de nascimento + código), sai criptografada
     com a tela de login (acesso_pagina.py). A prévia do sistema usa gerar_html e fica aberta."""
     t = gerar_html(template, nome, avaliacoes, plano, checkin, extras)
+    cabeca = (extras or {}).get("cabeca") or ""      # ex.: manifesto e ícones do app (instalar no celular)
+    if cabeca:
+        t = t.replace("<title>", cabeca + "<title>", 1)
     acesso = (extras or {}).get("acesso")
     if acesso and acesso.get("codigo"):
         from acesso_pagina import proteger
         t = proteger(t, nome, acesso["nasc"], acesso["codigo"], _whatsapp(), acesso.get("sal"))
+        if cabeca:
+            t = t.replace("<title>", cabeca + "<title>", 1)
     open(out, "w", encoding="utf-8").write(t)
     return len(avaliacoes), len(t)
 
@@ -68,7 +73,8 @@ def gerar_html(template, nome, avaliacoes, plano, checkin=None, extras=None):
          .replace("__PERFIL__", json.dumps(extras.get("perfil") or {"somatotipo": [], "pvc": [], "z": [], "metas": {}}, ensure_ascii=False))
          .replace("__NOME__", nome.strip())
          .replace("__PROTOCOLO__", protocolo)
-         .replace("__PROFISSIONAL__", PROFISSIONAL))
+         .replace("__PROFISSIONAL__", identidade.completo())
+         .replace("__MARCA__", identidade.marca()))
     return t
 
 

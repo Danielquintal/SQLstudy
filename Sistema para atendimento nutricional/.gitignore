@@ -9,6 +9,10 @@ web/planos/
 web/pedidos.json
 _backup/
 _copias/
+dist/
+sistema/identidade.json
+sistema/licenca.chave
+sistema/licenca_estado.json
 *.dump
 *.xlsx
 *.pdf

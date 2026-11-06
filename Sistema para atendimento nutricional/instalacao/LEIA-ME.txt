@@ -1,0 +1,56 @@
+SISTEMA DE ATENDIMENTO NUTRICIONAL - COMO INSTALAR
+====================================================
+
+O que é
+-------
+Um sistema para o seu consultório: pacientes, avaliações antropométricas (dobras, circunferências, bioimpedância),
+planos alimentares (com a tabela TACO), exames de sangue, agenda, lembretes, check-in semanal e a página de evolução
+de cada paciente. Ele roda no SEU computador: os dados dos seus pacientes ficam só com você.
+
+Do que precisa
+--------------
+- Windows 10 ou 11, com internet na hora de instalar.
+- Uns 2 GB livres no disco.
+
+Instalar (uma vez)
+------------------
+1. Descompacte este arquivo .zip numa pasta fixa, por exemplo "Documentos\Sistema de atendimento".
+   (Não rode de dentro do .zip e não use a pasta Downloads, que costuma ser limpa.)
+2. Dê dois cliques em "Instalar.bat".
+   - Se aparecer "O Windows protegeu o computador", clique em "Mais informações" e depois em "Executar assim
+     mesmo". (O aviso aparece porque o arquivo veio da internet e não é de uma empresa registrada na Microsoft.)
+   - Ele instala o que faltar (Python e o banco de dados PostgreSQL), prepara o banco e cria o atalho
+     "Atendimento nutricional" na Área de Trabalho. Leva de 5 a 15 minutos na primeira vez.
+   - Se o Windows perguntar se permite alterações, responda "Sim".
+   - Se o PostgreSQL já estiver instalado no computador, ele pede a senha do usuário "postgres".
+3. No fim, o sistema abre no navegador na tela de ATIVAÇÃO:
+   - Copie o "código do computador" (XXXX-XXXX-XXXX) e mande para quem te passou o sistema.
+   - Você recebe de volta uma chave de ativação (começa com RA1.). Cole a chave inteira, leia e aceite o termo de
+     uso (também no arquivo "TERMO DE USO.txt") e clique em Ativar.
+   - A licença vale só para este computador e pelo prazo indicado. Vencida, o acesso é bloqueado até a renovação
+     (os dados continuam guardados no computador).
+4. Depois, preencha seus dados (profissão e, se quiser, o nome do consultório; o nome e o registro vêm da licença).
+   Eles aparecem no cabeçalho, nos planos alimentares e nas páginas dos pacientes.
+
+Usar no dia a dia
+-----------------
+- Abra pelo atalho "Atendimento nutricional". Uma janela preta fica aberta enquanto o sistema roda: não feche.
+- O sistema abre no navegador, no endereço http://localhost:5000.
+- Para usar como app (ícone próprio, tela cheia): no Chrome ou no Edge, clique no ícone de instalar na barra de
+  endereço (ou menu > "Instalar").
+
+Funções opcionais (precisam de contas suas, gratuitas)
+------------------------------------------------------
+Funcionam sem nada disso: pacientes, avaliações, planos, exames e relatórios em PDF.
+Para ligar as demais, vá em Configuração e siga o passo a passo de cada cartão:
+- Check-in semanal, e-mails automáticos, Google Agenda e confirmação de consulta: script do Google (sua conta Google).
+- Links das páginas de evolução para os pacientes: Cloudflare Pages.
+- Acesso ao sistema fora do consultório: Cloudflare Tunnel + um domínio seu.
+- Lembretes pelo Telegram: um robô do Telegram.
+- Cópia de segurança automática: já vem ligada; crie a "senha das cópias" em Configuração para ter uma cópia no OneDrive.
+
+Importante
+----------
+- Os dados dos pacientes são dados de saúde (LGPD): use senha no Windows e deixe a cópia de segurança ligada.
+- Para atualizar para uma versão nova do sistema: descompacte a versão nova POR CIMA da pasta atual e rode o
+  "Instalar.bat" de novo. Seus pacientes e configurações são mantidos.

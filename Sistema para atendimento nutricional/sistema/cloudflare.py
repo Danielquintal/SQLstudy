@@ -54,7 +54,7 @@ def conectar(cfg_cf):
     """confere a chave, cria o projeto no Pages se ainda não existir e devolve o endereço do site"""
     conta, projeto = cfg_cf["account_id"].strip(), cfg_cf["projeto"].strip().lower()
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,56}[a-z0-9]", projeto):
-        raise ErroCloudflare("o nome do projeto só pode ter letras minúsculas, números e hífen (ex.: res-athleticae)")
+        raise ErroCloudflare("o nome do projeto só pode ter letras minúsculas, números e hífen (ex.: meu-consultorio)")
     try:
         r = _api(cfg_cf, "GET", f"/accounts/{conta}/pages/projects/{projeto}")
     except ErroCloudflare as e:
@@ -65,12 +65,39 @@ def conectar(cfg_cf):
     return f"https://{sub}"
 
 
+ICONES = ["icone-192.png", "icone-512.png", "icone-maskable-512.png", "icone-apple-180.png"]
+
+
+def manifesto_paciente(token):
+    """grava p/<token>.webmanifest (o celular instala a página como app, abrindo direto nela) e devolve as
+    marcações do cabeçalho. Sem o nome do paciente: este arquivo não é criptografado."""
+    import json
+    import identidade
+    m = {"name": f"{identidade.marca()} · Minha evolução", "short_name": "Minha evolução", "id": f"./{token}",
+         "start_url": f"./{token}", "scope": "./", "display": "standalone", "background_color": "#F2F6F6",
+         "theme_color": "#12434F", "lang": "pt-BR",
+         "icons": [{"src": "/icone-192.png", "sizes": "192x192", "type": "image/png"},
+                   {"src": "/icone-512.png", "sizes": "512x512", "type": "image/png"},
+                   {"src": "/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]}
+    arq = SITE / "p" / f"{token}.webmanifest"
+    txt = json.dumps(m, ensure_ascii=False)
+    if not arq.exists() or arq.read_text(encoding="utf-8") != txt:
+        arq.write_text(txt, encoding="utf-8")
+    return (f'<link rel="manifest" href="{token}.webmanifest"><meta name="theme-color" content="#12434F">'
+            '<link rel="icon" href="/icone-192.png"><link rel="apple-touch-icon" href="/icone-apple-180.png">'
+            '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">'
+            '<meta name="apple-mobile-web-app-title" content="Minha evolução">')
+
+
 def preparar_pasta():
     """arquivos fixos do site: página inicial neutra e pedido para não indexar"""
+    import html
+    import identidade
     (SITE / "p").mkdir(parents=True, exist_ok=True)
+    marca = html.escape(identidade.marca())
     fixos = {
-        "index.html": "<!doctype html><meta charset=utf-8><meta name=robots content=noindex><title>Res Athleticae</title>"
-                      "<p style=\"font:16px system-ui;margin:40px\">Res Athleticae · acompanhamento nutricional</p>",
+        "index.html": f"<!doctype html><meta charset=utf-8><meta name=robots content=noindex><title>{marca}</title>"
+                      f"<p style=\"font:16px system-ui;margin:40px\">{marca} · acompanhamento nutricional</p>",
         "robots.txt": "User-agent: *\nDisallow: /\n",
         # endereço que não existe: "não encontrado" (sem isso o Cloudflare devolve a página inicial)
         "404.html": "<!doctype html><meta charset=utf-8><meta name=robots content=noindex><title>Página não encontrada</title>"
@@ -81,6 +108,11 @@ def preparar_pasta():
         arq = SITE / nome
         if not arq.exists() or arq.read_text(encoding="utf-8") != txt:
             arq.write_text(txt, encoding="utf-8")
+    estaticos = Path(__file__).resolve().parent / "static"
+    for nome in ICONES:                      # ícones do app (instalar a página no celular)
+        origem, arq = estaticos / nome, SITE / nome
+        if origem.exists() and (not arq.exists() or arq.read_bytes() != origem.read_bytes()):
+            arq.write_bytes(origem.read_bytes())
 
 
 def enviar(cfg):

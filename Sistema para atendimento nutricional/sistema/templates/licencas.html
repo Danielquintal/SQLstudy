@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block titulo %}Licenças{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">Configuração</p>
+  <h1>Licenças para colegas</h1>
+  <p class="sub">Gere a chave de ativação para o computador de cada colega. Só este computador consegue gerar chaves.</p>
+</div>
+{% endblock %}
+{% block corpo %}
+{% if nova %}
+<div class="card" id="nova">
+  <h2>Chave gerada para {{ nova.dados.nome }}</h2>
+  <p class="note" style="margin:0">Computador {{ nova.dados.maquina }} · {% if nova.dados.ate %}vale até
+    <b>{{ nova.ate_txt }}</b>{% else %}permanente{% endif %}. Mande a mensagem abaixo (copie e cole no WhatsApp do colega):</p>
+  <textarea id="msg-chave" rows="6" readonly style="font:13px var(--mono)">{{ nova.mensagem }}</textarea>
+  <div class="acoes"><button type="button" class="btn pri" onclick="navigator.clipboard.writeText(document.getElementById('msg-chave').value);this.textContent='Copiado'">Copiar mensagem</button></div>
+</div>
+{% endif %}
+<form method="post" class="card ficha" style="max-width:720px">
+  <h2>Nova chave</h2>
+  <div class="cadastro">
+    <div class="campo"><label for="lc-maq">Código do computador do colega</label>
+      <input class="texto" id="lc-maq" name="maquina" placeholder="XXXX-XXXX-XXXX" required value="{{ form.maquina or '' }}"
+        style="font-family:var(--mono);text-transform:uppercase"></div>
+    <div class="campo"><label for="lc-dias">Validade</label>
+      <select id="lc-dias" name="dias">
+        {% for v, t in [('2', '2 dias (teste)'), ('7', '7 dias'), ('30', '30 dias'), ('365', '1 ano'), ('permanente', 'Permanente')] %}
+        <option value="{{ v }}" {{ 'selected' if (form.dias or '2') == v }}>{{ t }}</option>{% endfor %}
+      </select></div>
+    <div class="campo"><label for="lc-nome">Nome do colega <span class="note">(fica travado no sistema dele)</span></label>
+      <input class="texto" id="lc-nome" name="nome" required value="{{ form.nome or '' }}"></div>
+    <div class="campo"><label for="lc-reg">Registro <span class="note">(ex.: CRN3 12345)</span></label>
+      <input class="texto" id="lc-reg" name="registro" value="{{ form.registro or '' }}"></div>
+  </div>
+  {% if erro %}<p class="msg aviso" style="margin:0">{{ erro }}</p>{% endif %}
+  <div class="acoes"><button class="btn pri">Gerar chave</button></div>
+</form>
+<div class="card" style="padding:6px 8px">
+  <div class="tablebox"><table>
+    <thead><tr><th class="t">Colega</th><th class="t">Computador</th><th>Gerada em</th><th>Vale até</th></tr></thead>
+    <tbody>{% for e in lista %}<tr><td class="t">{{ e.nome }}{% if e.registro %} <span class="note">· {{ e.registro }}</span>{% endif %}</td>
+      <td class="t" style="font-family:var(--mono)">{{ e.maquina }}</td><td>{{ e.emitida[8:10] }}/{{ e.emitida[5:7] }} {{ e.emitida[11:16] }}</td>
+      <td>{% if e.ate %}{{ e.ate[8:10] }}/{{ e.ate[5:7] }}/{{ e.ate[:4] }} {{ e.ate[11:16] }}{% else %}permanente{% endif %}</td></tr>
+    {% else %}<tr><td class="t note" colspan="4">Nenhuma chave gerada ainda.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Ativar o sistema</title>
+<link rel="icon" href="{{ url_for('static', filename='icone.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+<style>
+body{min-height:100vh;display:flex;flex-direction:column}
+.faixa{background:var(--brand);color:var(--brand-ink);padding:28px 16px 64px}
+.faixa p{margin:0 auto;max-width:620px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-soft)}
+.ativar{background:var(--surface);border:1px solid var(--line);border-radius:16px;max-width:620px;width:calc(100% - 32px);
+  margin:-40px auto 32px;padding:24px 22px;display:flex;flex-direction:column;gap:14px}
+.ativar h1{margin:0;font-size:22px}
+.codigo{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.codigo code{font:600 24px var(--mono);letter-spacing:.08em;padding:8px 14px;border:1px dashed var(--line);border-radius:10px;user-select:all}
+.termo{white-space:pre-wrap;font-size:13px;line-height:1.5;max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:10px;
+  padding:12px;background:var(--bg);margin:0}
+textarea.chave{font:13px var(--mono);min-height:90px;width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="faixa"><p>Ativação do sistema</p></div>
+<form method="post" class="ativar">
+  <h1>{{ 'Licença vencida' if vencida else 'Ativar este computador' }}</h1>
+  <p class="msg {{ 'aviso' if sit.motivo }}" style="margin:0">{{ sit.motivo or 'Para usar o sistema, ative este computador.' }}</p>
+  {% if contato %}<p class="note" style="margin:0">Para {{ 'renovar' if vencida else 'receber a chave' }}, fale com {{ contato.nome }}{% if contato.whatsapp %}:
+    <a href="https://wa.me/{{ contato.whatsapp }}?text={{ ('Olá! Preciso de uma chave de ativação do sistema. Código do computador: ' ~ maquina)|urlencode }}"
+       target="_blank" rel="noopener">WhatsApp</a>{% endif %}.</p>{% endif %}
+  <div class="campo"><span class="note">1. Mande este código do computador para quem te passou o sistema:</span>
+    <div class="codigo"><code id="maq">{{ maquina }}</code>
+      <button type="button" class="btn" onclick="navigator.clipboard.writeText('{{ maquina }}');this.textContent='Copiado'">Copiar</button></div></div>
+  <div class="campo"><label for="chave">2. Cole aqui a chave de ativação que você recebeu</label>
+    <textarea class="chave" id="chave" name="chave" placeholder="RA1.…" required>{{ chave or '' }}</textarea></div>
+  <div class="campo"><span class="note">3. Leia o termo de uso</span>
+    <pre class="termo">{{ termo }}</pre>
+    <label class="note" style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="aceite" value="1" required>
+      Li e aceito o termo de uso.</label></div>
+  {% if erro %}<p class="msg erro" role="alert" style="margin:0">Não ativou: {{ erro }}.</p>{% endif %}
+  <div class="acoes"><button class="btn pri">Ativar</button></div>
+</form>
+</body>
+</html>

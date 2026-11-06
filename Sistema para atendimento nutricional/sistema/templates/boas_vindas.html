@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Seus dados{% endblock %}
+{% block cabeca %}
+<div>
+  <p class="eyebrow">{{ 'Configuração' if ident.nome else 'Bem-vindo' }}</p>
+  <h1>{{ 'Seus dados' if ident.nome else 'Vamos começar' }}</h1>
+  <p class="sub">Quem usa este sistema. Aparece no cabeçalho, nos planos alimentares, nas páginas dos pacientes e nas mensagens.</p>
+</div>
+{% endblock %}
+{% block corpo %}
+<form method="post" class="card ficha" style="max-width:640px">
+  <input type="hidden" name="voltar" value="{{ voltar }}">
+  <div class="cadastro">
+    <div class="campo" style="grid-column:span 2"><label for="bv-nome">Seu nome</label>
+      <input class="texto" id="bv-nome" name="nome" value="{{ d.nome }}" placeholder="Ex.: Maria Silva" required autofocus
+        {{ 'readonly' if licenca_sit.ok and licenca_sit.dados.nome }}>
+      {% if licenca_sit.ok and licenca_sit.dados.nome %}<span class="note">Nome e registro vêm da licença deste computador.</span>{% endif %}</div>
+    <div class="campo"><label for="bv-prof">Profissão</label>
+      <input class="texto" id="bv-prof" name="profissao" value="{{ d.profissao }}" placeholder="Nutricionista"></div>
+    <div class="campo"><label for="bv-reg">Registro <span class="note">(opcional)</span></label>
+      <input class="texto" id="bv-reg" name="registro" value="{{ d.registro }}" placeholder="Ex.: CRN3 12345"
+        {{ 'readonly' if licenca_sit.ok and licenca_sit.dados.registro }}></div>
+    <div class="campo" style="grid-column:span 2"><label for="bv-marca">Nome do consultório ou marca <span class="note">(opcional; sem ele, vale o seu nome)</span></label>
+      <input class="texto" id="bv-marca" name="marca" value="{{ d.marca }}" placeholder="Ex.: Clínica Bem Nutrir"></div>
+  </div>
+  <p class="note" style="margin:0">O registro sai no rodapé dos planos alimentares. Mensagens que você já personalizou na Configuração não mudam.</p>
+  <div class="acoes"><button class="btn pri">{{ 'Salvar' if ident.nome else 'Começar' }}</button>
+    {% if ident.nome %}<a class="btn" href="{{ voltar or url_for('configuracao') }}">Voltar</a>{% endif %}</div>
+</form>
+{% endblock %}

@@ -65,6 +65,7 @@ def _gerar(cur, cfg, pid):
         return nome, None
     token = _token(cur, pid)
     cloudflare.preparar_pasta()
+    extras["cabeca"] = cloudflare.manifesto_paciente(token)
     montar(str(TEMPLATE), nome, avs, plano, str(cloudflare.SITE / "p" / f"{token}.html"), link_ck, extras)
     return nome, f"{cfg['cloudflare']['url'].rstrip('/')}/p/{token}"
 

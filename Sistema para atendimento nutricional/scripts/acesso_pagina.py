@@ -39,6 +39,7 @@ def credenciais(cur, pid):
     cod = codigo(cur, pid)
     # sal fixo enquanto o código e a data não mudam: a chave guardada no aparelho do paciente ("lembrar") continua
     # valendo quando o link é atualizado; trocar o código derruba os aparelhos lembrados
+    # "res-athleticae" é só um tempero fixo da criptografia (não aparece): não mudar, ou os logins lembrados se perdem
     sal = hashlib.sha256(f"res-athleticae:{pid}:{nasc}:{cod}".encode()).hexdigest()[:32]
     return {"nasc": nasc, "codigo": cod, "sal": sal}
 
@@ -56,7 +57,9 @@ def proteger(pagina_html, nome, nasc, cod, whatsapp="", sal=None):
     primeiro = nome.strip().split()[0].title() if nome.strip() else ""
     zap = (f"https://wa.me/{whatsapp}?text=" + _url(f"Olá! Aqui é {nome.strip()}. Não estou conseguindo entrar na minha "
                                                      f"página de acompanhamento: pode me mandar o código de acesso?")) if whatsapp else ""
+    import identidade
     return (LOGIN.replace("__TITULO__", html_mod.escape(nome.strip()))
+            .replace("__MARCA__", html_mod.escape(identidade.marca()))
             .replace("__PRIMEIRO__", html_mod.escape(primeiro))
             .replace("__ZAP__", json.dumps(zap))
             .replace("__CIFRA__", json.dumps(dados)))
@@ -97,7 +100,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .ajuda{margin:0;font-size:14px;color:var(--muted)}
 .ajuda a{color:var(--c2);font-weight:600}
 </style>
-<div class="faixa"><p>Res Athleticae</p></div>
+<div class="faixa"><p>__MARCA__</p></div>
 <main class="cartao">
   <h1>Olá, __PRIMEIRO__!</h1>
   <p class="sub">Esta é a sua página de acompanhamento. Para abrir, digite sua data de nascimento e o código de acesso

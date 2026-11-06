@@ -16,40 +16,41 @@ PADRAO = {
     "checkin": {"url": "", "chave": "", "formulario": "", "marca": "NOME_DO_PACIENTE", "dias": 7, "ativo_dias": 90,
                 "versao": 0,
                 # e-mail automático, enviado pelo script do Google; quem não responde em N dias vai para o WhatsApp
-                "email_ativo": False, "email_espera": 2, "email_remetente": "Daniel Quintal · Nutricionista",
+                "email_ativo": False, "email_espera": 2, "email_remetente": "§LINHA§",
                 "email_assunto": "Seu check-in da semana, {primeiro_nome}",
                 "email_texto": "Oi, {primeiro_nome}!\n\nChegou a hora do check-in da semana. São 2 minutinhos e me "
-                               "ajudam muito a acompanhar você até a próxima consulta.\n\nUm abraço,\nDaniel Quintal"},
+                               "ajudam muito a acompanhar você até a próxima consulta.\n\nUm abraço,\n§NOME§"},
     # agenda: duração padrão, locais padrão e o e-mail de confirmação (o WhatsApp fica em mensagens > confirmacao)
-    "agenda": {"duracao": 60, "local_presencial": "", "local_online": "", "profissional": "Daniel Quintal · Nutricionista",
+    "agenda": {"duracao": 60, "local_presencial": "", "local_online": "", "profissional": "§LINHA§",
                "google": False, "google_convidar": False, "google_mostrar": True,
                "email_assunto": "Consulta confirmada: {data_consulta} às {hora_consulta}",
                "email_texto": "Olá, {primeiro_nome}!\n\nSua consulta de nutrição está marcada para {dia_semana}, "
                               "{data_consulta}, às {hora_consulta}.\n{local_consulta}\n\nO convite vai anexo para "
                               "você salvar na sua agenda. Se precisar remarcar, é só responder este e-mail ou me "
-                              "chamar no WhatsApp.\n\nAté lá!\nDaniel Quintal, nutricionista"},
+                              "chamar no WhatsApp.\n\nAté lá!\n§ASSINATURA§"},
     # robô do Telegram (lembretes dos pacientes); o assunto vale para os lembretes por e-mail
     "telegram": {"token": "", "bot": "", "email_assunto": "Lembrete do seu nutricionista"},
     # publicação das páginas dos pacientes pelo próprio sistema (Cloudflare Pages); vazio = fila do Claude
-    "cloudflare": {"account_id": "", "token": "", "projeto": "res-athleticae", "url": ""},
+    "cloudflare": {"account_id": "", "token": "", "projeto": "", "url": ""},
     # acesso ao sistema de fora deste computador (Cloudflare Tunnel); senha guardada só como hash
     # totp_segredo: código do celular (2ª etapa); totp_pendente: enquanto você liga o app
-    "remoto": {"dominio": "", "token_tunel": "", "tunel_nome": "", "senha_hash": "", "totp_segredo": "", "totp_pendente": ""},
+    "remoto": {"dominio": "", "token_tunel": "", "tunel_nome": "", "senha_hash": "", "totp_segredo": "", "totp_pendente": "",
+               "senha_local": False},     # senha_local: pedir a senha também neste computador
     # cópia de segurança diária (sistema/copia_seguranca.py); a senha tranca a cópia que vai ao OneDrive
     "copia": {"senha": "", "pasta_nuvem": ""},
     "mensagens": {
         "confirmacao": "Olá, {primeiro_nome}! Sua consulta está marcada para {dia_semana}, {data_consulta}, às "
                        "{hora_consulta}. {local_consulta} Se precisar remarcar, é só me avisar por aqui. "
-                       "Daniel Quintal, nutricionista",
+                       "§ASSINATURA§",
         "leafq": "Olá, {primeiro_nome}! Para acompanhar sua saúde e sua disponibilidade de energia no esporte, "
                  "responda este questionário (uns 5 minutos, as respostas ficam só comigo): {link_leafq}",
         "retorno": "Olá, {primeiro_nome}! Passando para lembrar da sua consulta {quando} ({data_retorno}). "
-                   "Se precisar remarcar, é só me avisar por aqui. Daniel Quintal, nutricionista",
+                   "Se precisar remarcar, é só me avisar por aqui. §ASSINATURA§",
         "evolucao": "Olá, {primeiro_nome}! Sua avaliação de {data_avaliacao} já está na sua página de evolução, "
                     "com os gráficos atualizados: {link_evolucao} . Para entrar: sua data de nascimento e o código "
                     "{codigo_acesso}.",
         "aniversario": "Feliz aniversário, {primeiro_nome}! Desejo um ano cheio de saúde e conquistas. "
-                       "Um abraço, Daniel Quintal",
+                       "Um abraço, §NOME§",
         "checkin": "Oi, {primeiro_nome}! Hora do check-in da semana: são 2 minutinhos e me ajudam muito a "
                    "acompanhar você até a próxima consulta. É só responder por este link: {link_checkin}",
         "livre": "Olá, {primeiro_nome}! ",
@@ -79,8 +80,19 @@ VARIAVEIS = {
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
 
 
+def _com_identidade(v):
+    """textos padrão: §NOME§, §LINHA§ e §ASSINATURA§ viram os dados de quem usa o sistema (scripts/identidade.py)"""
+    import identidade
+    if isinstance(v, dict):
+        return {k: _com_identidade(x) for k, x in v.items()}
+    if isinstance(v, str) and "§" in v:
+        return (v.replace("§NOME§", identidade.nome()).replace("§LINHA§", identidade.linha())
+                 .replace("§ASSINATURA§", identidade.assinatura()))
+    return v
+
+
 def carregar():
-    cfg = json.loads(json.dumps(PADRAO))
+    cfg = _com_identidade(json.loads(json.dumps(PADRAO)))
     try:
         salvo = json.loads(CONFIG.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):

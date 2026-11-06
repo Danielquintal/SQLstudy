@@ -32,6 +32,8 @@ import reds
 import exames
 import perfil as antropo
 import contatos
+import identidade
+import licenca
 import lembretes
 import lembretes_paciente
 import assistente
@@ -129,15 +131,21 @@ def conectar():
 
 @app.before_request
 def so_deste_computador():
-    # de fora (pelo túnel do Cloudflare): só com a senha do sistema; neste computador entra direto
+    # de fora (pelo túnel do Cloudflare): senha do sistema (+ código do celular). Neste computador entra direto,
+    # a não ser que a opção "Pedir senha também neste computador" esteja ligada (aí, o mesmo login de fora).
     remoto = acesso_remoto.eh_remoto(request)
-    if remoto:
-        if not acesso_remoto.configurado(contatos.carregar()):
-            abort(403)                       # sem senha definida, ninguém entra de fora
+    if remoto and not acesso_remoto.configurado(contatos.carregar()):
+        abort(403)                           # sem senha definida, ninguém entra de fora
+    if remoto or acesso_remoto.senha_local(contatos.carregar()):
         if session.get("remoto_ok") and time.time() - session.get("remoto_desde", 0) > REMOTO_HORAS * 3600:
             session.clear()                  # passou de 12 horas: entra de novo
-        if request.endpoint not in ("entrar", "static") and not session.get("remoto_ok"):
+        if request.endpoint not in ("entrar", "static", "manifesto") and not session.get("remoto_ok"):
             return redirect(url_for("entrar", proximo=request.full_path.rstrip("?") if request.method == "GET" else None))
+    if request.endpoint not in ("ativar", "static", "manifesto", "entrar", "sair") and not _licenca()["ok"]:
+        return redirect(url_for("ativar"))
+    if (request.method == "GET" and not identidade.preenchida()
+            and request.endpoint not in ("boas_vindas", "ativar", "sair", "static", "manifesto", "entrar", None)):
+        return redirect(url_for("boas_vindas"))
     # um site aberto em outra aba não pode mandar formulários para cá
     if request.method == "POST":
         origem = request.headers.get("Origin") or request.headers.get("Referer") or ""
@@ -148,9 +156,12 @@ def so_deste_computador():
 
 @app.route("/entrar", methods=["GET", "POST"])
 def entrar():
-    """senha do sistema para quem chega pelo túnel (endereço da internet)"""
+    """senha do sistema: de fora (pelo túnel) e, com a opção ligada, também neste computador"""
     cfg = contatos.carregar()
     erro, quem = "", acesso_remoto.ip(request)
+    remoto = acesso_remoto.eh_remoto(request)
+    if not remoto and not acesso_remoto.senha_local(cfg):
+        return redirect(url_for("inicio"))   # neste computador sem a opção: não há o que pedir
     proximo = request.values.get("proximo") or ""
     if not proximo.startswith("/") or proximo.startswith("//"):
         proximo = url_for("inicio")
@@ -166,7 +177,8 @@ def entrar():
         else:
             erro = (("Senha ou código do celular errado." if acesso_remoto.tem_celular(cfg) else "Senha errada.")
                     if not acesso_remoto.bloqueado(quem) else "Muitas tentativas erradas. Espere 5 minutos e tente de novo.")
-    return render_template("entrar.html", erro=erro, proximo=proximo, celular=acesso_remoto.tem_celular(cfg))
+    return render_template("entrar.html", erro=erro, proximo=proximo, remoto=remoto,
+                           celular=acesso_remoto.tem_celular(cfg))
 
 
 @app.route("/sair")
@@ -208,6 +220,100 @@ def buscar_paciente(cur, pid):
     if not r:
         abort(404)
     return dict(zip(CAMPOS_PACIENTE, r))
+
+
+def _slug(t):
+    """nome de projeto do Cloudflare a partir da marca: só letras minúsculas, números e hífen"""
+    import unicodedata
+    t = unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "-", t).strip("-")[:50] or "atendimento"
+
+
+@app.context_processor
+def dados_identidade():
+    """nome, profissão e marca de quem usa o sistema, para o cabeçalho e as telas"""
+    sit = _licenca()
+    return {"ident": identidade.dados(), "marca": identidade.marca(), "linha_prof": identidade.linha(),
+            "licenca_sit": sit, "pode_emitir": licenca.pode_emitir()}
+
+
+@app.route("/manifest.webmanifest")
+def manifesto():
+    """o navegador instala o sistema como app (ícone, tela cheia). Liberado sem login: não tem dado nenhum."""
+    m = {"name": identidade.marca(), "short_name": identidade.marca()[:12], "id": "/", "start_url": "/", "scope": "/",
+         "display": "standalone", "background_color": "#F2F5F4", "theme_color": "#12434F", "lang": "pt-BR",
+         "icons": [{"src": url_for("static", filename=n), "sizes": s, "type": "image/png", **({"purpose": "maskable"} if "mask" in n else {})}
+                   for n, s in (("icone-192.png", "192x192"), ("icone-512.png", "512x512"), ("icone-maskable-512.png", "512x512"))]}
+    resp = jsonify(m)
+    resp.mimetype = "application/manifest+json"
+    return resp
+
+
+_lic = {"quando": 0.0, "sit": None}
+
+
+def _licenca(recarregar=False):
+    """situação da licença deste computador (relida a cada 30 s: a página não confere a assinatura toda vez)"""
+    if recarregar or not _lic["sit"] or time.time() - _lic["quando"] > 30:
+        _lic.update(quando=time.time(), sit=licenca.situacao())
+    return _lic["sit"]
+
+
+@app.route("/ativar", methods=["GET", "POST"])
+def ativar():
+    """ativação deste computador: código do computador, chave do autor e termo de uso"""
+    sit, erro = _licenca(recarregar=True), ""
+    if request.method == "POST":
+        try:
+            licenca.ativar(request.form.get("chave", ""), bool(request.form.get("aceite")))
+            _licenca(recarregar=True)
+            flash("Sistema ativado neste computador.")
+            return redirect(url_for("inicio"))
+        except ValueError as e:
+            erro = str(e)
+    elif sit["ok"]:
+        return redirect(url_for("inicio"))
+    d = sit.get("dados") or {}
+    contato = {"nome": d.get("licenciante"), "whatsapp": contatos.telefone_whatsapp(d.get("contato"))} if d.get("licenciante") else None
+    return render_template("ativar.html", sit=sit, erro=erro, maquina=licenca.codigo_maquina(), termo=licenca.TERMO,
+                           chave=request.form.get("chave"), contato=contato,
+                           vencida="vencida" in (sit.get("motivo") or ""))
+
+
+@app.route("/licencas", methods=["GET", "POST"])
+def licencas():
+    """gerar chaves para colegas: só no computador do autor (tem a chave secreta) e só daqui, não de fora"""
+    if not licenca.pode_emitir() or acesso_remoto.eh_remoto(request):
+        abort(404)
+    nova, erro, f = None, "", request.form
+    if request.method == "POST":
+        try:
+            perm = f.get("dias") == "permanente"
+            cfg = contatos.carregar()
+            chave, dados = licenca.emitir(f.get("maquina", ""), f.get("nome", ""), f.get("registro", ""),
+                                          dias=0 if perm else float(f.get("dias") or 2), permanente=perm,
+                                          licenciante=identidade.nome(), contato=cfg["agenda"].get("whatsapp", ""))
+            ate = datetime.fromisoformat(dados["ate"]).strftime("%d/%m/%Y às %H:%M") if dados["ate"] else ""
+            nova = {"dados": dados, "ate_txt": ate,
+                    "mensagem": f"Olá, {dados['nome'].split()[0]}! Segue a chave de ativação do sistema"
+                                + (f" (vale até {ate})" if ate else "") + ". Na tela de ativação, cole a chave inteira:\n\n" + chave}
+        except ValueError as e:
+            erro = str(e)
+    return render_template("licencas.html", nova=nova, erro=erro, form=f if erro else {}, lista=licenca.emitidas())
+
+
+@app.route("/boas-vindas", methods=["GET", "POST"])
+def boas_vindas():
+    """primeiro uso (ou Configuração › Seus dados): nome, profissão, registro e marca de quem usa o sistema"""
+    if request.method == "POST":
+        f = request.form
+        if not f.get("nome", "").strip():
+            flash("Preencha o seu nome.", "aviso")
+        else:
+            identidade.salvar({k: f.get(k, "") for k in identidade.PADRAO})
+            flash("Dados salvos. Eles aparecem no cabeçalho, nos planos, nas páginas dos pacientes e nas mensagens.")
+            return redirect(request.form.get("voltar") or url_for("inicio"))
+    return render_template("boas_vindas.html", d=identidade.dados(), voltar=request.args.get("voltar", ""))
 
 
 @app.context_processor
@@ -698,7 +804,7 @@ def salvar_plano_editor(pid):
         p = buscar_paciente(cur, pid)
         alimentos = carregar_alimentos(cur, ids_do_editor(editor))
         editor["energia_calculada"] = nutricao.energia(editor.get("energia") or {})
-        plano = nutricao.plano_para_paciente(editor, alimentos, planos.PROFISSIONAL)
+        plano = nutricao.plano_para_paciente(editor, alimentos, identidade.completo())
         prescrito = datetime.strptime(plano["prescrito"], "%d/%m/%Y").date()
         if plid:
             cur.execute("UPDATE plano_alimentar SET titulo = %s, prescrito = %s, plano = %s, editor = %s, enviado_em = now() "
@@ -1282,6 +1388,7 @@ def configuracao():
                            rm_ok=acesso_remoto.configurado(cfg), rm_ligado=acesso_remoto.tunel_ligado(), rm_log=acesso_remoto.ultimas_linhas(),
                            cp_estado=copia_seguranca.estado(), cp_nuvem=copia_seguranca.pasta_nuvem(cfg),
                            rm_local=not acesso_remoto.eh_remoto(request), rm_celular=acesso_remoto.tem_celular(cfg),
+                           rm_senha_local=acesso_remoto.senha_local(cfg),
                            rm_qr=_qr_celular(cfg), rm_chave=_agrupar(cfg["remoto"].get("totp_pendente")),
                            padrao=contatos.PADRAO["mensagens"], script=checkin.SCRIPT.read_text(encoding="utf-8"),
                            exemplo=checkin.link_formulario(cfg, "Maria da Silva"), estado=estado,
@@ -2276,7 +2383,7 @@ def configuracao_cloudflare():
         flash("Cloudflare desligado: os links voltam para a fila do Claude.")
         return redirect(url_for("configuracao") + "#cloudflare")
     c["account_id"] = request.form.get("account_id", "").strip()
-    c["projeto"] = (request.form.get("projeto", "").strip() or "res-athleticae").lower()
+    c["projeto"] = (request.form.get("projeto", "").strip() or _slug(identidade.marca())).lower()
     if request.form.get("token", "").strip():
         c["token"] = request.form["token"].strip()        # vazio = mantém a chave guardada
     if not (c["account_id"] and c["token"]):
@@ -2353,6 +2460,26 @@ def configuracao_celular():
         flash("Código do celular desligado. De fora, o sistema pede só a senha.", "aviso")
     contatos.salvar(cfg)
     return redirect(url_for("configuracao") + "#remoto")
+
+
+@app.route("/configuracao/senha-local", methods=["POST"])
+def configuracao_senha_local():
+    """liga/desliga a tela de login também neste computador (só daqui)"""
+    if acesso_remoto.eh_remoto(request):
+        abort(403)
+    cfg = contatos.carregar()
+    ligar = request.form.get("acao") == "ligar"
+    if ligar and not cfg["remoto"].get("senha_hash"):
+        flash("Crie primeiro a senha do sistema (cartão “Acesso ao sistema de fora do consultório”).", "aviso")
+        return redirect(url_for("configuracao") + "#senha-local")
+    cfg["remoto"]["senha_local"] = ligar
+    contatos.salvar(cfg)
+    if ligar:
+        session["remoto_ok"], session["remoto_desde"] = True, time.time()   # quem ligou já está dentro
+        flash("Pronto: ao abrir o sistema (ou o app) neste computador, ele pede a senha do sistema.")
+    else:
+        flash("Neste computador o sistema volta a abrir direto, sem senha.", "aviso")
+    return redirect(url_for("configuracao") + "#senha-local")
 
 
 @app.route("/configuracao/copia", methods=["POST"])

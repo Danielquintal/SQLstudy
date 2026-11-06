@@ -51,7 +51,6 @@ def bloqueado(quem):
 
 
 # ---------- código do celular (2ª etapa): TOTP, o mesmo do Google Authenticator / Microsoft Authenticator ----------
-EMISSOR = "Res Athleticae"
 _ultimo_passo = [0]          # o mesmo código não vale duas vezes
 
 
@@ -80,16 +79,24 @@ def codigo_confere(segredo, codigo):
 
 def endereco_app(segredo):
     """o que vai no QR code para o app do celular"""
-    return f"otpauth://totp/{quote(EMISSOR)}:sistema?secret={segredo}&issuer={quote(EMISSOR)}&digits=6&period=30"
+    import identidade
+    emissor = quote(identidade.marca())
+    return f"otpauth://totp/{emissor}:sistema?secret={segredo}&issuer={emissor}&digits=6&period=30"
 
 
 def tem_celular(cfg):
     return bool((cfg.get("remoto") or {}).get("totp_segredo"))
 
 
+def senha_local(cfg):
+    """opção "Pedir senha também neste computador" (precisa da senha do sistema criada)"""
+    r = cfg.get("remoto") or {}
+    return bool(r.get("senha_local") and r.get("senha_hash"))
+
+
 def conferir(cfg, quem, senha, codigo=""):
     """True se a senha (e, se ligado, o código do celular) confere; conta as erradas e trava o IP por 5 minutos
-    depois de 5 seguidas"""
+    depois de 5 seguidas. Vale para quem vem de fora e, com a opção ligada, para este computador."""
     if bloqueado(quem):
         return False
     h = cfg["remoto"].get("senha_hash")

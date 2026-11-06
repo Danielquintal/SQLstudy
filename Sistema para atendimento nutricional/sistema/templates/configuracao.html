@@ -7,6 +7,12 @@
 </div>
 {% endblock %}
 {% block corpo %}
+<div class="card" style="flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap">
+  <p style="margin:0"><b>{{ ident.nome }}</b>{% if ident.profissao %} · {{ ident.profissao }}{% endif %}{% if ident.registro %} · {{ ident.registro }}{% endif %}
+    <span class="note"> · marca: {{ marca }}</span></p>
+  <span class="acoes" style="margin:0">{% if pode_emitir and rm_local %}<a class="btn" href="{{ url_for('licencas') }}">Licenças para colegas</a>{% endif %}
+    <a class="btn" href="{{ url_for('boas_vindas', voltar=url_for('configuracao')) }}">Editar seus dados</a></span>
+</div>
 <form method="post" class="ficha">
   <div class="card" id="checkin">
     <h2>Check-in semanal (Formulário Google)</h2>
@@ -246,6 +252,22 @@
     {% if rm_ok %}<button class="btn" name="desligar" value="1" onclick="return confirm('Desligar o acesso de fora?')">Desligar</button>{% endif %}</div>
 </form>
 
+<form method="post" action="{{ url_for('configuracao_senha_local') }}" class="card ficha" id="senha-local">
+  <h2>Senha neste computador</h2>
+  {% if rm_senha_local %}
+    <p class="msg" style="margin:0">Ligada: ao abrir o sistema (ou o app) neste computador, ele pede a senha do sistema{% if rm_celular %}
+      e o código do Google Authenticator{% endif %}. Para sair, use
+      o botão <b>Sair</b> do menu. Ao fechar e abrir o sistema, pede de novo.</p>
+    {% if rm_local %}<div class="acoes"><button class="btn" name="acao" value="desligar">Desligar (abrir direto, sem senha)</button></div>{% endif %}
+  {% else %}
+    <p class="note" style="margin:0">Hoje, quem está neste computador entra direto. Ligando, o sistema e o app pedem o mesmo login do
+      acesso de fora: a senha{% if rm_celular %} e o código do Google Authenticator{% endif %}. Bom se outras pessoas usam este computador.</p>
+    {% if rm_local %}<div class="acoes"><button class="btn pri" name="acao" value="ligar"
+      {{ 'disabled' if not cfg.remoto.senha_hash }}>Pedir senha também neste computador</button></div>
+    {% if not cfg.remoto.senha_hash %}<p class="note" style="margin:0">Crie antes a senha do sistema, no cartão acima.</p>{% endif %}{% endif %}
+  {% endif %}
+</form>
+
 <form method="post" action="{{ url_for('configuracao_celular') }}" class="card ficha" id="celular">
   <h2>Código do celular no acesso de fora</h2>
   {% if rm_celular %}
@@ -258,8 +280,8 @@
     <ol class="passos">
       <li>No celular, instale o <b>Google Authenticator</b> (ou Microsoft Authenticator), grátis na loja de apps.</li>
       <li>No app, toque em <b>+</b> › <b>Ler código QR</b> e aponte para o quadrado abaixo. (Sem câmera: <b>Inserir chave de
-        configuração</b>, nome “Res Athleticae”, chave <code style="user-select:all">{{ rm_chave }}</code>, tipo “Baseado no horário”.)</li>
-      <li>O app passa a mostrar <b>Res Athleticae</b> com 6 números que mudam a cada 30 segundos. Digite os números de agora e clique em <b>Confirmar</b>.</li>
+        configuração</b>, nome “{{ marca }}”, chave <code style="user-select:all">{{ rm_chave }}</code>, tipo “Baseado no horário”.)</li>
+      <li>O app passa a mostrar <b>{{ marca }}</b> com 6 números que mudam a cada 30 segundos. Digite os números de agora e clique em <b>Confirmar</b>.</li>
     </ol>
     <div style="background:#fff;padding:8px;border-radius:8px;align-self:flex-start;line-height:0">{{ rm_qr|safe }}</div>
     <div class="cadastro"><div class="campo"><label for="cel-cod">Código que aparece no app</label>
@@ -312,7 +334,7 @@
       <li><b>ID da conta:</b> no painel, abra <b>Workers e Pages</b> (menu da esquerda). O <b>Account ID</b> aparece à direita (ou na barra de
         endereço: é o código longo depois de dash.cloudflare.com/). Copie e cole abaixo.</li>
       <li><b>Chave:</b> clique no seu perfil (canto de cima) › <b>Perfil</b> › <b>Tokens de API</b> › <b>Criar token</b> › <b>Criar token
-        personalizado</b>. Nome: “Res Athleticae”. Permissões: <b>Conta</b> · <b>Cloudflare Pages</b> · <b>Editar</b>. Recursos da conta: a sua conta.
+        personalizado</b>. Nome: “{{ marca }}”. Permissões: <b>Conta</b> · <b>Cloudflare Pages</b> · <b>Editar</b>. Recursos da conta: a sua conta.
         Continue › Criar token › copie a chave (ela só aparece uma vez) e cole abaixo.</li>
       <li>Clique em <b>Conectar</b>. O sistema cria o projeto e mostra o endereço do site.</li>
     </ol>
@@ -363,8 +385,8 @@
     <ol class="passos" style="margin-top:10px">
       <li>No Telegram (celular ou computador), procure <b>@BotFather</b> (tem o selo azul de verificado) e toque em <b>Iniciar</b>.</li>
       <li>Envie <code>/newbot</code>.</li>
-      <li>Ele pede um nome: escreva o que os pacientes vão ver, por exemplo <i>Lembretes · Daniel Quintal Nutricionista</i>.</li>
-      <li>Depois pede um nome de usuário que termine em <b>bot</b>, por exemplo <i>danielquintal_lembretes_bot</i>.</li>
+      <li>Ele pede um nome: escreva o que os pacientes vão ver, por exemplo <i>Lembretes · {{ ident.nome or 'Seu nome' }} {{ ident.profissao }}</i>.</li>
+      <li>Depois pede um nome de usuário que termine em <b>bot</b>, por exemplo <i>seunome_lembretes_bot</i>.</li>
       <li>Ele responde com um <b>token</b> (parecido com <code>1234567890:AAH...</code>). Copie e cole aqui embaixo.</li>
     </ol>
   </details>
@@ -374,7 +396,7 @@
     <span class="note">Não mostre o token a ninguém: quem tem o token controla o robô.</span></div>
   {% if cfg.telegram.token and not cfg.telegram.bot %}
   <div class="campo"><label for="tg-bot">Nome de usuário do robô (só se a internet estiver lenta e o sistema não conseguir conferir)</label>
-    <input class="texto" id="tg-bot" name="bot" autocomplete="off" placeholder="ex.: danielquintal_lembretes_bot"></div>
+    <input class="texto" id="tg-bot" name="bot" autocomplete="off" placeholder="ex.: seunome_lembretes_bot"></div>
   {% endif %}
 
   <h2 style="font-size:14px;margin-top:4px">E-mail</h2>

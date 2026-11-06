@@ -3,16 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block titulo %}Pacientes{% endblock %} · Res Athleticae</title>
+<title>{% block titulo %}Pacientes{% endblock %} · {{ marca }}</title>
+<link rel="manifest" href="{{ url_for('manifesto') }}" crossorigin="use-credentials">
+<meta name="theme-color" content="#12434F">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icone-apple-180.png') }}">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="{{ marca }}">
+<script>/* no app instalado, a janela já mostra a marca: o título fica só com o nome da tela */
+if (matchMedia('(display-mode: standalone)').matches) document.title = document.title.replace(/ · [^·]*$/, '');</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
 <link rel="icon" href="{{ url_for('static', filename='icone.png') }}">
 </head>
 <body>
+{% if licenca_sit and licenca_sit.ok and licenca_sit.restante %}<div class="msg aviso" style="margin:0;border-radius:0;text-align:center">
+  Licença de teste: vale até {{ licenca_sit.dados.ate[8:10] }}/{{ licenca_sit.dados.ate[5:7] }} às {{ licenca_sit.dados.ate[11:16] }}.
+  Depois disso, o acesso é bloqueado até a renovação.</div>{% endif %}
 <header class="band">
   <div class="top"><div class="wrap">
-    <a class="marca" href="{{ url_for('inicio') }}"><small>Daniel Quintal · Nutricionista</small>Res Athleticae</a>
+    <a class="marca" href="{{ url_for('inicio') }}"><small>{{ linha_prof }}</small>{{ marca }}</a>
     <nav class="menu" aria-label="Menu">
       <a class="btn" href="{{ url_for('inicio') }}">Pacientes</a>
       <a class="btn" href="{{ url_for('agenda_semana') }}">Agenda{% if n_consultas_hoje %} <span class="badge" title="Consultas hoje">{{ n_consultas_hoje }}</span>{% endif %}</a>
@@ -22,7 +32,7 @@
       <a class="btn" href="{{ url_for('alimentos_proprios') }}">Alimentos</a>
       <a class="btn" href="{{ url_for('lista_links') }}">Links{% if n_pedidos %} <span class="badge">{{ n_pedidos }}</span>{% endif %}</a>
       <a class="btn" href="{{ url_for('configuracao') }}">Configuração</a>
-      {% if session.get('remoto_ok') %}<a class="btn" href="{{ url_for('sair') }}" title="Sair do acesso de fora">Sair</a>{% endif %}
+      {% if session.get('remoto_ok') %}<a class="btn" href="{{ url_for('sair') }}" title="Sair (o sistema pede a senha de novo)">Sair</a>{% endif %}
     </nav>
   </div></div>
   <div class="cabeca"><div class="wrap">{% block cabeca %}{% endblock %}</div></div>
