@@ -13,7 +13,7 @@ import checkin
 
 VERSAO_EMAIL = 3   # versão do checkin_google.gs que envia e-mail avulso
 VERSAO_GOOGLE = 4  # versão que mexe no Google Agenda
-VERSAO_CONFIRMAR = 9   # versão com a página "confirme sua presença" para o paciente
+VERSAO_CONFIRMAR = 10  # versão com a página "confirme sua presença" para o paciente
 STATUS = {"agendada": "Agendada", "confirmada": "Confirmada", "realizada": "Realizada", "faltou": "Faltou",
           "cancelada": "Cancelada"}
 MODALIDADES = {"presencial": "Presencial", "online": "Online"}
@@ -106,7 +106,7 @@ def link_confirmacao(c, cfg):
     from urllib.parse import urlencode
     ck, tok = cfg["checkin"], c["token_confirmacao"]
     quando = f"{DIAS[c['inicio'].weekday()]}, {c['inicio']:%d/%m} às {c['inicio']:%H:%M}"
-    return ck["url"] + "?" + urlencode({"c": tok, "s": assinatura(ck["chave"], tok), "n": c["nome"].split()[0].title(),
+    return ck["url"] + "?" + urlencode({"cod": tok, "s": assinatura(ck["chave"], tok), "n": c["nome"].split()[0].title(),
                                         "q": quando, "w": checkin.whatsapp_prof(cfg)})
 
 

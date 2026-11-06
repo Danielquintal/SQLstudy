@@ -46,7 +46,7 @@ const PERGUNTAS = [
   ['comentario', 'paragrafo', 'Quer me contar mais alguma coisa? (opcional)', '', false],
 ];
 const MARCA_NOME = 'NOME_DO_PACIENTE';   // o sistema troca pelo nome de cada paciente no link
-const VERSAO = 9;                      // o sistema confere para saber se o código está atualizado
+const VERSAO = 10;                      // o sistema confere para saber se o código está atualizado
 const TAG = 'sistemaConsulta';           // marca os eventos criados pelo sistema (não voltam como "outros compromissos")
 
 function criar() {
@@ -93,7 +93,7 @@ function mostrar() {
 function doGet(e) {
   const props = PropertiesService.getScriptProperties();
   const p = (e && e.parameter) || {};
-  if (p.c) return paginaConfirmacao(p);     // link "confirme sua presença" que o paciente abre (sem a chave)
+  if (p.cod) return paginaConfirmacao(p);     // link "confirme sua presença" que o paciente abre (sem a chave)
   if (!props.getProperty('CHAVE') || p.chave !== props.getProperty('CHAVE')) return json({ erro: 'chave' });
   if (p.acao === 'confirmacoes') return json({ versao: VERSAO, respostas: respostasConfirmacao() });
   const f = FormApp.openById(props.getProperty('FORM_ID'));
@@ -138,7 +138,8 @@ function doGet(e) {
 }
 
 // ---------- confirmação de presença pelo paciente ----------
-// O sistema manda, na mensagem de confirmação, um link para esta URL com: c = código da consulta, s = assinatura
+// O sistema manda, na mensagem de confirmação, um link para esta URL com: cod = código da consulta (o Google
+// reserva o nome "c"), s = assinatura
 // (só o sistema, que tem a CHAVE, consegue gerar), n = primeiro nome, q = dia e hora, w = WhatsApp do nutricionista.
 // O paciente toca em "Confirmo" ou "Preciso remarcar"; a resposta fica guardada aqui até o sistema buscar.
 
@@ -149,7 +150,7 @@ function assinatura(codigo) {
 
 function paginaConfirmacao(p) {
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const codigo = String(p.c || '');
+  const codigo = String(p.cod || '');
   const valido = /^[A-Za-z0-9]{16,40}$/.test(codigo) && p.s === assinatura(codigo);
   const num = String(p.w || '').replace(/\D/g, '');
   const zap = num ? '<p><a class="b sec" target="_top" href="https://wa.me/' + num + '">Falar comigo no WhatsApp</a></p>' : '';
@@ -163,7 +164,7 @@ function paginaConfirmacao(p) {
       ? '<h1>Presença confirmada ✓</h1><p>Obrigado, ' + esc(p.n) + '! Te espero ' + esc(p.q) + '.</p>'
       : '<h1>Tudo bem!</h1><p>Recebi o seu pedido para remarcar, ' + esc(p.n) + '. Vou falar com você para combinar um novo horário.</p>' + zap;
   } else {
-    const base = ScriptApp.getService().getUrl() + '?c=' + encodeURIComponent(codigo) + '&s=' + encodeURIComponent(p.s)
+    const base = ScriptApp.getService().getUrl() + '?cod=' + encodeURIComponent(codigo) + '&s=' + encodeURIComponent(p.s)
       + '&n=' + encodeURIComponent(p.n || '') + '&q=' + encodeURIComponent(p.q || '') + '&w=' + encodeURIComponent(num);
     corpo = '<h1>Olá, ' + esc(p.n) + '!</h1><p>Sua consulta está marcada para <b>' + esc(p.q) + '</b>.</p>'
       + '<p><a class="b" target="_top" href="' + esc(base + '&r=sim') + '">Confirmo minha presença</a></p>'
