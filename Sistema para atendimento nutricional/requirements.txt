@@ -4,3 +4,4 @@ flask>=3.0
 pypdfium2>=4.30
 Pillow>=10.0
 cryptography>=44
+psycopg-pool>=3.2

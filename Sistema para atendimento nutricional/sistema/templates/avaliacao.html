@@ -24,6 +24,11 @@
   <span class="note">{{ lista_avs|length }} {{ 'avaliações' if lista_avs|length != 1 else 'avaliação' }}</span>
 </nav>
 {% endif %}
+<div class="msg aviso" id="rascunho" hidden style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center">
+  <span id="rascunho-txt"></span>
+  <button type="button" class="btn pri mini" id="rascunho-sim">Restaurar o rascunho</button>
+  <button type="button" class="btn mini" id="rascunho-nao">Descartar</button>
+</div>
 <form method="post" class="ficha" id="ficha">
   <div class="card">
     <div class="cadastro">
@@ -252,6 +257,47 @@ $f('fi-usar')?.addEventListener('click', () => {
 });
 </script>
 <script>
+// rascunho automático: o que é digitado fica guardado neste navegador até a gravação ser confirmada pelo sistema
+// (a ficha apaga o rascunho ao receber ?gravado=). Se a gravação falhar (internet, verificação do Cloudflare...),
+// ao abrir a avaliação de novo aparece "Restaurar o rascunho".
+(() => {
+  const CHAVE = 'rascunho-av-{{ p.id }}-{{ aid if aid is not none else "nova" }}';
+  const ficha = document.getElementById('ficha');
+  const ler = () => { try { return JSON.parse(localStorage.getItem(CHAVE) || 'null'); } catch (e) { return null; } };
+  const guardar = () => {
+    const campos = [...new FormData(ficha).entries()].filter(([, v]) => typeof v === 'string');
+    try { localStorage.setItem(CHAVE, JSON.stringify({ em: Date.now(), campos })); } catch (e) {}
+  };
+  const r = ler();
+  {% if not erros %}
+  if (r && r.campos && r.campos.some(([k, v]) => v && !['data_avaliacao', 'protocolo_dobras', 'equacao_gordura'].includes(k))) {
+    const quando = new Date(r.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    document.getElementById('rascunho-txt').textContent = `Encontrei um rascunho desta avaliação que não foi gravado (${quando}).`;
+    document.getElementById('rascunho').hidden = false;
+  }
+  {% endif %}
+  document.getElementById('rascunho-sim').addEventListener('click', () => {
+    const d = ler(); if (!d) return;
+    // caixas de marcar e opções: desmarca antes e marca as do rascunho
+    ficha.querySelectorAll('input[type=checkbox], input[type=radio]').forEach(i => { if (d.campos.some(([k]) => k === i.name)) i.checked = false; });
+    for (const [k, v] of d.campos) {
+      const els = [...ficha.querySelectorAll(`[name="${CSS.escape(k)}"]`)];
+      const marcar = els.find(e => (e.type === 'checkbox' || e.type === 'radio') && e.value === v);
+      if (marcar) marcar.checked = true;
+      else if (els[0] && els[0].type !== 'checkbox' && els[0].type !== 'radio') els[0].value = v;
+    }
+    ficha.querySelectorAll('input, select, textarea').forEach(e => e.dispatchEvent(new Event('input', { bubbles: true })));
+    document.getElementById('rascunho').hidden = true;
+  });
+  document.getElementById('rascunho-nao').addEventListener('click', () => {
+    try { localStorage.removeItem(CHAVE); } catch (e) {}
+    document.getElementById('rascunho').hidden = true;
+  });
+  let espera;
+  ficha.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(guardar, 400); });
+  ficha.addEventListener('change', guardar);
+  ficha.addEventListener('submit', guardar);      // guarda o estado final; só some quando o sistema confirmar
+})();
 // seletor de avaliações: abre a escolhida (o aviso de alterações não gravadas continua valendo)
 document.getElementById('ir-av')?.addEventListener('change', e => { if (e.target.value) location.href = e.target.value; });
 // abas: Anamnese / Avaliação antropométrica (as duas estão no mesmo formulário e são gravadas juntas)

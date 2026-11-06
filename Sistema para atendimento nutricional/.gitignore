@@ -4,6 +4,7 @@ web/paginas/
 web/site/
 web/site_estado.json
 ferramentas/
+web/tunel.log
 web/planos/
 web/pedidos.json
 _backup/

@@ -116,9 +116,19 @@ def _resposta(dados):
     return dados
 
 
-def info(url, chave):
-    """título e link do formulário, versão do script e estado do e-mail automático"""
-    return _chamar(url, chave, acao="info")
+_cache_info = {}
+
+
+def info(url, chave, novo=False):
+    """título e link do formulário, versão do script e estado do e-mail automático
+    (guardado por 3 minutos: a tela de Configuração não espera o Google toda vez)"""
+    agora = time.time()
+    g = _cache_info.get((url, chave))
+    if g and not novo and agora - g[0] < 180:
+        return g[1]
+    d = _chamar(url, chave, acao="info")
+    _cache_info[(url, chave)] = (agora, d)
+    return d
 
 
 def testar(url, chave):
@@ -126,7 +136,7 @@ def testar(url, chave):
     url = url.strip()
     if not re.match(r"https://script\.google(usercontent)?\.com/", url):
         raise ErroGoogle("A URL deve ser a do app da Web, começando com https://script.google.com/")
-    d = info(url, chave.strip())
+    d = info(url, chave.strip(), novo=True)
     if not d.get("link"):
         raise ErroGoogle("O script respondeu, mas sem o link do formulário. Rode a função criar de novo.")
     return d

@@ -462,6 +462,10 @@ document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('clic
 </div>
 </section>
 <script>
+// avaliação gravada de verdade: apaga o rascunho guardado no navegador (tela de avaliação)
+{% set g = request.args.get('gravado', '') %}{% if g == 'nova' or g.isdigit() %}try { localStorage.removeItem('rascunho-av-{{ p.id }}-{{ g }}'); } catch (e) {}{% endif %}
+</script>
+<script>
 // abas Ficha / Evolução; a página de evolução só carrega na primeira vez que a aba abre
 const quadro = document.getElementById('quadro');
 function mostrar() {

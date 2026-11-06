@@ -32,6 +32,8 @@ PADRAO = {
     "telegram": {"token": "", "bot": "", "email_assunto": "Lembrete do seu nutricionista"},
     # publicação das páginas dos pacientes pelo próprio sistema (Cloudflare Pages); vazio = fila do Claude
     "cloudflare": {"account_id": "", "token": "", "projeto": "res-athleticae", "url": ""},
+    # acesso ao sistema de fora deste computador (Cloudflare Tunnel); senha guardada só como hash
+    "remoto": {"dominio": "", "token_tunel": "", "tunel_nome": "", "senha_hash": ""},
     "mensagens": {
         "confirmacao": "Olá, {primeiro_nome}! Sua consulta está marcada para {dia_semana}, {data_consulta}, às "
                        "{hora_consulta}. {local_consulta} Se precisar remarcar, é só me avisar por aqui. "
@@ -79,9 +81,10 @@ def carregar():
         salvo = json.loads(CONFIG.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         return cfg
-    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k not in ("mensagens", "checkin", "agenda", "telegram", "cloudflare")})
+    cfg.update({k: v for k, v in salvo.items() if k in PADRAO and k not in ("mensagens", "checkin", "agenda", "telegram", "cloudflare", "remoto")})
     cfg["telegram"].update(salvo.get("telegram", {}))
     cfg["cloudflare"].update(salvo.get("cloudflare", {}))
+    cfg["remoto"].update(salvo.get("remoto", {}))
     cfg["checkin"].update(salvo.get("checkin", {}))
     cfg["agenda"].update(salvo.get("agenda", {}))
     cfg["mensagens"].update({k: v for k, v in salvo.get("mensagens", {}).items() if k in TITULOS})

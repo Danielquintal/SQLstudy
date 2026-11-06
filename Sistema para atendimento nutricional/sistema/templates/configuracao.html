@@ -207,6 +207,44 @@
   <div class="barra"><div class="acoes"><button class="btn pri">Salvar configuração</button></div></div>
 </form>
 
+<form method="post" action="{{ url_for('configuracao_remoto') }}" class="card ficha" id="remoto">
+  <h2>Acesso ao sistema de fora do consultório</h2>
+  {% if rm_ok %}
+    <p class="msg" style="margin:0">{% if rm_ligado %}Túnel <b>ligado</b>{% else %}Túnel configurado (liga junto com o sistema){% endif %}:
+      {% if cfg.remoto.dominio %}<a href="https://{{ cfg.remoto.dominio }}" target="_blank" rel="noopener">https://{{ cfg.remoto.dominio }}</a>{% endif %}.
+      De fora, o Cloudflare pede o código do seu e-mail e o sistema pede a senha. Neste computador, continua entrando direto.</p>
+    {% if rm_log %}<details><summary class="note">Últimas mensagens do túnel</summary><pre class="note" style="white-space:pre-wrap;margin:6px 0 0">{{ rm_log|join('
+') }}</pre></details>{% endif %}
+  {% else %}
+    <p class="note" style="margin:0">Abre o sistema por um endereço seu (ex.: <b>sistema.seudominio.com.br</b>) em qualquer lugar, com duas
+      proteções: o login do Cloudflare (código no seu e-mail) e a senha do sistema. Este computador precisa estar ligado com o sistema aberto.</p>
+    <ol class="passos">
+      <li>Compre o domínio (registro.br) e coloque-o no Cloudflare: no painel, <b>Adicionar um domínio</b>, plano <b>Free</b>; depois,
+        no registro.br, troque os <b>servidores DNS</b> pelos dois que o Cloudflare mostrar. Espere o Cloudflare dizer que o domínio está <b>Ativo</b>.</li>
+      <li>No painel do Cloudflare, abra <b>Zero Trust</b> (escolha o plano gratuito) › <b>Redes › Túneis</b> › <b>Criar um túnel</b> ›
+        tipo <b>Cloudflared</b> › nome “consultorio”. Na tela de instalação, copie só o <b>token</b> (o texto longo depois de <code>--token</code>)
+        e cole abaixo. Avance: em <b>Hostname público</b>, subdomínio <b>sistema</b>, o seu domínio, tipo <b>HTTP</b>, URL <b>localhost:5000</b>.</li>
+      <li>Ainda no Zero Trust: <b>Acesso › Aplicativos › Adicionar › Auto-hospedado</b>, domínio <b>sistema.seudominio.com.br</b>,
+        política <b>Permitir</b> › incluir <b>E-mails</b> = o seu e-mail. Assim só você recebe o código para entrar.</li>
+      <li>Aqui: preencha o domínio, cole o token, crie a senha do sistema e clique em <b>Salvar e ligar</b>.</li>
+    </ol>
+  {% endif %}
+  <div class="cadastro">
+    <div class="campo" style="grid-column:span 2"><label for="rm-dom">Endereço do sistema</label>
+      <input class="texto" id="rm-dom" name="dominio" value="{{ cfg.remoto.dominio }}" placeholder="sistema.seudominio.com.br" autocomplete="off"></div>
+    <div class="campo" style="grid-column:span 2"><label for="rm-tok">Token do túnel <span class="note">(só se o túnel for criado no Zero Trust;
+      {% if cfg.remoto.tunel_nome %}hoje o túnel “{{ cfg.remoto.tunel_nome }}” foi criado neste computador{% else %}sem cartão, o Claude cria o túnel aqui{% endif %})</span></label>
+      <input class="texto" id="rm-tok" name="token_tunel" type="password" autocomplete="off"
+        placeholder="{{ 'guardado — deixe em branco para manter' if cfg.remoto.token_tunel else 'cole o token do túnel' }}"></div>
+    <div class="campo"><label for="rm-s1">{{ 'Nova senha do sistema' if cfg.remoto.senha_hash else 'Senha do sistema' }}</label>
+      <input class="texto" id="rm-s1" name="senha" type="password" autocomplete="new-password" placeholder="mínimo 10 caracteres"></div>
+    <div class="campo"><label for="rm-s2">Repita a senha</label>
+      <input class="texto" id="rm-s2" name="senha2" type="password" autocomplete="new-password"></div>
+  </div>
+  <div class="acoes"><button class="btn pri">Salvar e ligar</button>
+    {% if rm_ok %}<button class="btn" name="desligar" value="1" onclick="return confirm('Desligar o acesso de fora?')">Desligar</button>{% endif %}</div>
+</form>
+
 <form method="post" action="{{ url_for('configuracao_cloudflare') }}" class="card ficha" id="cloudflare">
   <h2>Publicação dos links (Cloudflare)</h2>
   {% if cf_ok %}

@@ -134,8 +134,34 @@ def excluir_evento(cfg, evento_id):
         _evento(cfg, {"evento": evento_id, "excluir": True})
 
 
+_cache_eventos = {}       # (ini, fim) -> (quando buscou, eventos)
+_atualizando = set()
+
+
 def eventos_google(cfg, ini, fim):
-    """seus outros compromissos do Google Agenda entre as datas (os criados pelo sistema ficam de fora)"""
+    """seus outros compromissos do Google Agenda entre as datas, sem esperar o Google a cada página: devolve na
+    hora o que já foi buscado e atualiza em segundo plano se tiver mais de 2 minutos (a primeira vez espera)"""
+    import threading, time
+    chave = (ini, fim)
+    guardado = _cache_eventos.get(chave)
+    if guardado:
+        if time.time() - guardado[0] > 120 and chave not in _atualizando:
+            _atualizando.add(chave)
+            def atualizar():
+                try:
+                    _cache_eventos[chave] = (time.time(), _buscar_eventos(cfg, ini, fim))
+                except Exception:   # noqa: BLE001 — sem internet: fica o que já tinha
+                    pass
+                finally:
+                    _atualizando.discard(chave)
+            threading.Thread(target=atualizar, daemon=True).start()
+        return guardado[1]
+    ev = _buscar_eventos(cfg, ini, fim)
+    _cache_eventos[chave] = (time.time(), ev)
+    return ev
+
+
+def _buscar_eventos(cfg, ini, fim):
     ck = cfg["checkin"]
     r = checkin._chamar(ck["url"], ck["chave"], acao="eventos", de=_local_iso(datetime.combine(ini, datetime.min.time())),
                         ate=_local_iso(datetime.combine(fim, datetime.min.time())))

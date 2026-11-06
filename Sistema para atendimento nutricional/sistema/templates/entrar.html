@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Entrar · Res Athleticae</title>
+<link rel="icon" href="{{ url_for('static', filename='icone.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+<style>
+body{min-height:100vh;display:flex;flex-direction:column}
+.entrar-faixa{background:var(--brand);color:var(--brand-ink);padding:28px 16px 64px}
+.entrar-faixa p{margin:0 auto;max-width:400px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-soft)}
+.entrar{background:var(--surface);border:1px solid var(--line);border-radius:16px;max-width:400px;width:calc(100% - 32px);
+  margin:-40px auto 32px;padding:24px 22px;display:flex;flex-direction:column;gap:14px}
+.entrar h1{margin:0;font-size:22px}
+.entrar input{font-size:18px;padding:12px 14px}
+</style>
+</head>
+<body>
+<div class="entrar-faixa"><p>Res Athleticae</p></div>
+<form method="post" class="entrar">
+  <h1>Entrar no sistema</h1>
+  <p class="note" style="margin:0">Você está acessando de fora do consultório. Digite a senha do sistema.</p>
+  <input type="hidden" name="proximo" value="{{ proximo }}">
+  <div class="campo"><label for="senha">Senha</label>
+    <input class="texto" id="senha" name="senha" type="password" autocomplete="current-password" autofocus required></div>
+  {% if erro %}<p class="msg erro" role="alert" style="margin:0">{{ erro }}</p>{% endif %}
+  <button class="btn pri">Entrar</button>
+</form>
+</body>
+</html>

@@ -22,6 +22,7 @@
       <a class="btn" href="{{ url_for('alimentos_proprios') }}">Alimentos</a>
       <a class="btn" href="{{ url_for('lista_links') }}">Links{% if n_pedidos %} <span class="badge">{{ n_pedidos }}</span>{% endif %}</a>
       <a class="btn" href="{{ url_for('configuracao') }}">Configuração</a>
+      {% if session.get('remoto_ok') %}<a class="btn" href="{{ url_for('sair') }}" title="Sair do acesso de fora">Sair</a>{% endif %}
     </nav>
   </div></div>
   <div class="cabeca"><div class="wrap">{% block cabeca %}{% endblock %}</div></div>

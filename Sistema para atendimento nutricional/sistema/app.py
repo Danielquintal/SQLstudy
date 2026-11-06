@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import quote, urlparse
 
 import psycopg
-from flask import Flask, abort, flash, jsonify, redirect, render_template, request, url_for
+from flask import Flask, abort, flash, jsonify, redirect, render_template, request, session, url_for
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from atualizar_paciente import (CONEXAO, PAGINAS, TEMPLATE, achar_planilha, avaliacoes_do_banco, converter,
@@ -19,6 +19,7 @@ from calculos import calcular
 from campos import CAMPOS, TEXTO
 from montar_pagina import gerar_html, montar
 from planilha_paciente import SECTIONS, build, safe_name
+import acesso_remoto
 import agenda
 import anamnese
 import cloudflare
@@ -52,17 +53,85 @@ app = Flask(__name__)
 app.secret_key = os.urandom(16)
 
 
+_pool = None
+_sinc_rodando = set()
+
+
+def sincronizar_depois(cfg, *funcoes):
+    """sincronizações com o Google (check-in, lembretes, RED-S) em segundo plano: a página não espera o Google.
+    Cada função já decide sozinha se está na hora (no máximo a cada N minutos)."""
+    import threading
+    for f in funcoes:
+        nome = f.__module__
+        if nome in _sinc_rodando:
+            continue
+        _sinc_rodando.add(nome)
+
+        def rodar(f=f, nome=nome):
+            try:
+                with conectar() as con:
+                    f(con, cfg)
+            except Exception:   # noqa: BLE001 — falha do Google não pode derrubar nada; as telas mostram o erro
+                pass
+            finally:
+                _sinc_rodando.discard(nome)
+        threading.Thread(target=rodar, daemon=True).start()
+
+
 def conectar():
-    return psycopg.connect(CONEXAO)
+    """conexão com o banco tirada de um reservatório (abrir uma conexão nova custa ~0,1 s por página).
+    Uso: with conectar() as con: ... — no fim do bloco grava (commit), ou desfaz se deu erro, e devolve a conexão."""
+    global _pool
+    if _pool is None:
+        from psycopg_pool import ConnectionPool
+        _pool = ConnectionPool(CONEXAO, min_size=1, max_size=8, open=True, timeout=30, name="sistema")
+        import atexit
+        atexit.register(_pool.close)
+    return _pool.connection()
 
 
 @app.before_request
 def so_deste_computador():
+    # de fora (pelo túnel do Cloudflare): só com a senha do sistema; neste computador entra direto
+    remoto = acesso_remoto.eh_remoto(request)
+    if remoto:
+        if not acesso_remoto.configurado(contatos.carregar()):
+            abort(403)                       # sem senha definida, ninguém entra de fora
+        if request.endpoint not in ("entrar", "static") and not session.get("remoto_ok"):
+            return redirect(url_for("entrar", proximo=request.full_path.rstrip("?") if request.method == "GET" else None))
     # um site aberto em outra aba não pode mandar formulários para cá
     if request.method == "POST":
         origem = request.headers.get("Origin") or request.headers.get("Referer") or ""
-        if urlparse(origem).hostname not in ("localhost", "127.0.0.1"):
+        permitidos = {"localhost", "127.0.0.1"} | ({request.host.split(":")[0], contatos.carregar()["remoto"].get("dominio")} if remoto else set())
+        if urlparse(origem).hostname not in permitidos:
             abort(403)
+
+
+@app.route("/entrar", methods=["GET", "POST"])
+def entrar():
+    """senha do sistema para quem chega pelo túnel (endereço da internet)"""
+    cfg = contatos.carregar()
+    erro, quem = "", acesso_remoto.ip(request)
+    proximo = request.values.get("proximo") or ""
+    if not proximo.startswith("/") or proximo.startswith("//"):
+        proximo = url_for("inicio")
+    if request.method == "POST":
+        if acesso_remoto.bloqueado(quem):
+            erro = "Muitas tentativas erradas. Espere 5 minutos e tente de novo."
+        elif acesso_remoto.conferir(cfg, quem, request.form.get("senha", "")):
+            session.clear()
+            session["remoto_ok"] = True
+            session.permanent = False
+            return redirect(proximo)
+        else:
+            erro = "Senha errada." if not acesso_remoto.bloqueado(quem) else "Muitas tentativas erradas. Espere 5 minutos e tente de novo."
+    return render_template("entrar.html", erro=erro, proximo=proximo)
+
+
+@app.route("/sair")
+def sair():
+    session.clear()
+    return redirect(url_for("entrar"))
 
 
 @app.template_filter("br")
@@ -208,13 +277,12 @@ def novo_paciente():
 @app.route("/paciente/<int:pid>")
 def paciente(pid):
     cfg = contatos.carregar()
+    sincronizar_depois(cfg, checkin.sincronizar_se_preciso, lembretes_paciente.sincronizar_se_preciso)
     with conectar() as con:
-        checkin.sincronizar_se_preciso(con, cfg)
         cur = con.cursor()
         p = buscar_paciente(cur, pid)
         checkins = checkin.com_alertas(checkin.lista(cur, "k.paciente_id = %s", (pid,), 26))
         lembretes_pac = lembretes.lista(cur, "l.paciente_id = %s AND l.feito_em IS NULL", (pid,), limite=20)
-        lembretes_paciente.sincronizar_se_preciso(con, cfg)
         lp = lembretes_paciente.lista(cur, "l.paciente_id = %s", (pid,))
         for l in lp:
             l["proxima"] = lembretes_paciente.proxima(l) if l["ativo"] else None
@@ -366,7 +434,8 @@ def avaliacao(pid, aid=None):
                 for a in gerar_arquivos(cur, pid, p["nome"]):
                     flash(a, "aviso")
                 flash(f"Avaliação de {d:%d/%m/%Y} gravada." + pedir_atualizacao(pid, p["nome"]))
-                return redirect(url_for("paciente", pid=pid))
+                # "gravado" avisa a ficha para apagar o rascunho guardado no navegador (só depois de gravar de verdade)
+                return redirect(url_for("paciente", pid=pid, gravado="nova" if aid is None else aid))
             form = dict(request.form)
         elif atual:
             form = {c: numero(atual[c]) if c not in TEXTO else (atual[c] or "") for c in CAMPOS}
@@ -1057,8 +1126,8 @@ def whatsapp(pid, tipo):
 @app.route("/contatos")
 def contatos_do_dia():
     cfg = contatos.carregar()
+    sincronizar_depois(cfg, checkin.sincronizar_se_preciso)   # quem já respondeu sai da lista (na próxima vez que abrir)
     with conectar() as con:
-        checkin.sincronizar_se_preciso(con, cfg)   # quem já respondeu sai da lista de pedidos de check-in
         cur = con.cursor()
         itens = []
         for tipo, p, detalhe in contatos.pendencias(cur, cfg):
@@ -1169,6 +1238,7 @@ def configuracao():
         ativos = [e for e, in cur.fetchall()]
     return render_template("configuracao.html", cfg=cfg, titulos=contatos.TITULOS, variaveis=contatos.VARIAVEIS,
                            cf_ok=cloudflare.configurado(cfg), cf_estado=publicacao.estado(), cf_ferramenta=cloudflare.WRANGLER.exists(),
+                           rm_ok=acesso_remoto.configurado(cfg), rm_ligado=acesso_remoto.tunel_ligado(), rm_log=acesso_remoto.ultimas_linhas(),
                            padrao=contatos.PADRAO["mensagens"], script=checkin.SCRIPT.read_text(encoding="utf-8"),
                            exemplo=checkin.link_formulario(cfg, "Maria da Silva"), estado=estado,
                            versao_atual=checkin.VERSAO_SCRIPT, versao_email=agenda.VERSAO_EMAIL,
@@ -1390,8 +1460,8 @@ def desempenho_excluir(did):
 @app.route("/paciente/<int:pid>/reds")
 def reds_paciente(pid, erros=()):
     cfg = contatos.carregar()
+    sincronizar_depois(cfg, reds.sincronizar_se_preciso)
     with conectar() as con:
-        reds.sincronizar_se_preciso(con, cfg)
         cur = con.cursor()
         p = buscar_paciente(cur, pid)
         cur.execute("SELECT count(*) FROM reds_leafq WHERE paciente_id IS NULL")
@@ -2162,6 +2232,41 @@ def configuracao_cloudflare():
     return redirect(url_for("configuracao") + "#cloudflare")
 
 
+@app.route("/configuracao/remoto", methods=["POST"])
+def configuracao_remoto():
+    """acesso de fora: domínio, token do túnel (painel do Cloudflare) e senha do sistema"""
+    cfg = contatos.carregar()
+    r = cfg["remoto"]
+    if request.form.get("desligar"):
+        acesso_remoto.parar_tunel()
+        r["token_tunel"] = ""
+        contatos.salvar(cfg)
+        flash("Acesso de fora desligado.")
+        return redirect(url_for("configuracao") + "#remoto")
+    r["dominio"] = request.form.get("dominio", "").strip().lower().removeprefix("https://").removeprefix("http://").strip("/")
+    if request.form.get("token_tunel", "").strip():
+        r["token_tunel"] = request.form["token_tunel"].strip()       # vazio = mantém o guardado
+    nova, conf = request.form.get("senha", ""), request.form.get("senha2", "")
+    if nova or conf:
+        if nova != conf:
+            flash("As duas senhas não são iguais. Nada foi trocado.", "aviso")
+            return redirect(url_for("configuracao") + "#remoto")
+        if len(nova) < 10:
+            flash("Use uma senha com pelo menos 10 caracteres (letras e números).", "aviso")
+            return redirect(url_for("configuracao") + "#remoto")
+        acesso_remoto.definir_senha(cfg, nova)
+    contatos.salvar(cfg)
+    if acesso_remoto.configurado(cfg):
+        acesso_remoto.parar_tunel()
+        acesso_remoto.iniciar_tunel(cfg)
+        flash(f"Acesso de fora salvo e túnel ligado. Teste em https://{r['dominio'] or '(seu domínio)'} pelo celular (fora do Wi-Fi).")
+    else:
+        flash("Salvo. Para ligar o acesso de fora faltam: " + ", ".join(
+            x for x, ok in (("o túnel (peça ao Claude para criar)", r.get("token_tunel") or r.get("tunel_nome")), ("a senha do sistema", r.get("senha_hash")),
+                            ("a ferramenta cloudflared", acesso_remoto.CLOUDFLARED.exists())) if not ok) + ".", "aviso")
+    return redirect(url_for("configuracao") + "#remoto")
+
+
 @app.route("/links/cloudflare", methods=["POST"])
 def links_cloudflare():
     """publica (ou atualiza) no Cloudflare as páginas de todos os pacientes que têm link"""
@@ -2266,10 +2371,13 @@ def checkin_excluir(cid):
 
 if __name__ == "__main__":
     try:
-        conectar().close()
+        psycopg.connect(CONEXAO).close()      # confere o banco antes de abrir o reservatório de conexões
     except psycopg.OperationalError as e:
         sys.exit(f"Não consegui conectar ao banco de dados. O PostgreSQL está ligado?\n{e}")
     print(f"Sistema aberto em http://localhost:{PORTA}  (feche esta janela para desligar)")
+    _cfg = contatos.carregar()
+    if acesso_remoto.iniciar_tunel(_cfg):
+        print(f"Acesso de fora ligado: https://{_cfg['remoto'].get('dominio') or '(domínio do túnel)'}  (com a senha do sistema)")
     if "--sem-navegador" not in sys.argv:
         webbrowser.open(f"http://localhost:{PORTA}")
     app.run(host="127.0.0.1", port=PORTA)
