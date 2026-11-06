@@ -50,6 +50,52 @@ main .wrap{padding-block:24px 48px;display:flex;flex-direction:column;gap:20px}
 .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px 12px;min-width:0;grid-column:span 6;display:flex;flex-direction:column;gap:8px}
 .card.w12{grid-column:span 12} .card.w8{grid-column:span 8} .card.w4{grid-column:span 4}
+.comp-blocos{display:flex;flex-direction:column;gap:18px}
+.bloco>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:16px;font-weight:600;padding:4px 2px 10px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.bloco>summary::-webkit-details-marker{display:none}
+.bloco>summary::after{content:"\2212";color:var(--muted);font-size:20px;line-height:1}
+.bloco:not([open])>summary{margin-bottom:0}
+.bloco:not([open])>summary::after{content:"+"}
+.comp-blocos .card[id]>h2{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer}
+.mini-dobra{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:7px;width:26px;height:26px;
+  font-size:16px;line-height:1;cursor:pointer;flex:0 0 auto}
+.card.fechado>:not(h2){display:none}
+/* Treinos */
+.tr-ativ{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:0}
+.tr-ativ div{background:var(--bg);border-radius:10px;padding:10px 12px}
+.tr-ativ dt{font-size:12px;color:var(--muted)} .tr-ativ dd{margin:2px 0 0;font-weight:600}
+.tr-sessoes{display:flex;flex-direction:column;gap:6px}
+.tr-sessao{border:1px solid var(--line);border-radius:10px;padding:0 12px}
+.tr-sessao>summary{cursor:pointer;padding:10px 0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.tr-sessao ol{margin:0 0 10px;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.tr-sessao li{display:flex;flex-direction:column;gap:1px;font-size:14px}
+.tr-sessao li.subst{margin-left:14px;list-style:circle}
+.tr-serie{font-size:13px;font-variant-numeric:tabular-nums}
+.tr-chip{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted);margin-right:4px}
+.tr-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tr-kpis>div{background:var(--bg);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.tr-kpis .k{font-size:12px;color:var(--muted)} .tr-kpis .v{font-size:22px;font-weight:600}
+.tr-kpis .v small{font-size:13px;font-weight:400;color:var(--muted)}
+.tr-tipos{display:flex;flex-wrap:wrap;gap:6px}
+/* Lesões (aba Saúde): boneco frente/costas */
+.les-corpo{display:grid;grid-template-columns:minmax(0,auto) minmax(240px,1fr);gap:20px;align-items:start}
+.les-figuras{display:flex;gap:8px;justify-content:center}
+.les-figuras figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px}
+.les-figuras figcaption{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.boneco{width:180px;height:360px;max-width:42vw}
+.boneco.real{width:auto;height:400px;max-width:44vw;background:#fff;border-radius:10px}
+.boneco .base{fill:color-mix(in srgb,var(--muted) 14%,var(--surface));stroke:color-mix(in srgb,var(--muted) 55%,transparent);stroke-width:1.2}
+.boneco:not(.real) [fill]{stroke-width:1.4}
+.boneco:not(.real) .lado{font:600 13px var(--sans)}
+.boneco .lado{fill:var(--muted);font-family:var(--sans);font-weight:700}
+.les-lado{display:flex;flex-direction:column;gap:10px;min-width:0}
+.les-legenda{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+.les-legenda li{display:inline-flex;align-items:center;gap:6px}
+.les-legenda i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.les-sit{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap;
+  background:color-mix(in srgb,var(--c) 16%,transparent);color:color-mix(in srgb,var(--c) 75%,var(--ink));border:1px solid color-mix(in srgb,var(--c) 45%,transparent)}
+@media (max-width:760px){.les-corpo{grid-template-columns:minmax(0,1fr)}.boneco.real{height:300px}}
 .card h2{margin:0;font-size:15px;font-weight:600}
 .card p.note{margin:0;color:var(--muted);font-size:13px}
 .chart{position:relative;height:280px}
@@ -324,11 +370,9 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
     <nav class="tabs" role="tablist">
       <button class="tab" role="tab" id="t-composicao" aria-selected="true" data-view="composicao">Composição corporal</button>
       <button class="tab" role="tab" id="t-classificacoes" aria-selected="false" data-view="classificacoes" hidden>Classificações</button>
-      <button class="tab" role="tab" id="t-circunferencias" aria-selected="false" data-view="circunferencias">Circunferências</button>
-      <button class="tab" role="tab" id="t-dobras" aria-selected="false" data-view="dobras">Dobras cutâneas</button>
       <button class="tab" role="tab" id="t-plano" aria-selected="false" data-view="plano" hidden>Plano alimentar</button>
-      <button class="tab" role="tab" id="t-checkin" aria-selected="false" data-view="checkin" hidden>Check-in e rastreios</button>
-      <button class="tab" role="tab" id="t-exames" aria-selected="false" data-view="exames" hidden>Exames e desempenho</button>
+      <button class="tab" role="tab" id="t-saude" aria-selected="false" data-view="saude" hidden>Saúde</button>
+      <button class="tab" role="tab" id="t-treinos" aria-selected="false" data-view="treinos" hidden>Treinos</button>
       <button class="tab" role="tab" id="t-perfil" aria-selected="false" data-view="perfil" hidden>Perfil</button>
       <button class="tab" role="tab" id="t-metas" aria-selected="false" data-view="metas">Metas diárias</button>
     </nav>
@@ -343,10 +387,24 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
     </section>
     <section class="kpis" id="kpis"></section>
 
-    <section class="grid view" data-view="composicao">
-      <div class="card"><h2>Peso corporal (kg)</h2><div class="chart"><canvas id="ch-peso"></canvas></div></div>
-      <div class="card"><h2>Percentual de gordura (%)</h2><p class="note">Dobras cutâneas, protocolo __PROTOCOLO__</p><div class="chart"><canvas id="ch-gc"></canvas></div></div>
-      <div class="card w12"><h2>Composição corporal (kg)</h2><div class="chart"><canvas id="ch-comp"></canvas></div></div>
+    <section class="view comp-blocos" data-view="composicao">
+      <details class="bloco" id="b-composicao" open><summary>Composição corporal</summary><div class="grid">
+      <div class="card" id="k-peso"><h2>Peso corporal (kg)</h2><div class="chart"><canvas id="ch-peso"></canvas></div></div>
+      <div class="card" id="k-gc"><h2>Percentual de gordura (%)</h2><p class="note">Dobras cutâneas, protocolo __PROTOCOLO__</p><div class="chart"><canvas id="ch-gc"></canvas></div></div>
+      <div class="card w12" id="k-comp"><h2>Composição corporal (kg)</h2><div class="chart"><canvas id="ch-comp"></canvas></div></div>
+      </div></details>
+      <details class="bloco" id="b-circunferencias" open><summary>Circunferências</summary><div class="grid">
+      <div class="card w8" id="k-tronco"><h2>Cintura, abdômen e quadril (cm)</h2><div class="chart"><canvas id="ch-tronco"></canvas></div></div>
+      <div class="card w4" id="k-rcq"><h2>Relação cintura/quadril</h2><div class="chart"><canvas id="ch-rcq"></canvas></div></div>
+      <div class="card" id="k-sup"><h2>Membros superiores (cm)</h2><p class="note">E = esquerdo · D = direito</p><div class="chart"><canvas id="ch-sup"></canvas></div></div>
+      <div class="card" id="k-inf"><h2>Membros inferiores (cm)</h2><p class="note">E = esquerdo · D = direito</p><div class="chart"><canvas id="ch-inf"></canvas></div></div>
+      <div class="card w12" id="k-torax"><h2>Tórax e ombro (cm)</h2><div class="chart"><canvas id="ch-torax"></canvas></div></div>
+      </div></details>
+      <details class="bloco" id="b-dobras" open><summary>Dobras cutâneas</summary><div class="grid">
+      <div class="card w4" id="k-soma"><h2>Somatório de dobras (mm)</h2><div class="chart"><canvas id="ch-soma"></canvas></div></div>
+      <div class="card w8" id="k-dobras"><h2>Dobras cutâneas (mm)</h2><div class="chart"><canvas id="ch-dobras"></canvas></div></div>
+      <div class="card w12" id="k-tabela"><h2>Dobras por avaliação (mm)</h2><div class="tablebox"><table id="tb"></table></div></div>
+      </div></details>
     </section>
 
     <section class="cls view" data-view="perfil" id="pf-cls" hidden>
@@ -354,26 +412,13 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
       <div class="card w12"><h2>Classificações por avaliação</h2><p class="note">Classificações calculadas na data de cada avaliação.</p><div class="tablebox"><table id="tb-cls"></table></div></div>
     </section>
 
-    <section class="grid view" data-view="circunferencias" hidden>
-      <div class="card w8"><h2>Cintura, abdômen e quadril (cm)</h2><div class="chart"><canvas id="ch-tronco"></canvas></div></div>
-      <div class="card w4"><h2>Relação cintura/quadril</h2><div class="chart"><canvas id="ch-rcq"></canvas></div></div>
-      <div class="card"><h2>Membros superiores (cm)</h2><p class="note">E = esquerdo · D = direito</p><div class="chart"><canvas id="ch-sup"></canvas></div></div>
-      <div class="card"><h2>Membros inferiores (cm)</h2><p class="note">E = esquerdo · D = direito</p><div class="chart"><canvas id="ch-inf"></canvas></div></div>
-      <div class="card w12"><h2>Tórax e ombro (cm)</h2><div class="chart"><canvas id="ch-torax"></canvas></div></div>
-    </section>
-
-    <section class="grid view" data-view="dobras" hidden>
-      <div class="card w4"><h2>Somatório de dobras (mm)</h2><div class="chart"><canvas id="ch-soma"></canvas></div></div>
-      <div class="card w8"><h2>Dobras cutâneas (mm)</h2><div class="chart"><canvas id="ch-dobras"></canvas></div></div>
-      <div class="card w12"><h2>Dobras por avaliação (mm)</h2><div class="tablebox"><table id="tb"></table></div></div>
-    </section>
 
     <section class="plano view" data-view="plano" id="plano" hidden></section>
 
-    <section class="view ck-dados" data-view="exames" id="ex-dados" hidden></section>
     <section class="view ck-dados" data-view="perfil" id="pf-dados" hidden></section>
     <section class="view ck-dados" data-view="metas" id="mt-dados" hidden></section>
-    <section class="view" data-view="checkin" hidden>
+    <section class="view comp-blocos" data-view="saude" hidden>
+      <details class="bloco" id="b-checkin" open hidden><summary>Check-in e rastreios</summary><div>
       <div class="card ck-card" id="ck-card" hidden>
         <h2>Check-in da semana</h2>
         <p>Uma vez por semana, me conte como foram os seus dias. Leva uns 2 minutos e me ajuda a acompanhar você até a próxima consulta.</p>
@@ -383,6 +428,26 @@ table.mt-grade td.pct{font:600 12px var(--mono);padding-left:8px;white-space:now
         <p class="note">O formulário abre numa nova aba, já com o seu nome preenchido.</p>
       </div>
       <div class="ck-dados" id="ck-dados"></div>
+      </div></details>
+      <details class="bloco" id="b-exames" open hidden><summary>Exames e desempenho</summary>
+        <div class="ck-dados" id="ex-dados"></div></details>
+      <details class="bloco" id="b-lesoes" open hidden><summary>Lesões</summary>
+        <div class="card les-pag">
+          <p class="note">Regiões marcadas pelo seu nutricionista a partir da sua avaliação. Fique à vontade para perguntar na consulta.</p>
+          <div class="les-corpo">
+            <div class="les-figuras"><figure id="les-frente"></figure><figure id="les-costas"></figure></div>
+            <div class="les-lado"><ul class="les-legenda" id="les-legenda"></ul>
+              <div class="tablebox"><table class="ck-tab les-tab"><thead><tr><th style="text-align:left">Região</th><th style="text-align:left">Lado</th>
+                <th style="text-align:left">Situação</th></tr></thead><tbody id="les-lista"></tbody></table></div></div>
+          </div>
+        </div></details>
+    </section>
+
+    <section class="view comp-blocos" data-view="treinos" hidden>
+      <details class="bloco" id="b-atividade" open hidden><summary>Sua atividade física</summary>
+        <div class="card"><dl class="tr-ativ" id="tr-ativ"></dl><p class="note">Do que você contou na sua última avaliação.</p></div></details>
+      <details class="bloco" id="b-rotina" open hidden><summary>Rotina de treino</summary><div id="tr-rotina"></div></details>
+      <details class="bloco" id="b-garmin" open hidden><summary>Garmin</summary><div id="tr-garmin"></div></details>
     </section>
 
     <footer id="foot"></footer>
@@ -401,6 +466,8 @@ const REDS = __REDS__;
 const EXAMES = __EXAMES__;
 const DESEMPENHO = __DESEMPENHO__;
 const PERFIL = __PERFIL__;
+const LESOES = __LESOES__;   // boneco com as lesões (aba Saúde), ou null
+const TREINOS = __TREINOS__;   // aba Treinos: atividade da anamnese, rotina importada, Garmin (ou null)
 const TEM_PERFIL = PERFIL.somatotipo.length || PERFIL.pvc.length || PERFIL.z.length
   || ['peso_sugerido', 'muscular_alvo', 'imo'].some(k => PERFIL.metas[k] != null);
 
@@ -459,7 +526,8 @@ function drawKpis(rows) {
 function drawCharts(rows) {
   const labels = rows.map(r => r.dataAvaliacao.slice(0, 6) + r.dataAvaliacao.slice(8));
   const ink = css('--muted'), grid = css('--line'), surface = css('--surface');
-  for (const cfg of VIEWS[view]) {
+  const lista = view === 'composicao' ? [...VIEWS.composicao, ...VIEWS.circunferencias, ...VIEWS.dobras] : VIEWS[view];
+  for (const cfg of lista) {
     const series = cfg.series.filter(([k]) => DADOS.some(r => n(r[k]) != null));
     document.getElementById(cfg.id).closest('.card').hidden = !series.length;
     if (!series.length) continue;
@@ -1235,19 +1303,23 @@ function desenharGraficoCk() {
 
 function render() {
   const rows = recorte();
-  const plano = view === 'plano', ck = ['checkin', 'exames', 'perfil', 'metas'].includes(view);
+  const plano = view === 'plano', ck = ['saude', 'treinos', 'perfil', 'metas'].includes(view);
   document.getElementById('kpis').hidden = plano || ck || !DADOS.length;
   document.querySelector('.range').hidden = plano || ck || !DADOS.length;
   if (!DADOS.length && !plano && !ck) return;   // paciente ainda sem avaliação
   if (view === 'perfil') desenharGraficosPerfil();
-  document.getElementById('sub').textContent = view === 'exames' ? 'Exames e desempenho' : view === 'perfil' ? 'Perfil antropométrico' : view === 'metas' ? 'Metas diárias' : ck ? 'Check-in e rastreios'
+  document.getElementById('sub').textContent = view === 'saude' ? 'Saúde: check-in, rastreios e exames' : view === 'treinos' ? 'Treinos' : view === 'perfil' ? 'Perfil antropométrico' : view === 'metas' ? 'Metas diárias' : ck ? 'Saúde'
     : plano ? (PLANOS.length > 1 ? `${PLANOS.length} planos alimentares` : `Plano alimentar prescrito em ${PLANOS[0].prescrito}`)
     : `${rows.length} ${rows.length === 1 ? 'avaliação' : 'avaliações'} · ${rows[0].dataAvaliacao} a ${rows[rows.length - 1].dataAvaliacao} · Altura ${fmt(n(rows[rows.length - 1].estatura), 0)} cm`;
   if (view === 'perfil' && DADOS.length) drawCls(rows);   // classificações ficam na aba Perfil
   if (plano || ck) return;
   drawKpis(rows);
   drawCharts(rows);
-  if (view === 'dobras') drawTable(rows);
+  if (view === 'composicao') {
+    drawTable(rows);
+    document.getElementById('k-tabela').hidden = !DADOS.some(r => VIEWS.dobras[1].series.some(([k]) => n(r[k]) != null));
+    document.querySelectorAll('.comp-blocos .bloco').forEach(b => { b.hidden = ![...b.querySelectorAll('.card')].some(c => !c.hidden); });
+  }
   if (view === 'classificacoes') drawCls(rows);
 }
 
@@ -1711,14 +1783,59 @@ document.getElementById('foot').textContent ='__MARCA__. Composição corporal c
 if (PLANOS.length) { document.getElementById('t-plano').hidden = false; drawPlano(); }
 if (CHECKIN) { document.getElementById('ck-card').hidden = false; document.getElementById('ck-link').href = CHECKIN; }
 const TEM_REDS = (REDS.leafq || []).length || (REDS.energia || []).length;
-if (CHECKIN || CHECKINS.length || TEM_REDS) { document.getElementById('t-checkin').hidden = false; desenharCheckins(); }
-if (EXAMES.datas.length || DESEMPENHO.length) { document.getElementById('t-exames').hidden = false; desenharExames(); }
+if (CHECKIN || CHECKINS.length || TEM_REDS) { document.getElementById('t-saude').hidden = false; document.getElementById('b-checkin').hidden = false; desenharCheckins(); }
+if (EXAMES.datas.length || DESEMPENHO.length) { document.getElementById('t-saude').hidden = false; document.getElementById('b-exames').hidden = false; desenharExames(); }
+if (TREINOS) desenharTreinos();
+function desenharTreinos() {
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const num = v => v == null ? '' : Number(v).toLocaleString('pt-BR');
+  document.getElementById('t-treinos').hidden = false;
+  if (TREINOS.atividade && TREINOS.atividade.length) {
+    document.getElementById('b-atividade').hidden = false;
+    document.getElementById('tr-ativ').innerHTML = TREINOS.atividade.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+  }
+  const r = TREINOS.rotina;
+  if (r && r.sessoes && r.sessoes.length) {
+    document.getElementById('b-rotina').hidden = false;
+    const info = [r.objetivo, r.nivel, r.periodo].filter(Boolean).map(esc).join(' · ');
+    document.getElementById('tr-rotina').innerHTML = `<div class="card"><h2>${esc(r.rotina || 'Rotina')}</h2>${info ? `<p class="note">${info}</p>` : ''}
+      <div class="tr-sessoes">${r.sessoes.map(s => `<details class="tr-sessao"><summary><b>${esc(s.nome)}</b> <span class="note">${s.exercicios.length} exercício${s.exercicios.length === 1 ? '' : 's'}</span></summary>
+        ${s.obs ? `<p class="note">${esc(s.obs)}</p>` : ''}<ol>${s.exercicios.map(e => `<li${e.substituto ? ' class="subst"' : ''}>
+          <b>${e.substituto ? '<span class="note">ou substitua por: </span>' : ''}${esc(e.nome)}</b>${e.grupo ? ` <span class="tr-chip">combinado ${e.grupo}</span>` : ''}
+          ${(e.series || []).map(x => `<span class="tr-serie">${esc(x.series || '')}${x.carga && !/^0\s?kg$/i.test(x.carga) ? ' · ' + esc(x.carga) : ''}${x.intervalo ? ' · intervalo ' + esc(x.intervalo) : ''}</span>`).join('')}
+          ${e.instrucoes ? `<span class="note">${esc(e.instrucoes)}</span>` : ''}</li>`).join('')}</ol></details>`).join('')}</div></div>`;
+  }
+  const g = TREINOS.garmin;
+  if (g) {
+    document.getElementById('b-garmin').hidden = false;
+    const kpi = (k, v, u, extra) => v == null || v === '' ? '' : `<div><span class="k">${k}</span><span class="v">${v}${u ? `<small> ${u}</small>` : ''}</span>${extra ? `<span class="note">${extra}</span>` : ''}</div>`;
+    document.getElementById('tr-garmin').innerHTML = `<div class="card"><p class="note">Últimas 4 semanas do seu relógio (${esc(g.ini)} a ${esc(g.fim)}).</p>
+      <div class="tr-kpis">${kpi('Treinos por semana', num(g.treinos_semana))}${kpi('Minutos por semana', num(g.min_semana), 'min')}
+        ${g.km_semana ? kpi('Distância por semana', num(g.km_semana), 'km') : ''}${kpi('FC média nos treinos', g.fc_media, 'bpm')}
+        ${kpi('Passos por dia', num(g.passos), '', g.meta_passos ? `meta ${num(g.meta_passos)} · bateu em ${g.dias_meta} de ${g.dias_passos} dias` : '')}
+        ${kpi('Sono por noite', g.sono_h != null ? num(g.sono_h) : null, 'h')}${kpi('FC de repouso', g.fc_repouso, 'bpm')}</div>
+      ${(g.por_tipo || []).length ? `<div class="tr-tipos">${g.por_tipo.map(x => `<span class="tr-chip">${esc(x.tipo)}: ${x.n}× · ${x.min} min</span>`).join('')}</div>` : ''}
+      ${(g.ultimos || []).length ? `<div class="tablebox"><table class="ck-tab"><thead><tr><th style="text-align:left">Data</th><th style="text-align:left">Treino</th><th>Duração</th><th>Distância</th><th>kcal</th><th>FC média</th></tr></thead><tbody>
+        ${g.ultimos.map(a => `<tr><td style="text-align:left">${esc(a.data)}</td><td style="text-align:left">${esc(a.tipo)}${a.titulo && a.titulo !== a.tipo ? ` <span class="note">· ${esc(a.titulo)}</span>` : ''}</td>
+          <td>${a.min != null ? a.min + ' min' : ''}</td><td>${a.km ? num(a.km) + ' km' : ''}</td><td>${a.kcal ?? ''}</td><td>${a.fc ?? ''}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>`;
+  }
+}
+if (LESOES && LESOES.lista && LESOES.lista.length) {
+  document.getElementById('t-saude').hidden = false; document.getElementById('b-lesoes').hidden = false;
+  document.getElementById('les-frente').innerHTML = LESOES.frente + '<figcaption>Frente</figcaption>';
+  document.getElementById('les-costas').innerHTML = LESOES.costas + '<figcaption>Costas</figcaption>';
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  document.getElementById('les-legenda').innerHTML = LESOES.legenda.map(([r, c]) => `<li><i style="background:${c}"></i>${esc(r)}</li>`).join('');
+  document.getElementById('les-lista').innerHTML = LESOES.lista.map(l =>
+    `<tr><td style="text-align:left"><b>${esc(l.nome)}</b></td><td style="text-align:left">${esc(l.lado)}</td>` +
+    `<td style="text-align:left"><span class="les-sit" style="--c:${l.cor}">${esc(l.situacao)}</span></td></tr>`).join('');
+}
 if (TEM_PERFIL || DADOS.length) document.getElementById('t-perfil').hidden = false;   // classificações + perfil
 if (TEM_PERFIL) desenharPerfilPag();
 desenharMetas();
 // paciente novo, ainda sem avaliação: a página mostra só o plano e o check-in
 if (!DADOS.length) {
-  ['composicao', 'classificacoes', 'circunferencias', 'dobras'].forEach(v => { document.getElementById('t-' + v).hidden = true; });
+  ['composicao', 'classificacoes'].forEach(v => { document.getElementById('t-' + v).hidden = true; });
   document.getElementById('rel-av').hidden = true;
   document.getElementById('foot').textContent = '';
   if (![...document.querySelectorAll('.relatorios button')].some(b => !b.hidden)) document.querySelector('.relatorios').hidden = true;
@@ -1730,7 +1847,31 @@ if (!DADOS.length) {
     : 'Suas avaliações e seu plano alimentar vão aparecer aqui depois da consulta.';
   document.getElementById('aviso-novo').hidden = false;
 }
-const inicial = location.hash.slice(1) === 'classificacoes' ? 'perfil' : location.hash.slice(1);
+// links antigos: #circunferencias e #dobras abrem a Composição corporal já no bloco
+const pedido = location.hash.slice(1);
+const inicial = pedido === 'classificacoes' ? 'perfil' : ['circunferencias', 'dobras'].includes(pedido) ? 'composicao'
+  : ['checkin', 'exames'].includes(pedido) ? 'saude' : pedido;
+if (['circunferencias', 'dobras', 'checkin', 'exames'].includes(pedido)) setTimeout(() => {
+  const b = document.getElementById('b-' + pedido); if (b) { b.open = true; b.scrollIntoView({ block: 'start' }); }
+}, 50);
+// blocos e gráficos minimizáveis (a escolha fica guardada neste aparelho)
+(function () {
+  const ler = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const gravar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  document.querySelectorAll('.comp-blocos .bloco').forEach(b => {
+    if (ler('bloco-' + b.id) === 'fechado') b.open = false;
+    b.addEventListener('toggle', () => gravar('bloco-' + b.id, b.open ? 'aberto' : 'fechado'));
+  });
+  document.querySelectorAll('[data-view="composicao"] .card[id]').forEach(c => {
+    const h = c.querySelector('h2'); if (!h) return;
+    const bt = document.createElement('button');
+    bt.type = 'button'; bt.className = 'mini-dobra';
+    const pos = f => { c.classList.toggle('fechado', f); bt.textContent = f ? '+' : '\u2212'; bt.title = f ? 'Abrir' : 'Minimizar'; bt.setAttribute('aria-expanded', String(!f)); };
+    pos(ler('card-' + c.id) === 'fechado');
+    h.appendChild(bt);
+    h.addEventListener('click', () => { const f = !c.classList.contains('fechado'); pos(f); gravar('card-' + c.id, f ? 'fechado' : 'aberto'); });
+  });
+})();
 const alvo = document.querySelector(`.tab[data-view="${inicial}"]:not([hidden])`) || document.querySelector('.tab:not([hidden])');
 if (alvo) alvo.click(); else render();
 </script>

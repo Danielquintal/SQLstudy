@@ -296,6 +296,75 @@
   {% endif %}
 </form>
 
+<div class="card ficha" id="boneco">
+  <h2>Imagens do boneco (aba Lesões)</h2>
+  <p class="note" style="margin:0">Imagens anatômicas do corpo inteiro, em pé, de frente para a câmera (ou de costas), braços um pouco
+    afastados do corpo. Ao escolher o arquivo, o sistema acha sozinho ombros, cotovelos, quadril, joelhos e tornozelos para acender
+    as lesões no lugar certo. Sem imagem, a aba usa o boneco desenhado. Use imagens que você tem direito de usar.</p>
+  <div class="bn-slots">
+    {% for k, rot in bn_vistas.items() %}{% set info = bn_imagens.get(k) %}
+    <div class="bn-slot" data-vista="{{ k }}">
+      <b>{{ rot }}</b>
+      <div class="bn-prev">{% if info %}<img src="{{ url_for('boneco_imagem', nome=info.arquivo) }}?v={{ info.w }}x{{ info.h }}" alt="{{ rot }}">{% else %}<span class="note">sem imagem</span>{% endif %}</div>
+      <label class="btn mini">{{ 'Trocar' if info else 'Escolher imagem' }}<input type="file" accept="image/*" hidden></label>
+      {% if info %}<button type="button" class="btn mini" data-remover>Remover</button>{% endif %}
+      <span class="note bn-msg" role="status"></span>
+    </div>{% endfor %}
+  </div>
+</div>
+<script type="module">
+const V = '0.10.14', U = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V}`;
+const MODELO = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task';
+let det = null;
+async function detector() {
+  if (det) return det;
+  const { PoseLandmarker, FilesetResolver } = await import(`${U}/vision_bundle.mjs`);
+  det = await PoseLandmarker.createFromOptions(await FilesetResolver.forVisionTasks(`${U}/wasm`),
+    { baseOptions: { modelAssetPath: MODELO, delegate: 'CPU' }, runningMode: 'IMAGE', numPoses: 1, outputSegmentationMasks: true });
+  return det;
+}
+async function enviar(vista, corpo, msg) {
+  const r = await fetch({{ url_for('configuracao_boneco')|tojson }}, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vista, ...corpo }) });
+  const j = await r.json().catch(() => ({ erro: 'não consegui falar com o sistema' }));
+  if (!r.ok) { msg.textContent = j.erro || 'Não deu certo.'; return; }
+  location.hash = 'boneco'; location.reload();
+}
+document.querySelectorAll('.bn-slot').forEach(slot => {
+  const msg = slot.querySelector('.bn-msg'), vista = slot.dataset.vista;
+  slot.querySelector('input[type=file]').addEventListener('change', async e => {
+    const arq = e.target.files[0]; if (!arq) return;
+    msg.textContent = 'Lendo a imagem e procurando as articulações…';
+    try {
+      const url = await new Promise((ok, erro) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = erro; f.readAsDataURL(arq); });
+      const img = new Image(); img.src = url; await img.decode();
+      // detecta numa cópia de até 512 px de altura (mais leve) e gera a máscara do corpo (branco = corpo)
+      const cv = document.createElement('canvas'), esc = Math.min(1, 512 / img.naturalHeight);
+      cv.width = Math.round(img.naturalWidth * esc); cv.height = Math.round(img.naturalHeight * esc);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const r = (await detector()).detect(cv);
+      let mascara = null;
+      if (r.segmentationMasks && r.segmentationMasks[0]) {
+        const m = r.segmentationMasks[0], a = m.getAsFloat32Array(), mc = document.createElement('canvas');
+        mc.width = m.width; mc.height = m.height;
+        const g = mc.getContext('2d'), px = g.createImageData(m.width, m.height);
+        for (let i = 0; i < a.length; i++) {
+          const v = Math.round(Math.min(1, Math.max(0, (a[i] - .35) / .3)) * 255);
+          px.data[4 * i] = px.data[4 * i + 1] = px.data[4 * i + 2] = v; px.data[4 * i + 3] = 255;
+        }
+        g.putImageData(px, 0, 0); mascara = mc.toDataURL('image/png');
+      }
+      const p = (r.landmarks[0] || []).map(l => [l.x, l.y, l.visibility || 0]);
+      if (p.length < 33) { msg.textContent = 'Não achei um corpo nesta imagem.'; return; }
+      msg.textContent = 'Enviando…';
+      await enviar(vista, { imagem: url, pontos: p, mascara }, msg);
+    } catch (err) { msg.textContent = 'Não consegui ler a imagem (' + err.message + ').'; }
+  });
+  const rem = slot.querySelector('[data-remover]');
+  if (rem) rem.addEventListener('click', () => { if (confirm('Remover esta imagem? A aba Lesões volta ao boneco desenhado nesta vista.')) enviar(vista, { remover: true }, msg); });
+});
+</script>
+
 <form method="post" action="{{ url_for('configuracao_copia') }}" class="card ficha" id="copia">
   <h2>Cópia de segurança</h2>
   {% set u = cp_estado.ultima %}

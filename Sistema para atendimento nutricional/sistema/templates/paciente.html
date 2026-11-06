@@ -29,9 +29,11 @@
 <nav class="abas" role="tablist" aria-label="Ficha do paciente">
   <a class="aba" role="tab" href="#ficha" data-aba="ficha" aria-selected="true">Ficha</a>
   <a class="aba" role="tab" href="#resumo" data-aba="resumo" aria-selected="false">Resumo</a>
+  <a class="aba" role="tab" href="#lesoes" data-aba="lesoes" aria-selected="false">Lesões{% if les_lista %} <span class="badge">{{ les_lista|length }}</span>{% endif %}</a>
   {% if tem_pagina %}<a class="aba" role="tab" href="#evolucao" data-aba="evolucao" aria-selected="false">Evolução (página do paciente)</a>{% endif %}
 </nav>
 {% include "_resumo.html" %}
+{% include "_lesoes.html" %}
 {% if tem_pagina %}
 <section id="aba-evolucao" class="painel-evolucao" hidden>
   <iframe id="quadro" title="Página de evolução de {{ p.nome }}" data-src="{{ url_for('evolucao', pid=p.id) }}"></iframe>
@@ -430,6 +432,100 @@ document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('clic
   {% endif %}
 </div>
 
+<div class="card" id="garmin">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2>Garmin</h2>
+    {% if relogio %}<span class="note">{{ relogio.n_atividades }} treino{{ 's' if relogio.n_atividades != 1 }}{% if relogio.n_dias %} · {{ relogio.n_dias }} dia{{ 's' if relogio.n_dias != 1 }} de passos/sono{% endif %}</span>{% endif %}
+  </div>
+  {% if relogio %}
+  <p class="note" style="margin:0">Últimas 4 semanas do arquivo ({{ relogio.ini|br }} a {{ relogio.fim|br }}):</p>
+  <div class="gm-kpis">
+    <div><span class="k">Treinos por semana</span><span class="v">{{ relogio.treinos_semana|num }}</span></div>
+    <div><span class="k">Minutos por semana</span><span class="v">{{ relogio.min_semana }}<small> min</small></span></div>
+    {% if relogio.km_semana %}<div><span class="k">Distância por semana</span><span class="v">{{ relogio.km_semana|num }}<small> km</small></span></div>{% endif %}
+    {% if relogio.fc_media %}<div><span class="k">FC média nos treinos</span><span class="v">{{ relogio.fc_media }}<small> bpm</small></span></div>{% endif %}
+    {% if relogio.passos %}<div><span class="k">Passos por dia</span><span class="v">{{ '{:,}'.format(relogio.passos).replace(',', '.') }}</span>
+      {% if relogio.meta_passos %}<span class="note">meta {{ '{:,}'.format(relogio.meta_passos).replace(',', '.') }} · bateu em {{ relogio.dias_meta }} de {{ relogio.dias_passos }} dias</span>{% endif %}</div>{% endif %}
+    {% if relogio.sono_h %}<div><span class="k">Sono por noite</span><span class="v">{{ relogio.sono_h|num }}<small> h</small></span></div>{% endif %}
+    {% if relogio.fc_repouso %}<div><span class="k">FC de repouso</span><span class="v">{{ relogio.fc_repouso }}<small> bpm</small></span></div>{% endif %}
+  </div>
+  {% if relogio.por_tipo %}<div class="ex-alertas">{% for t in relogio.por_tipo %}<span class="chip">{{ t.tipo }}: {{ t.n }}× · {{ t.min }} min</span>{% endfor %}</div>{% endif %}
+  {% if relogio.ultimos %}
+  <div class="tablebox"><table>
+    <thead><tr><th class="t">Data</th><th class="t">Treino</th><th>Duração</th><th>Distância</th><th>kcal</th><th>FC média</th></tr></thead>
+    <tbody>{% for a in relogio.ultimos %}<tr>
+      <td class="t">{{ a.inicio.strftime('%d/%m %H:%M') }}</td><td class="t">{{ a.tipo }}{% if a.titulo and a.titulo != a.tipo %} <span class="note">· {{ a.titulo }}</span>{% endif %}</td>
+      <td class="n">{% if a.duracao_s %}{{ '%d:%02d' % (a.duracao_s // 3600, a.duracao_s % 3600 // 60) if a.duracao_s >= 3600 else (a.duracao_s // 60) ~ ' min' }}{% endif %}</td>
+      <td class="n">{% if a.distancia_m %}{{ (a.distancia_m / 1000)|round(2)|num }} km{% endif %}</td>
+      <td class="n">{{ a.calorias or '' }}</td><td class="n">{{ a.fc_media or '' }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% else %}
+  <p class="note" style="margin:0">Treinos, passos e sono do relógio Garmin do paciente. Ele exporta e te manda o arquivo; você envia aqui.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('paciente_garmin', pid=p.id) }}" enctype="multipart/form-data" class="acoes" style="align-items:center">
+    <input type="file" name="arquivo" accept=".csv,.zip,.json" required>
+    <button class="btn pri">{{ 'Importar de novo' if relogio else 'Importar do Garmin' }}</button>
+    {% if relogio %}<button class="btn perigo mini" formaction="{{ url_for('paciente_garmin_apagar', pid=p.id) }}" formnovalidate
+      onclick="return confirm('Apagar todos os dados do Garmin deste paciente?')">Apagar dados do Garmin</button>{% endif %}
+  </form>
+  <details><summary class="note">Como o paciente exporta do Garmin</summary>
+    <ol class="note" style="margin:6px 0 0">
+      <li><b>Treinos (planilha, na hora):</b> no computador, entrar em <b>connect.garmin.com</b> › <b>Atividades</b> › <b>Todas as atividades</b>;
+        rolar a lista até o período desejado e clicar em <b>Exportar CSV</b> (canto de cima). Mandar o arquivo .csv.</li>
+      <li><b>Tudo, com passos por dia e sono:</b> em <b>garmin.com</b> › <b>Conta</b> › <b>Gerenciamento de dados</b> ›
+        <b>Exportar seus dados</b> › <b>Solicitar exportação</b>. O Garmin manda por e-mail um link para baixar um .zip
+        (pode levar alguns dias). Mandar esse .zip.</li>
+    </ol>
+  </details>
+</div>
+
+<div class="card" id="mfit">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2>Treino</h2>
+    {% if treino_mfit %}<span class="note">{{ {'mfit': 'MFIT', 'planilha': 'planilha', 'texto': 'texto colado'}.get(treino_mfit.fonte, treino_mfit.fonte) }} · importado em {{ treino_mfit.importado_em.strftime('%d/%m/%Y') }}{% if treino_mfit.n > 1 %} · {{ treino_mfit.n }} rotinas guardadas{% endif %}</span>{% endif %}
+  </div>
+  {% if treino_mfit %}{% set t = treino_mfit %}
+  <p style="margin:0"><b>{{ t.rotina or 'Rotina' }}</b>
+    <span class="note">{% for x in [t.objetivo, t.nivel, t.periodo] if x %} · {{ x }}{% endfor %} · {{ t.sessoes|length }} sess{{ 'ão' if t.sessoes|length == 1 else 'ões' }}, {{ t.n_exercicios }} exercícios</span></p>
+  {% if t.nome_no_pdf and t.nome_no_pdf|lower != p.nome|lower %}<p class="msg aviso" style="margin:0">O PDF é de “{{ t.nome_no_pdf }}”.</p>{% endif %}
+  <div class="mf-sessoes">
+    {% for s in t.sessoes %}
+    <details class="mf-sessao">
+      <summary><b>{{ s.nome }}</b> <span class="note">{{ s.exercicios|length }} exercício{{ 's' if s.exercicios|length != 1 }}</span></summary>
+      {% if s.obs %}<p class="note" style="margin:0 0 6px">{{ s.obs }}</p>{% endif %}
+      <ol class="mf-lista">{% for e in s.exercicios %}
+        <li class="{{ 'mf-subst' if e.substituto }}">
+          <span class="mf-nome">{% if e.substituto %}<span class="note">ou substitua por: </span>{% endif %}{{ e.nome }}
+            {% if e.grupo %}<span class="chip" title="Exercícios combinados: alternar">combinado {{ e.grupo }}</span>{% endif %}</span>
+          {% for x in e.series %}<span class="mf-series">{{ x.series or '' }}{% if x.carga and x.carga not in ('0kg', '0 kg') %} · {{ x.carga }}{% endif %}{% if x.intervalo %} · intervalo {{ x.intervalo }}{% endif %}</span>{% endfor %}
+          {% if e.instrucoes %}<span class="note mf-instr">{{ e.instrucoes }}</span>{% endif %}
+        </li>{% endfor %}</ol>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="note" style="margin:0">A rotina de treino do paciente: o PDF do MFIT, a planilha do treinador (.xlsx ou .csv) ou o treino
+    colado como texto (de Word, PDF ou foto).</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('paciente_mfit', pid=p.id) }}" enctype="multipart/form-data" class="acoes" style="align-items:center">
+    <input type="file" name="arquivo" accept=".pdf,.xlsx,.xlsm,.csv" required>
+    <button class="btn pri">{{ 'Importar rotina nova' if treino_mfit else 'Importar treino' }}</button>
+    {% if treino_mfit %}<button class="btn perigo mini" formaction="{{ url_for('paciente_mfit_apagar', pid=p.id, tid=treino_mfit.id) }}" formnovalidate
+      onclick="return confirm('Apagar esta rotina?')">Apagar esta rotina</button>{% endif %}
+  </form>
+  <details class="mf-colar"><summary class="note">Treino em Word, PDF de outro formato ou foto? Cole o texto aqui</summary>
+    <form method="post" action="{{ url_for('paciente_mfit', pid=p.id) }}" class="ficha" style="gap:8px;margin-top:8px">
+      <input class="texto" name="rotina" placeholder="Nome da rotina (opcional), ex.: Programa Halteres">
+      <textarea name="texto" rows="8" required placeholder="TREINO A - PEITO&#10;Supino reto 4x10 60kg&#10;Crucifixo 3x12&#10;TREINO B - COSTAS&#10;Remada curvada 4x8"></textarea>
+      <p class="note" style="margin:0">Word/PDF: selecione tudo, copie e cole. Foto: no celular, use o <b>Google Lens</b> (ou a câmera do
+        iPhone) › <b>Copiar texto</b>. Títulos em MAIÚSCULAS (ou “Treino A”, “Dia 1”) separam os treinos; em cada linha, o
+        exercício e depois as séries (“Squat jump 6,6,6”, “3x 5 saltos na caixa”). Rodapé com CREF e telefone fica de fora.</p>
+      <div class="acoes"><button class="btn pri">Importar texto</button></div>
+    </form>
+  </details>
+</div>
+
 <div class="card" id="checkin" style="padding:6px 8px">
   <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding:10px 10px 0">
     <h2>Check-in semanal</h2>
@@ -466,7 +562,7 @@ document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('clic
 <script>
 /* cartões da ficha que abrem e fecham (Link, Plano alimentar, avaliações e Consultas ficam sempre abertos).
    A escolha fica guardada neste navegador; se a página veio para um cartão (#acompanhamento), ele abre. */
-['lembretes', 'lembretes-paciente', 'acompanhamento', 'whatsapp', 'reds', 'perfil', 'exames', 'desempenho', 'checkin'].forEach(function (id) {
+['lembretes', 'lembretes-paciente', 'acompanhamento', 'whatsapp', 'reds', 'perfil', 'exames', 'desempenho', 'garmin', 'mfit', 'checkin'].forEach(function (id) {
   var card = document.getElementById(id), topo = card && card.firstElementChild;
   if (!topo) return;
   var chave = 'dobra-' + id, b = document.createElement('button');
@@ -495,15 +591,16 @@ document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('clic
 {% set g = request.args.get('gravado', '') %}{% if g == 'nova' or g.isdigit() %}try { localStorage.removeItem('rascunho-av-{{ p.id }}-{{ g }}'); } catch (e) {}{% endif %}
 </script>
 <script>
-// abas Ficha / Evolução; a página de evolução só carrega na primeira vez que a aba abre
+// abas Ficha / Resumo / Lesões / Evolução; a página de evolução só carrega na primeira vez que a aba abre
 const quadro = document.getElementById('quadro');
 function mostrar() {
   // #resumo e #evolucao abrem essas abas; qualquer outro endereço (ou âncora da ficha) fica na Ficha
   const ev = location.hash === '#evolucao' && quadro;
-  const rs = location.hash === '#resumo';
-  const aba = ev ? 'evolucao' : rs ? 'resumo' : 'ficha';
+  const rs = location.hash === '#resumo', ls = location.hash === '#lesoes';
+  const aba = ev ? 'evolucao' : rs ? 'resumo' : ls ? 'lesoes' : 'ficha';
   document.getElementById('aba-ficha').hidden = aba !== 'ficha';
   document.getElementById('aba-resumo').hidden = aba !== 'resumo';
+  document.getElementById('aba-lesoes').hidden = aba !== 'lesoes';
   const sec = document.getElementById('aba-evolucao');
   if (sec) sec.hidden = aba !== 'evolucao';
   document.querySelectorAll('.aba').forEach(a => a.setAttribute('aria-selected', String(a.dataset.aba === aba)));

@@ -115,12 +115,65 @@ def preparar_pasta():
             arq.write_bytes(origem.read_bytes())
 
 
+MARCA_C = SITE.parent / "confirmacao_publicada.txt"     # qual versão do c.html já está no ar
+
+
+def _html_confirmacao(cfg):
+    """página /c do site: lê o link curto (#codigo.assinatura.AAAAMMDDHHMM.nome) e abre a página de confirmação
+    do script do Google com os dados completos. O que vai depois do # nem chega ao servidor."""
+    import json
+    import checkin
+    url = (cfg.get("checkin") or {}).get("url") or ""
+    if not url:
+        return None
+    w = checkin.whatsapp_prof(cfg) or ""
+    return ("<!doctype html><meta charset=utf-8><meta name=robots content=noindex>"
+            "<meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Confirmação de consulta</title>"
+            "<p id=m style=\"font:17px system-ui;margin:40px;color:#14444f\">Abrindo a confirmação da sua consulta…</p><script>"
+            f"var S={json.dumps(url)},W={json.dumps(w)};"
+            "var p=location.hash.slice(1).split('.');"
+            "if(p.length>=4&&/^\\d{12}$/.test(p[2])){var d=p[2],dt=new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)),"
+            "D=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'],"
+            "q=D[dt.getDay()]+', '+d.slice(6,8)+'/'+d.slice(4,6)+' às '+d.slice(8,10)+':'+d.slice(10,12),"
+            "n=decodeURIComponent(p.slice(3).join('.'));"
+            "location.replace(S+'?cod='+encodeURIComponent(p[0])+'&s='+encodeURIComponent(p[1])+'&n='+encodeURIComponent(n)"
+            "+'&q='+encodeURIComponent(q)+'&w='+encodeURIComponent(W));}"
+            "else document.getElementById('m').textContent='Este link de confirmação está incompleto. Responda pela mensagem que você recebeu.';"
+            "</script>")
+
+
+def pagina_confirmacao(cfg):
+    """grava web/site/c.html (vai no próximo envio); devolve o texto ou None sem o script do Google"""
+    html = _html_confirmacao(cfg)
+    if html:
+        arq = SITE / "c.html"
+        SITE.mkdir(parents=True, exist_ok=True)
+        if not arq.exists() or arq.read_text(encoding="utf-8") != html:
+            arq.write_text(html, encoding="utf-8")
+    return html
+
+
+def confirmacao_curta(cfg):
+    """endereço do site se a página /c atual já está no ar (senão o link sai no formato longo do Google)"""
+    html = _html_confirmacao(cfg) if configurado(cfg) else None
+    try:
+        return cfg["cloudflare"]["url"].rstrip("/") if html and MARCA_C.read_text(encoding="utf-8") == _hash(html) else None
+    except FileNotFoundError:
+        return None
+
+
+def _hash(t):
+    import hashlib
+    return hashlib.sha256(t.encode("utf-8")).hexdigest()
+
+
 def enviar(cfg):
     """envia a pasta web/site para o Cloudflare (só o que mudou). Demora alguns segundos."""
     c = cfg["cloudflare"]
     if not WRANGLER.exists():
         raise ErroCloudflare("a ferramenta do Cloudflare não está instalada (ferramentas/cloudflare)")
     preparar_pasta()
+    html_c = pagina_confirmacao(cfg)
     amb = dict(os.environ, CLOUDFLARE_API_TOKEN=c["token"], CLOUDFLARE_ACCOUNT_ID=c["account_id"],
                WRANGLER_SEND_METRICS="false", CI="1")
     with _trava:
@@ -137,4 +190,6 @@ def enviar(cfg):
         if "Authentication" in motivo or "9106" in motivo or "10000" in motivo:
             motivo = "a chave (token) foi recusada: confira se ela tem a permissão Cloudflare Pages · Editar e se o ID da conta está certo"
         raise ErroCloudflare(motivo[:300])
+    if html_c:
+        MARCA_C.write_text(_hash(html_c), encoding="utf-8")     # a partir daqui, os links de confirmação saem curtos
     return r.stdout

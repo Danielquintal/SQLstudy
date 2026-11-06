@@ -70,6 +70,8 @@ def gerar_html(template, nome, avaliacoes, plano, checkin=None, extras=None):
          .replace("__REDS__", json.dumps(extras.get("reds") or {"leafq": [], "energia": []}, ensure_ascii=False))
          .replace("__EXAMES__", json.dumps(extras.get("exames") or {"datas": [], "grupos": []}, ensure_ascii=False))
          .replace("__DESEMPENHO__", json.dumps(extras.get("desempenho") or [], ensure_ascii=False))
+         .replace("__LESOES__", json.dumps(extras.get("lesoes"), ensure_ascii=False))
+         .replace("__TREINOS__", json.dumps(extras.get("treinos"), ensure_ascii=False, default=str))
          .replace("__PERFIL__", json.dumps(extras.get("perfil") or {"somatotipo": [], "pvc": [], "z": [], "metas": {}}, ensure_ascii=False))
          .replace("__NOME__", nome.strip())
          .replace("__PROTOCOLO__", protocolo)

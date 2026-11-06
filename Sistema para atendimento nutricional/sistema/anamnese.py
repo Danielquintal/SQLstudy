@@ -21,7 +21,7 @@ SECOES = [
     ]),
     ("Saúde", None, [
         ("doencas", "Doenças diagnosticadas", "longo", None),
-        ("cirurgias", "Cirurgias e lesões", "texto", None),
+        ("cirurgias", "Cirurgias e lesões (região, lado e situação: aparecem no boneco da aba Lesões)", "longo", None),
         ("medicamentos", "Medicamentos em uso (nome e dose)", "longo", None),
         ("suplementos", "Suplementos em uso", "longo", None),
         ("alergias", "Alergias e intolerâncias alimentares", "texto", None),

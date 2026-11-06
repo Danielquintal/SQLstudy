@@ -380,6 +380,46 @@ table.ex tr.linha:hover td{background:color-mix(in srgb,var(--accent, #1A9E8F) 6
 .ex-item .linha-in input.rl{flex:1;font-size:12px}
 .ex-item .ref{font-size:12px;color:var(--muted)}
 .ex-novo{grid-column:1/-1;display:flex;flex-direction:column;gap:8px}
+.mf-sessoes{display:flex;flex-direction:column;gap:6px}
+.mf-sessao{border:1px solid var(--line);border-radius:10px;padding:0 12px;background:var(--surface)}
+.mf-sessao>summary{cursor:pointer;padding:10px 0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.mf-lista{margin:0 0 10px;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.mf-lista li{display:flex;flex-direction:column;gap:1px}
+.mf-lista .mf-nome{font-weight:600}
+.mf-lista .mf-series{font-size:13px;font-variant-numeric:tabular-nums}
+.mf-lista .mf-instr{font-size:12px}
+.mf-lista .mf-subst{margin-left:14px;list-style:circle}
+.gm-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.gm-kpis>div{background:var(--bg);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.gm-kpis .k{font-size:12px;color:var(--muted)}
+.gm-kpis .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.gm-kpis .v small{font-size:13px;font-weight:400;color:var(--muted)}
+/* aba Lesões: boneco frente/costas + legenda e lista */
+.les-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.les-topo h2{margin:0}
+.les-corpo{display:grid;grid-template-columns:minmax(0,auto) minmax(260px,1fr);gap:24px;align-items:start}
+.les-figuras{display:flex;gap:8px;justify-content:center}
+.les-figuras figure{margin:0;display:flex;flex-direction:column;align-items:center}
+.les-figuras figcaption{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.boneco{width:200px;height:400px;max-width:42vw}
+.boneco .base{fill:color-mix(in srgb,var(--muted) 14%,var(--surface));stroke:color-mix(in srgb,var(--muted) 55%,transparent);stroke-width:1.2}
+.boneco:not(.real) [fill]{stroke-width:1.4}
+.boneco.real{width:auto;height:420px;max-width:44vw;background:#fff;border-radius:10px}
+.bn-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.bn-slot{border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.bn-prev{width:100%;height:170px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px}
+.bn-prev img{max-height:170px;max-width:100%}
+.boneco:not(.real) .lado{font:600 13px var(--sans)}
+.boneco .lado{fill:var(--muted);font-family:var(--sans);font-weight:700}
+.les-lado{display:flex;flex-direction:column;gap:12px;min-width:0}
+.les-legenda{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+.les-legenda li{display:inline-flex;align-items:center;gap:6px}
+.les-legenda i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.les-tab td{vertical-align:top;white-space:normal}
+.les-trecho{display:block;font-size:12px;margin-top:2px}
+.les-sit{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;
+  background:color-mix(in srgb,var(--c) 16%,transparent);color:color-mix(in srgb,var(--c) 75%,var(--ink));border:1px solid color-mix(in srgb,var(--c) 45%,transparent)}
+@media (max-width:760px){.les-corpo{grid-template-columns:minmax(0,1fr)}}
 .ex-novo>.btn{align-self:flex-start}
 .ex-novo-form{border:1px dashed var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
 .ex-novo-form .linha-novo{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px}

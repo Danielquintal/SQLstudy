@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import quote, urlparse
 
 import psycopg
-from flask import Flask, abort, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from flask.sessions import SecureCookieSessionInterface
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -33,6 +33,10 @@ import exames
 import perfil as antropo
 import contatos
 import identidade
+import lesoes
+import garmin
+import mfit
+import treino_planilha
 import licenca
 import lembretes
 import lembretes_paciente
@@ -302,6 +306,146 @@ def licencas():
     return render_template("licencas.html", nova=nova, erro=erro, form=f if erro else {}, lista=licenca.emitidas())
 
 
+def _lesoes_ficha(genero, an_ult, aid):
+    """dados da aba Lesões: lesões lidas da anamnese e o boneco (frente e costas)"""
+    lista, sem = lesoes.da_anamnese(an_ult)
+    frente, costas = lesoes.boneco(genero, lista)
+    return {"les_lista": lista, "les_sem": sem, "les_frente": frente, "les_costas": costas, "les_aid": aid,
+            "les_situacoes": lesoes.SITUACOES}
+
+
+@app.route("/boneco/<nome>")
+def boneco_imagem(nome):
+    """imagens anatômicas da aba Lesões (só as cadastradas)"""
+    if nome not in {n for v in lesoes.imagens().values() for n in (v.get("arquivo"), v.get("mascara")) if n}:
+        abort(404)
+    return send_from_directory(lesoes.PASTA_IMAGENS, nome, max_age=3600)
+
+
+@app.route("/configuracao/boneco", methods=["POST"])
+def configuracao_boneco():
+    """recebe uma imagem do boneco (já com os pontos das articulações achados no navegador) ou remove"""
+    import base64, io
+    from PIL import Image
+    d = request.get_json(silent=True) or {}
+    vista = d.get("vista")
+    if vista not in lesoes.VISTAS:
+        return jsonify(erro="vista desconhecida"), 400
+    lista = lesoes.imagens()
+    pasta = lesoes.PASTA_IMAGENS
+    pasta.mkdir(exist_ok=True)
+    if d.get("remover"):
+        info = lista.pop(vista, None)
+        if info:
+            for n in (info.get("arquivo"), info.get("mascara")):
+                if n:
+                    (pasta / n).unlink(missing_ok=True)
+    else:
+        if not lesoes.pontos_validos(d.get("pontos")):
+            return jsonify(erro="não achei o corpo inteiro na imagem (ombros, cotovelos, punhos, quadril, joelhos e "
+                                "tornozelos precisam aparecer)"), 400
+        try:
+            bruto = base64.b64decode(str(d.get("imagem", "")).split(",", 1)[-1])
+            im = Image.open(io.BytesIO(bruto))
+            im.load()
+        except Exception:   # noqa: BLE001
+            return jsonify(erro="arquivo de imagem inválido"), 400
+        if im.mode in ("RGBA", "LA", "P"):                 # fundo transparente vira branco
+            im = im.convert("RGBA")
+            fundo = Image.new("RGB", im.size, "white")
+            fundo.paste(im, mask=im.split()[-1])
+            im = fundo
+        im = im.convert("RGB")
+        if im.height > 1000:
+            im = im.resize((round(im.width * 1000 / im.height), 1000), Image.LANCZOS)
+        nome = f"{vista}.jpg"
+        im.save(pasta / nome, "JPEG", quality=88)
+        lista[vista] = {"arquivo": nome, "w": im.width, "h": im.height,
+                        "p": [[round(float(x), 4), round(float(y), 4), round(float(v), 2)] for x, y, v in d["pontos"][:33]]}
+        try:                                       # máscara do corpo: a cor da lesão segue o contorno do músculo
+            mk = Image.open(io.BytesIO(base64.b64decode(str(d.get("mascara") or "").split(",", 1)[-1]))).convert("L")
+            mk.save(pasta / f"{vista}_mascara.png")
+            lista[vista]["mascara"] = f"{vista}_mascara.png"
+        except Exception:   # noqa: BLE001 — sem máscara, o boneco usa as marcas redondas
+            (pasta / f"{vista}_mascara.png").unlink(missing_ok=True)
+    (pasta / "pontos.json").write_text(json.dumps(lista), encoding="utf-8")
+    return jsonify(ok=True)
+
+
+@app.route("/paciente/<int:pid>/garmin", methods=["POST"])
+def paciente_garmin(pid):
+    """importa o arquivo exportado do Garmin (planilha de atividades ou "Exportar seus dados")"""
+    arq = request.files.get("arquivo")
+    if not arq or not arq.filename:
+        flash("Escolha o arquivo exportado do Garmin.", "aviso")
+        return redirect(url_for("paciente", pid=pid) + "#garmin")
+    try:
+        dados = garmin.ler(arq.filename, arq.read())
+    except garmin.ErroGarmin as e:
+        flash(f"Não deu para importar: {e}.", "aviso")
+        return redirect(url_for("paciente", pid=pid) + "#garmin")
+    except Exception:   # noqa: BLE001 — arquivo estranho: avisa em vez de quebrar a ficha
+        flash("Não consegui ler este arquivo. Confira se é a planilha (.csv) ou o .zip exportado do Garmin.", "aviso")
+        return redirect(url_for("paciente", pid=pid) + "#garmin")
+    with conectar() as con:
+        cur = con.cursor()
+        buscar_paciente(cur, pid)
+        novos, atual, dias = garmin.gravar(cur, pid, dados)
+    partes = [f"{novos} treino(s) novo(s)" if novos else "", f"{atual} atualizado(s)" if atual else "",
+              f"{dias} dia(s) com passos/sono" if dias else ""]
+    flash("Garmin importado: " + ", ".join(p for p in partes if p) + ".")
+    return redirect(url_for("paciente", pid=pid) + "#garmin")
+
+
+@app.route("/paciente/<int:pid>/mfit", methods=["POST"])
+def paciente_mfit(pid):
+    """importa o treino: PDF do MFIT, planilha (.xlsx/.csv) ou texto colado (Word, PDF, foto lida pelo celular)"""
+    arq, texto = request.files.get("arquivo"), request.form.get("texto", "").strip()
+    try:
+        if texto:
+            dados, fonte, nome_arq = treino_planilha.ler_texto(texto, request.form.get("rotina", "").strip()), "texto", None
+        elif arq and arq.filename:
+            nome_arq = arq.filename
+            if nome_arq.lower().endswith(".pdf"):
+                dados, fonte = mfit.ler(arq.read()), "mfit"
+            else:
+                dados, fonte = treino_planilha.ler(nome_arq, arq.read()), "planilha"
+        else:
+            flash("Escolha o arquivo do treino ou cole o texto.", "aviso")
+            return redirect(url_for("paciente", pid=pid) + "#mfit")
+    except (mfit.ErroMfit, treino_planilha.ErroPlanilha) as e:
+        flash(f"Não deu para importar: {e}.", "aviso")
+        return redirect(url_for("paciente", pid=pid) + "#mfit")
+    with conectar() as con:
+        cur = con.cursor()
+        p = buscar_paciente(cur, pid)
+        mfit.gravar(cur, pid, dados, nome_arq, fonte)
+    n = sum(len(s["exercicios"]) for s in dados["sessoes"])
+    aviso = ""
+    if dados["nome"] and norm(dados["nome"]) != norm(p["nome"]):
+        aviso = f" Atenção: o PDF é de “{dados['nome']}”, e não de {p['nome']}."
+    flash(f"Treino importado: “{dados['rotina'] or 'rotina'}”, {len(dados['sessoes'])} sessão(ões), {n} exercício(s)." + aviso,
+          "aviso" if aviso else "")
+    return redirect(url_for("paciente", pid=pid) + "#mfit")
+
+
+@app.route("/paciente/<int:pid>/mfit/<int:tid>/apagar", methods=["POST"])
+def paciente_mfit_apagar(pid, tid):
+    with conectar() as con:
+        con.execute("DELETE FROM treino_externo WHERE id = %s AND paciente_id = %s", (tid, pid))
+    flash("Rotina apagada. Se havia uma anterior, ela volta a aparecer.", "aviso")
+    return redirect(url_for("paciente", pid=pid) + "#mfit")
+
+
+@app.route("/paciente/<int:pid>/garmin/apagar", methods=["POST"])
+def paciente_garmin_apagar(pid):
+    with conectar() as con:
+        con.execute("DELETE FROM atividade_externa WHERE paciente_id = %s AND fonte = 'garmin'", (pid,))
+        con.execute("DELETE FROM diario_externo WHERE paciente_id = %s AND fonte = 'garmin'", (pid,))
+    flash("Dados do Garmin apagados deste paciente.", "aviso")
+    return redirect(url_for("paciente", pid=pid) + "#garmin")
+
+
 @app.route("/boas-vindas", methods=["GET", "POST"])
 def boas_vindas():
     """primeiro uso (ou Configuração › Seus dados): nome, profissão, registro e marca de quem usa o sistema"""
@@ -455,10 +599,15 @@ def paciente(pid):
         ult_exame = lista_ex and {"data": lista_ex[-1]["data"], "n": sum(1 for g in grupos_ex for l in g["linhas"] if l["valores"][-1] and not l["item"].get("calculado")),
                                   "alertas": exames.alertas(grupos_ex)}
         testes = exames.desempenho(cur, pid)
+        relogio = garmin.resumo(cur, pid)
+        treino_mfit = mfit.atual(cur, pid)
         avs = avaliacoes_do_banco(cur, pid)
         perfil_pac = antropo.para_pagina(avs, p["genero"], p["data_nascimento"],
                                         p["meta_gordura_pct"] and float(p["meta_gordura_pct"]), p["meta_imo"] and float(p["meta_imo"]))
-        an_ult, an_data = anamnese.ultima(cur, pid)   # para a aba Resumo
+        an_ult, an_data = anamnese.ultima(cur, pid)   # para a aba Resumo e a aba Lesões
+        cur.execute("""SELECT a.avaliacao_id FROM anamnese a JOIN avaliacao v ON v.id = a.avaliacao_id
+                       WHERE a.paciente_id = %s ORDER BY v.data_avaliacao DESC LIMIT 1""", (pid,))
+        les_aid = (cur.fetchone() or [None])[0]
         import acesso_pagina
         codigo_acesso = acesso_pagina.codigo(cur, pid)   # login da página publicada (cria na primeira vez)
         cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s ORDER BY feito_em DESC LIMIT 6", (pid,))
@@ -490,11 +639,12 @@ def paciente(pid):
                            reds_leafq=ult_leafq and {"data": ult_leafq[0], "total": ult_leafq[1], "risco": ult_leafq[1] >= reds.RISCO_LEAFQ},
                            reds_ed=ult_ed and (lambda ed: {"data": ult_ed[0], "ed": ed, "classe": reds.classe_ed(ed)})(
                                reds.energia_disponivel(*ult_ed[1:])),
-                           ult_exame=ult_exame, testes=testes, perfil=perfil_pac,
+                           ult_exame=ult_exame, testes=testes, perfil=perfil_pac, relogio=relogio, treino_mfit=treino_mfit,
                            # aba Resumo (painel do paciente)
                            rs_ind=resumo.indicadores(avs), rs_comp=resumo.grafico_composicao(avs), rs_met=resumo.metodos(avs),
                            rs_gc=resumo.grafico_gordura(avs, p["meta_gordura_pct"] and float(p["meta_gordura_pct"])),
                            an_ult=an_ult or {}, an_data=an_data, an_rotulos=anamnese.CAMPOS, hoje=date.today(),
+                           **_lesoes_ficha(p["genero"], an_ult, les_aid),
                            codigo_acesso=codigo_acesso, cf_ok=cloudflare.configurado(contatos.carregar()),
                            passadas=[c for c in consultas if c["fim"] < datetime.now()][-3:][::-1], status_consulta=agenda.STATUS,
                            email_ok=checkin.email_valido(p["email"]), lembretes_pac=lembretes_pac, lp=lp_info,
@@ -1389,6 +1539,7 @@ def configuracao():
                            cp_estado=copia_seguranca.estado(), cp_nuvem=copia_seguranca.pasta_nuvem(cfg),
                            rm_local=not acesso_remoto.eh_remoto(request), rm_celular=acesso_remoto.tem_celular(cfg),
                            rm_senha_local=acesso_remoto.senha_local(cfg),
+                           bn_imagens=lesoes.imagens(), bn_vistas=lesoes.VISTAS,
                            rm_qr=_qr_celular(cfg), rm_chave=_agrupar(cfg["remoto"].get("totp_pendente")),
                            padrao=contatos.PADRAO["mensagens"], script=checkin.SCRIPT.read_text(encoding="utf-8"),
                            exemplo=checkin.link_formulario(cfg, "Maria da Silva"), estado=estado,

@@ -1,0 +1,45 @@
+{# aba Lesões da ficha: boneco (frente e costas) pintado com o que está em "Cirurgias e lesões" da anamnese (sistema/lesoes.py) #}
+<section id="aba-lesoes" hidden>
+  <div class="card les">
+    <div class="les-topo">
+      <h2>Lesões</h2>
+      {% if les_aid %}<a class="btn" href="{{ url_for('avaliacao', pid=p.id, aid=les_aid) }}#anamnese">Editar na anamnese</a>{% endif %}
+    </div>
+    {% if not an_data %}
+      <p class="note" style="margin:0">Ainda não há anamnese. Na <a href="{{ url_for('avaliacao', pid=p.id) }}">próxima avaliação</a>, escreva as
+        lesões no campo <b>Cirurgias e lesões</b> da aba Anamnese.</p>
+    {% else %}
+      <p class="note" style="margin:0">Da anamnese de {{ an_data|br }}, campo “Cirurgias e lesões”{% if an_ult.get('cirurgias') %}:
+        <i>“{{ an_ult.cirurgias }}”</i>{% else %}: em branco{% endif %}.</p>
+    {% endif %}
+    <div class="les-corpo">
+      <div class="les-figuras">
+        <figure>{{ les_frente|safe }}<figcaption>Frente</figcaption></figure>
+        <figure>{{ les_costas|safe }}<figcaption>Costas</figcaption></figure>
+      </div>
+      <div class="les-lado">
+        <ul class="les-legenda">{% for k, (rot, cor) in les_situacoes.items() %}
+          <li><i style="background:{{ cor }}"></i>{{ rot }}</li>{% endfor %}</ul>
+        {% if les_lista %}
+        <table class="les-tab">
+          <thead><tr><th class="t">Região</th><th class="t">Lado</th><th class="t">Situação</th></tr></thead>
+          <tbody>{% for l in les_lista %}
+            <tr><td class="t"><b>{{ l.nome }}</b><span class="note les-trecho">{{ l.trecho }}</span></td>
+              <td class="t">{{ {'D': 'Direito', 'E': 'Esquerdo'}[l.lado] if l.lado else 'não informado' }}{{ ' (bilateral)' if l.bilateral and l.lado == 'D' else '' }}</td>
+              <td class="t"><span class="les-sit" style="--c:{{ les_situacoes[l.situacao][1] }}">{{ les_situacoes[l.situacao][0] }}</span></td></tr>
+          {% endfor %}</tbody>
+        </table>
+        {% elif an_data %}<p class="note" style="margin:0">Nenhuma lesão encontrada no texto.</p>{% endif %}
+        {% if les_sem %}<p class="msg aviso" style="margin:0">Sem região identificada: {% for s in les_sem %}<b>{{ s }}</b>{{ ', ' if not loop.last }}{% endfor %}.
+          Escreva onde é (ex.: “bursite no ombro direito”) para aparecer no boneco.</p>{% endif %}
+        <details class="les-dica"><summary class="note">Como escrever para o boneco entender</summary>
+          <p class="note">Uma lesão por linha (ou separadas por ponto e vírgula), com <b>região</b>, <b>lado</b> e <b>situação</b>. Exemplos:
+            “LCA direito em tratamento com fisioterapia”; “entorse de tornozelo esquerdo em 2022, recuperado”;
+            “dor lombar há 2 semanas”; “ruptura do manguito do ombro D, aguardando cirurgia”.</p>
+          <p class="note">Situação: <b>tratando / fisioterapia / reabilitação</b> = em tratamento · <b>dor / aguda / aguardando cirurgia</b> = ativa ·
+            <b>recuperado / curado / operado / em 2022 / há 3 anos</b> = recuperada · sem nada = não informada.
+            Sem lado, as duas pernas (ou braços) ficam marcadas.</p></details>
+      </div>
+    </div>
+  </div>
+</section>

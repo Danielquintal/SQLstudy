@@ -380,8 +380,48 @@ def extras_pagina(cur, pid):
             "passos": passos, "checkins": checkin.para_pagina(cur, pid), "reds": reds.para_pagina(cur, pid),
             "exames": para_pagina(cur, pid, genero), "desempenho": desempenho_pagina(cur, pid),
             "perfil": perfil.para_pagina(avaliacoes_do_banco(cur, pid), genero, nasc,
-                                         alvo_gc and float(alvo_gc), alvo_imo and float(alvo_imo))}
+                                         alvo_gc and float(alvo_gc), alvo_imo and float(alvo_imo)),
+            "lesoes": _lesoes(cur, pid, genero), "treinos": _treinos(cur, pid)}
+
+
+def _treinos(cur, pid):
+    """aba Treinos da página: atividade física da anamnese, rotina de treino importada e resumo do Garmin"""
+    import anamnese
+    saida = {"atividade": [], "rotina": None, "garmin": None}
+    try:
+        dados, data_an = anamnese.ultima(cur, pid)
+        for k in ("modalidade", "treino_vezes", "treino_duracao", "treino_horario", "nivel", "competicao"):
+            if dados and str(dados.get(k) or "").strip():
+                rot = anamnese.CAMPOS[k][0]
+                v = str(dados[k]).strip()
+                saida["atividade"].append([rot, v])
+        import mfit
+        t = mfit.atual(cur, pid)
+        if t:
+            saida["rotina"] = {"rotina": t["rotina"], "objetivo": t["objetivo"], "nivel": t["nivel"], "periodo": t["periodo"],
+                               "sessoes": t["sessoes"]}
+        import garmin
+        g = garmin.resumo(cur, pid)
+        if g:
+            g = dict(g, ini=g["ini"].strftime("%d/%m/%Y"), fim=g["fim"].strftime("%d/%m/%Y"),
+                     ultimos=[{"data": a["inicio"].strftime("%d/%m %H:%M"), "tipo": a["tipo"], "titulo": a["titulo"],
+                               "min": round(a["duracao_s"] / 60) if a["duracao_s"] else None,
+                               "km": round(float(a["distancia_m"]) / 1000, 2) if a["distancia_m"] else None,
+                               "kcal": a["calorias"], "fc": a["fc_media"]} for a in g["ultimos"]])
+            saida["garmin"] = g
+    except Exception:   # noqa: BLE001 — a aba de treinos nunca impede a página de ser gerada
+        pass
+    return saida if (saida["atividade"] or saida["rotina"] or saida["garmin"]) else None
+
+
+def _lesoes(cur, pid, genero):
+    try:
+        import lesoes
+        return lesoes.para_pagina(cur, pid, genero)
+    except Exception:   # noqa: BLE001 — o boneco nunca impede a página de ser gerada
+        return None
 
 
 def tem_extras(e):
-    return bool(e["checkins"] or e["reds"]["leafq"] or e["reds"]["energia"] or e["exames"]["datas"] or e["desempenho"])
+    return bool(e["checkins"] or e["reds"]["leafq"] or e["reds"]["energia"] or e["exames"]["datas"] or e["desempenho"]
+                or e.get("lesoes") or e.get("treinos"))

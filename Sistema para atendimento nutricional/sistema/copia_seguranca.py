@@ -132,6 +132,9 @@ def fazer(cfg, conexao):
                 p = RAIZ / rel
                 if p.exists():
                     z.write(p, rel)
+            for p in sorted((RAIZ / "sistema" / "boneco").glob("*")):      # imagens do boneco (aba Lesões)
+                if p.is_file():
+                    z.write(p, p.relative_to(RAIZ).as_posix())
             z.writestr("LEIA-ME.txt", f"Cópia de segurança do sistema {__import__('identidade').marca()}, feita em {quando:%d/%m/%Y %H:%M}.\n"
                                       "banco.dump = banco atendimento_nutricional (restaure com scripts/restaurar_copia.py\n"
                                       "ou: pg_restore --clean --if-exists -d atendimento_nutricional banco.dump).\n")

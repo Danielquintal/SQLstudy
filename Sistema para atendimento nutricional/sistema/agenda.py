@@ -103,8 +103,13 @@ def link_confirmacao(c, cfg):
     """link para o paciente tocar em "Confirmo" ou "Preciso remarcar" (vazio se o script não estiver pronto)"""
     if not (confirmar_pronto(cfg) and c.get("token_confirmacao")):
         return ""
-    from urllib.parse import urlencode
+    from urllib.parse import quote, urlencode
+    import cloudflare
     ck, tok = cfg["checkin"], c["token_confirmacao"]
+    site = cloudflare.confirmacao_curta(cfg)
+    if site:     # curto, no seu site: .../c#codigo.assinatura.AAAAMMDDHHMM.nome
+        return (f"{site}/c#{tok}.{assinatura(ck['chave'], tok)}.{c['inicio']:%Y%m%d%H%M}."
+                f"{quote(c['nome'].split()[0].title(), safe='')}")
     quando = f"{DIAS[c['inicio'].weekday()]}, {c['inicio']:%d/%m} às {c['inicio']:%H:%M}"
     return ck["url"] + "?" + urlencode({"cod": tok, "s": assinatura(ck["chave"], tok), "n": c["nome"].split()[0].title(),
                                         "q": quando, "w": checkin.whatsapp_prof(cfg)})
