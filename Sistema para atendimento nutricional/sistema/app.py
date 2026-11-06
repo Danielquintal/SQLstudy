@@ -66,6 +66,17 @@ class _Sessao(SecureCookieSessionInterface):
 app.session_interface = _Sessao()
 
 
+@app.url_defaults
+def versao_estaticos(endpoint, values):
+    """estilo.css?v=<data da última mudança>: quando o arquivo muda, o endereço muda, e o navegador e o Cloudflare
+    (que guardam .css e .js) buscam a versão nova em vez de usar a guardada"""
+    if endpoint == "static" and "filename" in values and "v" not in values:
+        try:
+            values["v"] = int(os.stat(os.path.join(app.static_folder, values["filename"])).st_mtime)
+        except OSError:
+            pass
+
+
 @app.after_request
 def protecoes(resp):
     """cabeçalhos de proteção do navegador"""

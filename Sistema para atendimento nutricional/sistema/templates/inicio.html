@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block cabeca %}
 <div>
-  <p class="eyebrow">Banco de dados</p>
   <h1>Pacientes</h1>
   <p class="sub">{{ pacientes|length }} cadastrados · {{ pacientes|selectattr('n')|list|length }} com avaliações</p>
 </div>
@@ -24,7 +23,7 @@
   <span class="note" id="contagem"></span>
 </div>
 <div class="card" style="padding:6px 8px">
-  <div class="tablebox">
+  <div class="tablebox rolagem">
   <table>
     <thead><tr>
       <th class="t" aria-sort="none"><button type="button" class="ordem" data-col="nome">Nome</button></th>

@@ -300,9 +300,9 @@ document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('clic
 }));
 </script>
 
-<div class="duas" id="acompanhamento">
-  <form method="post" action="{{ url_for('acompanhamento', pid=p.id) }}" class="card">
-    <h2>Acompanhamento</h2>
+<div class="card" id="acompanhamento">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h2>Acompanhamento</h2></div>
+  <form method="post" action="{{ url_for('acompanhamento', pid=p.id) }}" class="dobra-corpo">
     <div class="cadastro">
       <div class="campo"><label for="retorno">Próxima consulta <span class="note">(a Agenda preenche)</span></label>
         <input id="retorno" type="date" name="retorno_em" value="{{ p.retorno_em.isoformat() if p.retorno_em }}"></div>
@@ -332,9 +332,11 @@ document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('clic
     <p class="note">Últimos contatos: {% for t, q in historico %}{{ titulos[t] }} em {{ q.strftime('%d/%m') }}{{ ', ' if not loop.last }}{% endfor %}</p>
     {% endif %}
   </form>
+</div>
 
-  <div class="card">
-    <h2>WhatsApp</h2>
+<div class="card" id="whatsapp">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h2>WhatsApp</h2></div>
+  <div class="dobra-corpo">
     {% if p.whatsapp_bloqueado %}<p class="msg aviso">Este paciente pediu para não receber mensagens.</p>{% endif %}
     <p class="note">Ajuste o texto se quiser e clique em “Abrir no WhatsApp”: a conversa abre com a mensagem pronta e você só aperta enviar.</p>
     <div class="lista">
@@ -461,6 +463,33 @@ document.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('clic
   {% endif %}
 </div>
 </section>
+<script>
+/* cartões da ficha que abrem e fecham (Link, Plano alimentar, avaliações e Consultas ficam sempre abertos).
+   A escolha fica guardada neste navegador; se a página veio para um cartão (#acompanhamento), ele abre. */
+['lembretes', 'lembretes-paciente', 'acompanhamento', 'whatsapp', 'reds', 'perfil', 'exames', 'desempenho', 'checkin'].forEach(function (id) {
+  var card = document.getElementById(id), topo = card && card.firstElementChild;
+  if (!topo) return;
+  var chave = 'dobra-' + id, b = document.createElement('button');
+  b.type = 'button'; b.className = 'dobra-btn';
+  function mostrar(fechado) {
+    card.classList.toggle('fechado', fechado);
+    b.textContent = fechado ? '+' : '−';
+    b.setAttribute('aria-expanded', String(!fechado));
+    b.title = fechado ? 'Abrir' : 'Minimizar';
+  }
+  var fechado = false;
+  try { fechado = localStorage.getItem(chave) === 'fechado' && location.hash !== '#' + id; } catch (e) {}
+  mostrar(fechado);
+  card.classList.add('dobravel');
+  topo.appendChild(b);
+  topo.addEventListener('click', function (ev) {
+    if (ev.target !== b && ev.target.closest('a, button, input, select, textarea, label')) return;   // botões do título continuam funcionando
+    var f = !card.classList.contains('fechado');
+    mostrar(f);
+    try { localStorage.setItem(chave, f ? 'fechado' : 'aberto'); } catch (e) {}
+  });
+});
+</script>
 <script>
 // avaliação gravada de verdade: apaga o rascunho guardado no navegador (tela de avaliação)
 {% set g = request.args.get('gravado', '') %}{% if g == 'nova' or g.isdigit() %}try { localStorage.removeItem('rascunho-av-{{ p.id }}-{{ g }}'); } catch (e) {}{% endif %}
