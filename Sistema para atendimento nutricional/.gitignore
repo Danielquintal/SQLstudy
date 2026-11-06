@@ -12,6 +12,7 @@ _copias/
 dist/
 sistema/identidade.json
 sistema/licenca.chave
+sistema/exames_proprios.json
 sistema/licenca_estado.json
 *.dump
 *.xlsx

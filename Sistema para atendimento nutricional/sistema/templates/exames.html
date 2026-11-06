@@ -147,9 +147,11 @@
             <input class="rl texto" name="r_{{ it.id }}" value="{{ form.get('r_' + it.id, '') }}" placeholder="ref. do laudo" aria-label="Referência do laudo para {{ it.nome }}" data-item="{{ it.id }}">
           </div>
           <span class="ref">{% if ref(it) %}Referência: {{ ref(it) }}{% elif it.nota %}{{ it.nota }}{% else %}Sem referência padrão{% endif %}
+            {% if it.proprio %}<span class="note" title="Parâmetro que você acrescentou">· seu</span>{% endif %}
             <span class="previa" data-previa="{{ it.id }}"></span></span>
         </div>
         {% endfor %}
+        <div class="ex-novo"><button type="button" class="btn mini" data-novo-grupo="{{ g.nome }}">+ Acrescentar parâmetro</button></div>
       </div>
     </details>
     {% endfor %}
@@ -241,6 +243,60 @@ function contar() {
   document.getElementById('ex-cont').textContent = total ? `${total} resultado${total > 1 ? 's' : ''}` : '';
 }
 form.addEventListener('input', e => { if (e.target.dataset.item) previa(e.target.dataset.item); contar(); });
+
+// + Acrescentar parâmetro: mini formulário dentro do grupo (os campos não têm "name": não vão junto com o exame)
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+form.addEventListener('click', e => {
+  const b = e.target.closest('[data-novo-grupo]');
+  if (!b) return;
+  const caixa = b.parentElement;
+  if (caixa.querySelector('.ex-novo-form')) return;
+  b.hidden = true;
+  caixa.insertAdjacentHTML('beforeend', `<div class="ex-novo-form">
+    <b>Novo parâmetro em ${esc(b.dataset.novoGrupo)}</b>
+    <div class="linha-novo">
+      <label>Nome<input class="texto" data-n="nome" placeholder="Ex.: Vitamina B6"></label>
+      <label>Unidade<input class="texto" data-n="unidade" placeholder="Ex.: µg/L"></label>
+      <label>Ref. mínima<input class="texto" data-n="min" inputmode="decimal" placeholder="opcional"></label>
+      <label>Ref. máxima<input class="texto" data-n="max" inputmode="decimal" placeholder="opcional"></label>
+    </div>
+    <p class="note" style="margin:0">Fica na tabela para todos os pacientes. A referência por sexo pode ser ajustada em “editar referências”.</p>
+    <p class="msg erro" hidden style="margin:0"></p>
+    <div class="acoes"><button type="button" class="btn pri mini" data-acao="add">Adicionar</button>
+      <button type="button" class="btn mini" data-acao="cancelar">Cancelar</button></div></div>`);
+  caixa.querySelector('[data-n="nome"]').focus();
+});
+async function adicionar(painel) {
+  const caixa = painel.parentElement, b = caixa.querySelector('[data-novo-grupo]');
+  const dado = Object.fromEntries([...painel.querySelectorAll('[data-n]')].map(i => [i.dataset.n, i.value.trim()]));
+  const erro = painel.querySelector('.msg.erro');
+  const r = await fetch({{ url_for('exames_parametro')|tojson }}, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grupo: b.dataset.novoGrupo, ...dado }) });
+  const j = await r.json().catch(() => ({ erro: 'não consegui falar com o sistema' }));
+  if (!r.ok) { erro.textContent = j.erro || 'Não deu para acrescentar.'; erro.hidden = false; return; }
+  const it = j.item;
+  ITENS.push(it); POR_ID[it.id] = it;
+  caixa.insertAdjacentHTML('beforebegin', `<div class="ex-item">
+    <label for="v-${it.id}">${esc(it.nome)}${it.unidade ? ` <span class="note" style="font-weight:400">(${esc(it.unidade)})</span>` : ''}</label>
+    <div class="linha-in campo">
+      <input class="val" id="v-${it.id}" name="v_${it.id}" inputmode="decimal" data-item="${it.id}" autocomplete="off">
+      <input class="rl texto" name="r_${it.id}" placeholder="ref. do laudo" aria-label="Referência do laudo para ${esc(it.nome)}" data-item="${it.id}">
+    </div>
+    <span class="ref">${j.ref ? 'Referência: ' + esc(j.ref) : 'Sem referência padrão'} <span class="note">· seu</span>
+      <span class="previa" data-previa="${it.id}"></span></span></div>`);
+  painel.remove(); b.hidden = false;
+  document.getElementById('v-' + it.id).focus();
+}
+form.addEventListener('click', e => {
+  const a = e.target.closest('.ex-novo-form [data-acao]');
+  if (!a) return;
+  const painel = a.closest('.ex-novo-form');
+  if (a.dataset.acao === 'add') adicionar(painel);
+  else { painel.parentElement.querySelector('[data-novo-grupo]').hidden = false; painel.remove(); }
+});
+form.addEventListener('keydown', e => {     // Enter no mini formulário adiciona o parâmetro, não salva o exame
+  if (e.key === 'Enter' && e.target.closest('.ex-novo-form')) { e.preventDefault(); adicionar(e.target.closest('.ex-novo-form')); }
+});
 ITENS.forEach(i => { if (form.querySelector(`input[name="v_${i.id}"]`)) previa(i.id); });
 contar();
 

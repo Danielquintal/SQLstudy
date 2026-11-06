@@ -22,7 +22,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 PASTA_LOCAL = RAIZ / "_copias"
 ESTADO = PASTA_LOCAL / "estado.json"
-EXTRAS = ["sistema/config.json", "sistema/identidade.json", "sistema/licenca.chave", "sistema/licenca_estado.json",
+EXTRAS = ["sistema/config.json", "sistema/identidade.json", "sistema/exames_proprios.json", "sistema/licenca.chave", "sistema/licenca_estado.json",
           "ferramentas/licenca/chave_privada.pem", "ferramentas/licenca/emitidas.json",
           "web/artefatos.json", "web/pedidos.json", "web/site_estado.json"]
 MANTER = 30

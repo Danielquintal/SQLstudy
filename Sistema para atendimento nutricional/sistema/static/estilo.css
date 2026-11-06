@@ -379,6 +379,12 @@ table.ex tr.linha:hover td{background:color-mix(in srgb,var(--accent, #1A9E8F) 6
 .ex-item .linha-in input.val{flex:1.1}
 .ex-item .linha-in input.rl{flex:1;font-size:12px}
 .ex-item .ref{font-size:12px;color:var(--muted)}
+.ex-novo{grid-column:1/-1;display:flex;flex-direction:column;gap:8px}
+.ex-novo>.btn{align-self:flex-start}
+.ex-novo-form{border:1px dashed var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
+.ex-novo-form .linha-novo{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px}
+.ex-novo-form label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600}
+@media (max-width:640px){.ex-novo-form .linha-novo{grid-template-columns:1fr 1fr}}
 .ex-item .previa{font-size:12px;font-weight:600}
 .ex-item .previa.baixo,.ex-item .previa.alto{color:var(--bad)} .ex-item .previa.atencao{color:var(--warn)} .ex-item .previa.ok{color:var(--good)}
 .ex-causas{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}

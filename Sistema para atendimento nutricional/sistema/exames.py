@@ -3,20 +3,77 @@ import json, math, re
 from pathlib import Path
 
 CATALOGO = Path(__file__).with_name("exames.json")
+# parâmetros que o profissional acrescentou (ex.: um exame que a tabela não tinha): arquivo à parte, para uma
+# atualização do sistema (que troca o exames.json) não apagá-los. Cada item leva "grupo" e "proprio": true.
+PROPRIOS = Path(__file__).with_name("exames_proprios.json")
 _cache = {}
 
 
+def _proprios():
+    try:
+        return json.loads(PROPRIOS.read_text(encoding="utf-8")).get("itens", [])
+    except (FileNotFoundError, ValueError):
+        return []
+
+
 def carregar():
-    """tabela de referências (relida quando o arquivo muda)"""
-    m = CATALOGO.stat().st_mtime
+    """tabela de referências + parâmetros próprios, cada um no seu grupo (relida quando um dos arquivos muda)"""
+    m = (CATALOGO.stat().st_mtime, PROPRIOS.stat().st_mtime if PROPRIOS.exists() else 0)
     if _cache.get("mtime") != m:
-        _cache.update(mtime=m, dados=json.loads(CATALOGO.read_text(encoding="utf-8")))
+        dados = json.loads(CATALOGO.read_text(encoding="utf-8"))
+        grupos = {g["nome"]: g for g in dados["grupos"]}
+        for it in _proprios():
+            g = grupos.get(it.get("grupo"))
+            if g is None:                      # grupo que não existe mais: vai para "Outros"
+                g = grupos.get("Outros") or {"nome": "Outros", "itens": []}
+                if "Outros" not in grupos:
+                    grupos["Outros"] = g
+                    dados["grupos"].insert(len([x for x in dados["grupos"] if not x["itens"][0].get("calculado")]), g)
+            g["itens"].append({k: v for k, v in it.items() if k != "grupo"} | {"proprio": True})
+        _cache.update(mtime=m, dados=dados)
     return _cache["dados"]
 
 
 def gravar(dados):
+    """grava a tabela; os parâmetros próprios voltam para o arquivo deles"""
+    import copy
+    dados = copy.deepcopy(dados)
+    proprios = []
+    for g in dados["grupos"]:
+        proprios += [{"grupo": g["nome"], **{k: v for k, v in it.items() if k != "proprio"}} for it in g["itens"] if it.get("proprio")]
+        g["itens"] = [it for it in g["itens"] if not it.get("proprio")]
+    dados["grupos"] = [g for g in dados["grupos"] if g["itens"]]
     CATALOGO.write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
+    PROPRIOS.write_text(json.dumps({"itens": proprios}, ensure_ascii=False, indent=1), encoding="utf-8")
     _cache.clear()
+
+
+def novo_parametro(grupo, nome, unidade="", minimo=None, maximo=None):
+    """acrescenta um parâmetro ao grupo; devolve o item. ValueError se faltar o nome ou já existir."""
+    import unicodedata
+    nome = " ".join(str(nome or "").split())
+    if not nome:
+        raise ValueError("escreva o nome do parâmetro")
+    base = unicodedata.normalize("NFKD", nome).encode("ascii", "ignore").decode().lower()
+    base = "p_" + (re.sub(r"[^a-z0-9]+", "_", base).strip("_")[:40] or "param")
+    todos = itens()
+    if any(it["nome"].lower() == nome.lower() for it in todos.values()):
+        raise ValueError(f"“{nome}” já está na tabela")
+    if grupo not in [g["nome"] for g in carregar()["grupos"]]:
+        raise ValueError("grupo não encontrado")
+    pid, n = base, 2
+    while pid in todos:
+        pid, n = f"{base}_{n}", n + 1
+    it = {"grupo": grupo, "id": pid, "nome": nome, "unidade": str(unidade or "").strip()}
+    if minimo is not None or maximo is not None:
+        if minimo is not None and maximo is not None and minimo > maximo:
+            raise ValueError("a referência mínima está maior que a máxima")
+        it["ref"] = [minimo, maximo]
+    lista = _proprios()
+    lista.append(it)
+    PROPRIOS.write_text(json.dumps({"itens": lista}, ensure_ascii=False, indent=1), encoding="utf-8")
+    _cache.clear()
+    return {k: v for k, v in it.items() if k != "grupo"} | {"proprio": True}
 
 
 def itens():

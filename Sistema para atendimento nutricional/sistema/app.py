@@ -1526,6 +1526,18 @@ def exame_excluir(eid):
     return redirect(url_for("exames_paciente", pid=r[0]) + "#historico")
 
 
+@app.route("/exames/parametro", methods=["POST"])
+def exames_parametro():
+    """+ Acrescentar parâmetro (tela de exames): novo item no grupo, para todos os pacientes"""
+    d = request.get_json(silent=True) or {}
+    try:
+        it = exames.novo_parametro(d.get("grupo", ""), d.get("nome", ""), d.get("unidade", ""),
+                                   exames.ler_numero(str(d.get("min") or "")), exames.ler_numero(str(d.get("max") or "")))
+    except ValueError as e:
+        return jsonify(erro=str(e)), 400
+    return jsonify(item=it, ref=exames.texto_ref(it.get("ref")) if it.get("ref") else "")
+
+
 @app.route("/exames/referencias", methods=["GET", "POST"])
 def exames_referencias():
     dados = exames.carregar()
