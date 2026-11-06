@@ -73,6 +73,7 @@ VARIAVEIS = {
     "{data_consulta}": "data da consulta agendada",
     "{hora_consulta}": "horário da consulta",
     "{dia_semana}": "dia da semana da consulta",
+    "{link_confirmacao}": "link para o paciente tocar em Confirmo / Preciso remarcar (sem ele, vai no fim da mensagem)",
     "{local_consulta}": "endereço (presencial) ou link (online) da consulta",
 }
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]

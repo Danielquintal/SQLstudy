@@ -13,17 +13,20 @@ import checkin
 
 VERSAO_EMAIL = 3   # versão do checkin_google.gs que envia e-mail avulso
 VERSAO_GOOGLE = 4  # versão que mexe no Google Agenda
+VERSAO_CONFIRMAR = 9   # versão com a página "confirme sua presença" para o paciente
 STATUS = {"agendada": "Agendada", "confirmada": "Confirmada", "realizada": "Realizada", "faltou": "Faltou",
           "cancelada": "Cancelada"}
 MODALIDADES = {"presencial": "Presencial", "online": "Online"}
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
 CAMPOS = ["id", "paciente_id", "nome", "telefone", "email", "inicio", "duracao_min", "modalidade", "local", "status",
-          "observacao", "whatsapp_enviado_em", "email_enviado_em", "google_evento_id"]
+          "observacao", "whatsapp_enviado_em", "email_enviado_em", "google_evento_id", "token_confirmacao",
+          "resposta_paciente", "resposta_em"]
 
 
 def lista(cur, onde, args):
     cur.execute(f"""SELECT c.id, c.paciente_id, p.nome, p.telefone, p.email, c.inicio, c.duracao_min, c.modalidade,
-                           c.local, c.status, c.observacao, c.whatsapp_enviado_em, c.email_enviado_em, c.google_evento_id
+                           c.local, c.status, c.observacao, c.whatsapp_enviado_em, c.email_enviado_em, c.google_evento_id,
+                           c.token_confirmacao, c.resposta_paciente, c.resposta_em
                     FROM consulta c JOIN paciente p ON p.id = c.paciente_id
                     WHERE {onde} ORDER BY c.inicio""", args)
     consultas = [dict(zip(CAMPOS, r)) for r in cur.fetchall()]
@@ -63,11 +66,78 @@ def variaveis(c, cfg):
             "{dia_semana}": DIAS[c["inicio"].weekday()], "{local_consulta}": texto_local}
 
 
-def texto(modelo, c, cfg):
-    v = {"{primeiro_nome}": c["nome"].split()[0].title(), "{nome}": c["nome"], **variaveis(c, cfg)}
+def texto(modelo, c, cfg, com_link=True):
+    """com_link=False no assunto do e-mail: o link só entra no corpo da mensagem"""
+    link = link_confirmacao(c, cfg) if com_link else ""
+    if link and "{link_confirmacao}" not in modelo:     # mensagens antigas, sem a variável: o link vai no fim
+        modelo = modelo.rstrip() + "\n\nConfirme sua presença por aqui: {link_confirmacao}"
+    v = {"{primeiro_nome}": c["nome"].split()[0].title(), "{nome}": c["nome"], **variaveis(c, cfg),
+         "{link_confirmacao}": link}
     for k, val in v.items():
         modelo = modelo.replace(k, val)
     return re.sub(r"[ \t]+\n", "\n", re.sub(r"[ \t]{2,}", " ", modelo)).strip()
+
+
+# ---------- confirmação pelo próprio paciente (página do script do Google) ----------
+
+def confirmar_pronto(cfg):
+    ck = cfg.get("checkin", {})
+    return bool(ck.get("url") and ck.get("chave")) and int(ck.get("versao") or 0) >= VERSAO_CONFIRMAR
+
+
+def garantir_token(cur, c):
+    """código aleatório do link de confirmação desta consulta (criado uma vez)"""
+    if not c.get("token_confirmacao"):
+        import secrets, string
+        c["token_confirmacao"] = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(20))
+        cur.execute("UPDATE consulta SET token_confirmacao = %s WHERE id = %s", (c["token_confirmacao"], c["id"]))
+    return c["token_confirmacao"]
+
+
+def assinatura(chave, token):
+    import hashlib, hmac
+    return hmac.new(chave.encode("utf-8"), token.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
+
+
+def link_confirmacao(c, cfg):
+    """link para o paciente tocar em "Confirmo" ou "Preciso remarcar" (vazio se o script não estiver pronto)"""
+    if not (confirmar_pronto(cfg) and c.get("token_confirmacao")):
+        return ""
+    from urllib.parse import urlencode
+    ck, tok = cfg["checkin"], c["token_confirmacao"]
+    quando = f"{DIAS[c['inicio'].weekday()]}, {c['inicio']:%d/%m} às {c['inicio']:%H:%M}"
+    return ck["url"] + "?" + urlencode({"c": tok, "s": assinatura(ck["chave"], tok), "n": c["nome"].split()[0].title(),
+                                        "q": quando, "w": checkin.whatsapp_prof(cfg)})
+
+
+_ultima_busca = [0.0]
+
+
+def buscar_respostas(con, cfg, minutos=1):
+    """traz do script as respostas dos pacientes: "sim" confirma a consulta; "remarcar" fica marcado na agenda"""
+    import time
+    if not (cfg.get("checkin", {}).get("url") and cfg["checkin"].get("chave")) or time.time() - _ultima_busca[0] < minutos * 60:
+        return 0
+    _ultima_busca[0] = time.time()
+    ck = cfg["checkin"]
+    r = checkin._chamar(ck["url"], ck["chave"], acao="confirmacoes")
+    if "versao" not in r or not isinstance(r.get("respostas"), dict):
+        return 0                                   # script antigo (sem a página de confirmação)
+    if int(r["versao"]) > int(ck.get("versao") or 0):
+        import contatos                            # o script foi atualizado: guarda a versão nova
+        novo = contatos.carregar()
+        novo["checkin"]["versao"] = int(r["versao"])
+        contatos.salvar(novo)
+    cur, n = con.cursor(), 0
+    for token, v in r["respostas"].items():
+        if v.get("r") not in ("sim", "remarcar"):
+            continue
+        cur.execute("""UPDATE consulta SET resposta_paciente = %(r)s, resposta_em = %(em)s,
+                           status = CASE WHEN %(r)s = 'sim' AND status = 'agendada' THEN 'confirmada' ELSE status END
+                       WHERE token_confirmacao = %(t)s AND resposta_em IS DISTINCT FROM %(em)s""",
+                    {"r": v["r"], "em": v.get("em"), "t": token})
+        n += cur.rowcount
+    return n
 
 
 def ics(c, cfg):

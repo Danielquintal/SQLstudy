@@ -16,6 +16,10 @@
   <a class="btn" href="{{ url_for('agenda_semana', semana=proxima.isoformat()) }}">Próxima semana ›</a>
   <label class="note ir-data" for="ir-data">Ir para <input id="ir-data" type="date" value="{{ ini.isoformat() }}"></label>
 </div>
+<p class="legenda-agenda note">
+  <span><i class="ponto confirmada"></i>Confirmada</span><span><i class="ponto aguardando"></i>Aguardando resposta</span>
+  <span><i class="ponto agendada"></i>Confirmação não enviada</span><span><i class="ponto remarcar"></i>Pediu para remarcar</span>
+</p>
 {% if erro_google %}<div class="msg aviso">Não consegui ler o Google Agenda: {{ erro_google }}</div>{% endif %}
 {% if google_ligado %}<p class="note" style="margin:0">Ligada ao seu Google Agenda: as consultas vão para lá, e os seus outros compromissos aparecem aqui em cinza.</p>{% endif %}
 <div class="semana">
@@ -37,10 +41,15 @@
       <span class="det">Google Agenda</span>
     </div>
     {% else %}
-    <a class="cons st-{{ c.status }}" href="{{ url_for('consulta', cid=c.id) }}">
+    {% set enviada = c.whatsapp_enviado_em or c.email_enviado_em %}
+    {% if c.resposta_paciente == 'remarcar' and c.status in ('agendada', 'confirmada') %}{% set est, rot = 'remarcar', 'Pediu para remarcar' %}
+    {% elif c.status == 'confirmada' %}{% set est, rot = 'confirmada', 'Confirmada pelo paciente' if c.resposta_paciente == 'sim' else 'Confirmada' %}
+    {% elif c.status == 'agendada' and c.inicio > now %}{% set est, rot = ('aguardando', 'Aguardando resposta') if enviada else ('agendada', 'Agendada') %}
+    {% else %}{% set est, rot = c.status, status[c.status] %}{% endif %}
+    <a class="cons st-{{ est }}" href="{{ url_for('consulta', cid=c.id) }}">
       <span class="hora">{{ c.inicio.strftime('%H:%M') }}–{{ c.fim.strftime('%H:%M') }}</span>
       <span class="nome">{{ c.nome }}</span>
-      <span class="det">{{ modalidades[c.modalidade] }} · <span class="st">{{ status[c.status] }}</span></span>
+      <span class="det">{{ modalidades[c.modalidade] }} · <span class="st">{{ rot }}</span></span>
       {% if c.status in ('agendada', 'confirmada') and c.inicio > now %}
       <span class="conf">{% if c.whatsapp_enviado_em %}<span title="Confirmação enviada pelo WhatsApp">WhatsApp ✓</span>{% endif %}
         {% if c.email_enviado_em %}<span title="Confirmação enviada por e-mail">E-mail ✓</span>{% endif %}

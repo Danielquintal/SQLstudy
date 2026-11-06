@@ -49,6 +49,14 @@
 {% if c %}
 <div class="card" id="confirmar">
   <h2>Confirmação para o paciente</h2>
+  {% if c.resposta_paciente == 'sim' %}<p class="msg" style="margin:0">O paciente <b>confirmou a presença</b> pelo link em
+    {{ c.resposta_em.strftime('%d/%m às %H:%M') }}.</p>
+  {% elif c.resposta_paciente == 'remarcar' %}<p class="msg aviso" style="margin:0">O paciente <b>pediu para remarcar</b> pelo link em
+    {{ c.resposta_em.strftime('%d/%m às %H:%M') }}. Combine o novo horário e mude a data acima (o pedido some quando o horário muda).</p>
+  {% elif confirmar.link %}<p class="note" style="margin:0">As mensagens abaixo levam um link para o paciente tocar em <b>Confirmo</b> ou
+    <b>Preciso remarcar</b>; a resposta aparece aqui e na cor da Agenda.</p>
+  {% else %}<p class="note" style="margin:0">Para o paciente confirmar sozinho por um link, atualize o script do Google para a versão
+    {{ versao_confirmar }} (Configuração › Check-in semanal).</p>{% endif %}
   {% if c.status in ('cancelada', 'realizada', 'faltou') %}<p class="msg aviso" style="margin:0">Esta consulta está como “{{ status[c.status] }}”.</p>{% endif %}
   <div class="duas confirmacoes">
     <form method="post" action="{{ url_for('consulta_whatsapp', cid=c.id) }}" target="_blank" class="item zapform">

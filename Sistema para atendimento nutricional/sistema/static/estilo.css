@@ -250,7 +250,16 @@ th button.ordem:focus-visible{outline:2px solid var(--accent);outline-offset:2px
 .cons .nome{font-weight:600;overflow-wrap:anywhere}
 .cons .det,.cons .conf{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 8px}
 .cons .falta,.lista-consultas .falta{color:var(--warn)}
-.cons.st-confirmada{border-left-color:var(--good)}
+.cons.st-agendada{border-left-color:var(--muted)}
+.cons.st-aguardando{border-left-color:var(--warn)}
+.cons.st-aguardando .st{color:var(--warn);font-weight:600}
+.cons.st-remarcar{border-left-color:var(--bad);background:color-mix(in srgb,var(--bad) 9%,var(--bg))}
+.cons.st-remarcar .st{color:var(--bad);font-weight:700}
+.cons.st-confirmada{border-left-color:var(--good);background:color-mix(in srgb,var(--good) 7%,var(--bg))}
+.legenda-agenda{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0}
+.legenda-agenda span{display:inline-flex;align-items:center;gap:6px}
+.ponto{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--muted)}
+.ponto.confirmada{background:var(--good)}.ponto.aguardando{background:var(--warn)}.ponto.remarcar{background:var(--bad)}
 .cons.st-confirmada .st{color:var(--good);font-weight:600}
 .cons.st-faltou{border-left-color:var(--bad)}
 .cons.st-faltou .st{color:var(--bad)}

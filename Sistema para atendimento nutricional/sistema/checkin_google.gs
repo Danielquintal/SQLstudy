@@ -46,7 +46,7 @@ const PERGUNTAS = [
   ['comentario', 'paragrafo', 'Quer me contar mais alguma coisa? (opcional)', '', false],
 ];
 const MARCA_NOME = 'NOME_DO_PACIENTE';   // o sistema troca pelo nome de cada paciente no link
-const VERSAO = 8;                        // o sistema confere para saber se o código está atualizado
+const VERSAO = 9;                      // o sistema confere para saber se o código está atualizado
 const TAG = 'sistemaConsulta';           // marca os eventos criados pelo sistema (não voltam como "outros compromissos")
 
 function criar() {
@@ -93,7 +93,9 @@ function mostrar() {
 function doGet(e) {
   const props = PropertiesService.getScriptProperties();
   const p = (e && e.parameter) || {};
+  if (p.c) return paginaConfirmacao(p);     // link "confirme sua presença" que o paciente abre (sem a chave)
   if (!props.getProperty('CHAVE') || p.chave !== props.getProperty('CHAVE')) return json({ erro: 'chave' });
+  if (p.acao === 'confirmacoes') return json({ versao: VERSAO, respostas: respostasConfirmacao() });
   const f = FormApp.openById(props.getProperty('FORM_ID'));
   const campos = JSON.parse(props.getProperty('CAMPOS'));
   if (p.acao === 'info') {
@@ -135,6 +137,62 @@ function doGet(e) {
   return json({ respostas: lista });
 }
 
+// ---------- confirmação de presença pelo paciente ----------
+// O sistema manda, na mensagem de confirmação, um link para esta URL com: c = código da consulta, s = assinatura
+// (só o sistema, que tem a CHAVE, consegue gerar), n = primeiro nome, q = dia e hora, w = WhatsApp do nutricionista.
+// O paciente toca em "Confirmo" ou "Preciso remarcar"; a resposta fica guardada aqui até o sistema buscar.
+
+function assinatura(codigo) {
+  const b = Utilities.computeHmacSha256Signature(String(codigo), PropertiesService.getScriptProperties().getProperty('CHAVE'));
+  return b.map(x => ('0' + (x & 255).toString(16)).slice(-2)).join('').slice(0, 16);
+}
+
+function paginaConfirmacao(p) {
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const codigo = String(p.c || '');
+  const valido = /^[A-Za-z0-9]{16,40}$/.test(codigo) && p.s === assinatura(codigo);
+  const num = String(p.w || '').replace(/\D/g, '');
+  const zap = num ? '<p><a class="b sec" target="_top" href="https://wa.me/' + num + '">Falar comigo no WhatsApp</a></p>' : '';
+  let corpo;
+  if (!valido) {
+    corpo = '<h1>Link inválido</h1><p>Este link de confirmação não está completo. Responda pela mensagem que você recebeu.</p>' + zap;
+  } else if (p.r === 'sim' || p.r === 'remarcar') {
+    PropertiesService.getScriptProperties().setProperty('CF_' + codigo,
+      JSON.stringify({ r: p.r, em: new Date().toISOString() }));
+    corpo = p.r === 'sim'
+      ? '<h1>Presença confirmada ✓</h1><p>Obrigado, ' + esc(p.n) + '! Te espero ' + esc(p.q) + '.</p>'
+      : '<h1>Tudo bem!</h1><p>Recebi o seu pedido para remarcar, ' + esc(p.n) + '. Vou falar com você para combinar um novo horário.</p>' + zap;
+  } else {
+    const base = ScriptApp.getService().getUrl() + '?c=' + encodeURIComponent(codigo) + '&s=' + encodeURIComponent(p.s)
+      + '&n=' + encodeURIComponent(p.n || '') + '&q=' + encodeURIComponent(p.q || '') + '&w=' + encodeURIComponent(num);
+    corpo = '<h1>Olá, ' + esc(p.n) + '!</h1><p>Sua consulta está marcada para <b>' + esc(p.q) + '</b>.</p>'
+      + '<p><a class="b" target="_top" href="' + esc(base + '&r=sim') + '">Confirmo minha presença</a></p>'
+      + '<p><a class="b sec" target="_top" href="' + esc(base + '&r=remarcar') + '">Preciso remarcar</a></p>';
+  }
+  const html = '<style>body{font:17px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1d2b2f;margin:0;background:#f2f5f4}'
+    + '.c{max-width:440px;margin:32px auto;background:#fff;border:1px solid #dfe6e4;border-radius:16px;padding:24px 22px}'
+    + 'h1{font-size:22px;margin:0 0 10px}small{color:#6b7b7f;letter-spacing:.1em;text-transform:uppercase;font-size:12px}'
+    + '.b{display:block;text-align:center;background:#1A9E8F;color:#fff;text-decoration:none;font-weight:600;padding:14px;border-radius:12px}'
+    + '.b.sec{background:#fff;color:#14444f;border:1px solid #c9d6d3}</style>'
+    + '<div class="c"><small>Confirmação de consulta</small>' + corpo + '</div>';
+  return HtmlService.createHtmlOutput(html).setTitle('Confirmação de consulta')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// respostas guardadas (e limpa as de mais de 120 dias)
+function respostasConfirmacao() {
+  const props = PropertiesService.getScriptProperties(), todas = props.getProperties(), saida = {};
+  const limite = Date.now() - 120 * 86400000;
+  for (const k in todas) {
+    if (k.indexOf('CF_') !== 0) continue;
+    try {
+      const v = JSON.parse(todas[k]);
+      if (new Date(v.em).getTime() < limite) props.deleteProperty(k); else saida[k.slice(3)] = v;
+    } catch (err) { props.deleteProperty(k); }
+  }
+  return saida;
+}
+
 function linkLeafq() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('LEAFQ_ID');
@@ -158,6 +216,8 @@ function htmlTexto(texto, whats) {
   return String(texto || '').split('\n').map(l => {
     if (!l) return '&nbsp;';
     l = l.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    // endereços (ex.: link de confirmação) viram links clicáveis
+    l = l.replace(/https?:\/\/[^\s<]+/g, u => '<a href="' + u.replace(/"/g, '%22') + '" style="color:#1A9E8F;font-weight:600">' + u + '</a>');
     return num ? l.replace(/\bWhatsApp\b/g, '<a href="https://wa.me/' + num + '" style="color:#1A9E8F;font-weight:600">WhatsApp</a>') : l;
   }).join('<br>');
 }

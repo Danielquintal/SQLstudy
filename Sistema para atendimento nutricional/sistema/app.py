@@ -1750,6 +1750,7 @@ def agenda_semana():
         dias.append((d, itens))
     pendentes = sum(1 for c in cs if c["status"] in ("agendada", "confirmada") and c["inicio"] >= datetime.now()
                     and not (c["whatsapp_enviado_em"] or c["email_enviado_em"]))
+    sincronizar_depois(cfg, agenda.buscar_respostas)   # respostas "Confirmo" / "Preciso remarcar" dos pacientes
     return render_template("agenda.html", dias=dias, ini=ini, fim=ini + timedelta(days=6), hoje=date.today(),
                            google_ligado=agenda.google_pronto(cfg), erro_google=erro_google, n_google=len(google),
                            anterior=ini - timedelta(days=7), proxima=ini + timedelta(days=7), total=len(cs),
@@ -1795,7 +1796,8 @@ def consulta(cid=None):
                 if c:
                     mudou_hora = inicio != c["inicio"]
                     cur.execute("UPDATE consulta SET inicio = %s, duracao_min = %s, modalidade = %s, local = %s, status = %s, "
-                                "observacao = %s" + (", whatsapp_enviado_em = NULL, email_enviado_em = NULL" if mudou_hora else "")
+                                "observacao = %s" + (", whatsapp_enviado_em = NULL, email_enviado_em = NULL, token_confirmacao = NULL, "
+                                                     "resposta_paciente = NULL, resposta_em = NULL" if mudou_hora else "")
                                 + " WHERE id = %s", (*valores, cid))
                     flash("Consulta atualizada." + (" O horário mudou: envie a nova confirmação abaixo." if mudou_hora else ""))
                 else:
@@ -1832,13 +1834,16 @@ def consulta(cid=None):
             cur.execute("SELECT tipo, feito_em FROM contato WHERE paciente_id = %s AND tipo IN ('confirmacao', 'confirmacao_email') "
                         "AND referencia = %s ORDER BY feito_em DESC", (c["paciente_id"], str(cid)))
             historico = cur.fetchall()
+            if agenda.confirmar_pronto(cfg):
+                agenda.garantir_token(cur, c)       # o link "confirme sua presença" vai nas mensagens abaixo
     confirmar = None
     if c:
         confirmar = {"whatsapp": agenda.texto(cfg["mensagens"]["confirmacao"], c, cfg),
-                     "assunto": agenda.texto(ag["email_assunto"], c, cfg), "email": agenda.texto(ag["email_texto"], c, cfg),
-                     "tem_whatsapp": bool(contatos.telefone_whatsapp(c["telefone"])), "email_pronto": agenda.email_pronto(cfg)}
+                     "assunto": agenda.texto(ag["email_assunto"], c, cfg, com_link=False), "email": agenda.texto(ag["email_texto"], c, cfg),
+                     "tem_whatsapp": bool(contatos.telefone_whatsapp(c["telefone"])), "email_pronto": agenda.email_pronto(cfg),
+                     "link": agenda.link_confirmacao(c, cfg)}
     return render_template("consulta.html", c=c, form=novo, erros=erros, nomes=nomes, confirmar=confirmar,
-                           google_ligado=agenda.google_pronto(cfg),
+                           google_ligado=agenda.google_pronto(cfg), versao_confirmar=agenda.VERSAO_CONFIRMAR,
                            historico=historico, status=agenda.STATUS, modalidades=agenda.MODALIDADES,
                            locais={"presencial": ag["local_presencial"], "online": ag["local_online"]},
                            titulos=contatos.ROTULOS)
@@ -2476,6 +2481,22 @@ def checkin_excluir(cid):
     return redirect(request.form.get("voltar") or url_for("checkins"))
 
 
+def _respostas_periodicas():
+    """busca as respostas dos pacientes ("Confirmo" / "Preciso remarcar") a cada 10 minutos, com o sistema aberto"""
+    import threading
+
+    def laco():
+        time.sleep(30)
+        while True:
+            try:
+                with conectar() as con:
+                    agenda.buscar_respostas(con, contatos.carregar())
+            except Exception:   # noqa: BLE001 — sem internet: tenta de novo depois
+                pass
+            time.sleep(600)
+    threading.Thread(target=laco, daemon=True, name="confirmacoes").start()
+
+
 if __name__ == "__main__":
     try:
         psycopg.connect(CONEXAO).close()      # confere o banco antes de abrir o reservatório de conexões
@@ -2486,6 +2507,7 @@ if __name__ == "__main__":
     if acesso_remoto.iniciar_tunel(_cfg):
         print(f"Acesso de fora ligado: https://{_cfg['remoto'].get('dominio') or '(domínio do túnel)'}  (com a senha do sistema)")
     copia_seguranca.iniciar_automatico(contatos.carregar, CONEXAO)   # cópia do banco uma vez por dia
+    _respostas_periodicas()                                            # confirmações dos pacientes a cada 10 min
     if "--sem-navegador" not in sys.argv:
         webbrowser.open(f"http://localhost:{PORTA}")
     try:
