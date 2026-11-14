@@ -1,0 +1,15 @@
+Table "Clínica" [headercolor: #175e7a] {
+	id integer [ pk, increment, not null ]
+}
+
+Table Pacientes [headercolor: #175e7a] {
+	id integer [ pk, increment, not null ]
+}
+
+Table Profissionais [headercolor: #175e7a] {
+	id integer [ pk, increment, not null ]
+}
+
+Table Fornecedores [headercolor: #175e7a] {
+	id integer [ pk, increment, not null ]
+}
