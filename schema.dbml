@@ -1,15 +1,57 @@
-Table "Clínica" [headercolor: #175e7a] {
-	id integer [ pk, increment, not null ]
-}
-
 Table Pacientes [headercolor: #175e7a] {
-	id integer [ pk, increment, not null ]
-}
-
-Table Profissionais [headercolor: #175e7a] {
-	id integer [ pk, increment, not null ]
+	id_pacientes integer [ pk, not null ]
+	id_clinica varchar(255)
+	nome varchar(255)
+	telefone varchar(255)
+	email varchar(255)
+	"endereço" varchar(255)
 }
 
 Table Fornecedores [headercolor: #175e7a] {
-	id integer [ pk, increment, not null ]
+	id_fornecedores integer [ pk, not null ]
+	nome varchar(255)
+	telefone varchar(255)
+}
+
+Table "Clínica" [headercolor: #175e7a] {
+	id_clinica integer [ pk, not null ]
+	nome varchar(255)
+	"endereço" varchar(255)
+	telefone varchar(255)
+}
+
+Table Profissionais [headercolor: #175e7a] {
+	id_profissional integer [ pk, not null, unique ]
+	nome varchar(255)
+	especialidade varchar(255)
+	email varchar(255)
+	telefone varchar(255)
+}
+
+Table Consultas [headercolor: #175e7a] {
+	id_consultas integer [ pk, increment, not null ]
+	id_clinica varchar(255)
+	data date
+	id_profissional varchar(255)
+	id_pacientes varchar(255)
+}
+
+Ref "fk_Clínica_id_clinica_Fornecedores" {
+	"Clínica".id_clinica < Fornecedores.nome [ delete: no action, update: no action ]
+}
+
+Ref "fk_Clínica_id_clinica_Pacientes" {
+	"Clínica".id_clinica < Pacientes.id_clinica [ delete: no action, update: no action ]
+}
+
+Ref "fk_Clínica_id_clinica_Profissionais" {
+	"Clínica".id_clinica < Profissionais.nome [ delete: no action, update: no action ]
+}
+
+Ref fk_Consultas_id_pacientes_Pacientes {
+	Consultas.id_pacientes > Pacientes.id_pacientes [ delete: no action, update: no action ]
+}
+
+Ref fk_Profissionais_id_profissional_Consultas {
+	Profissionais.id_profissional < Consultas.id_profissional [ delete: no action, update: no action ]
 }
